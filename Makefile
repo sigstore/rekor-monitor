@@ -1,0 +1,2 @@
+mirroring:
+	$(MAKE) -C mirroring
