@@ -1,18 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"testing"
 
 	rekorclient "github.com/sigstore/rekor-monitor/pkg"
 	"github.com/spf13/viper"
 )
 
-func _main() {
+// TestVerifySignature tests normal operation of the verifySignature function.
+func TestVerifySignature(t *testing.T) {
 	viper.Set("rekorServerURL", "http://0.0.0.0:3000")
 	err := rekorclient.VerifySignature()
 	if err != nil {
-		fmt.Println(err)
-
+		t.Errorf("%s\n", err)
 	}
 
 }
