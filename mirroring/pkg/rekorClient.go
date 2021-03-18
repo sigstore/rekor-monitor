@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -17,10 +18,13 @@ import (
 	tcrypto "github.com/google/trillian/crypto"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
+
+// START OF CODE FROM SIGSTORE/REKOR
 
 // NewClient creates a Rekor Client for log queries.
 func NewClient() (*client.Rekor, error) {
@@ -125,6 +129,55 @@ func VerifySignature() error {
 	fmt.Printf("%+v", lr)
 	return nil
 }
+
+func GetLogEntryByIndex(logIndex int64) (interface{}, error) {
+	rekorClient, err := NewClient()
+	if err != nil {
+		return nil, err
+	}
+
+	params := entries.NewGetLogEntryByIndexParams()
+	params.LogIndex = logIndex
+
+	resp, err := rekorClient.Entries.GetLogEntryByIndex(params)
+	if err != nil {
+		return nil, err
+	}
+	for ix, entry := range resp.Payload {
+		return parseEntry(ix, entry)
+	}
+
+	return nil, errors.New("Response returned no entries. Please check logIndex.")
+}
+
+type getCmdOutput struct {
+	Body           []byte
+	LogIndex       int
+	IntegratedTime int64
+	UUID           string
+}
+
+func parseEntry(uuid string, e models.LogEntryAnon) (interface{}, error) {
+	bytes, err := e.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	// Now parse that back into JSON in the format "body, logindex"
+	obj := getCmdOutput{}
+	if err := json.Unmarshal(bytes, &obj); err != nil {
+		return nil, err
+	}
+	obj.UUID = uuid
+	obj.IntegratedTime = e.IntegratedTime
+
+	return &obj, nil
+}
+
+func BuildTree() {
+
+}
+
+// END OF CODE FROM SIGSTORE/REKOR
 
 /*
 func fetchAll() {
