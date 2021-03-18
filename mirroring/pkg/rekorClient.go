@@ -1,10 +1,10 @@
 package rekorclient
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -20,6 +20,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
@@ -130,10 +131,19 @@ func VerifySignature() error {
 	return nil
 }
 
-func GetLogEntryByIndex(logIndex int64) (interface{}, error) {
+// GetLogEntryByIndex returns an object with the log index,
+// integratedTime, UUID, and body
+// logEntry := models.LogEntry{
+// 	hex.EncodeToString(leaf.MerkleLeafHash): models.LogEntryAnon{
+// 		LogIndex:       &leaf.LeafIndex,
+// 		Body:           leaf.LeafValue,
+// 		IntegratedTime: leaf.IntegrateTimestamp.AsTime().Unix(),
+// 	},
+// }
+func GetLogEntryByIndex(logIndex int64) (string, models.LogEntryAnon, error) {
 	rekorClient, err := NewClient()
 	if err != nil {
-		return nil, err
+		return "", models.LogEntryAnon{}, err
 	}
 
 	params := entries.NewGetLogEntryByIndexParams()
@@ -141,40 +151,50 @@ func GetLogEntryByIndex(logIndex int64) (interface{}, error) {
 
 	resp, err := rekorClient.Entries.GetLogEntryByIndex(params)
 	if err != nil {
-		return nil, err
+		return "", models.LogEntryAnon{}, err
 	}
 	for ix, entry := range resp.Payload {
-		return parseEntry(ix, entry)
+		return ix, entry, nil
 	}
 
-	return nil, errors.New("Response returned no entries. Please check logIndex.")
+	return "", models.LogEntryAnon{}, errors.New("Response returned no entries. Please check logIndex.")
 }
 
 type getCmdOutput struct {
-	Body           []byte
+	Body           types.EntryImpl
 	LogIndex       int
 	IntegratedTime int64
 	UUID           string
 }
 
-func parseEntry(uuid string, e models.LogEntryAnon) (interface{}, error) {
-	bytes, err := e.MarshalBinary()
+func ParseEntry(uuid string, e models.LogEntryAnon) (interface{}, error) {
+	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
 	if err != nil {
 		return nil, err
 	}
-	// Now parse that back into JSON in the format "body, logindex"
-	obj := getCmdOutput{}
-	if err := json.Unmarshal(bytes, &obj); err != nil {
+
+	pe, err := models.UnmarshalProposedEntry(bytes.NewReader(b), runtime.JSONConsumer())
+	if err != nil {
 		return nil, err
 	}
-	obj.UUID = uuid
-	obj.IntegratedTime = e.IntegratedTime
+	eimpl, err := types.NewEntry(pe)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := getCmdOutput{
+		Body:           eimpl,
+		UUID:           uuid,
+		IntegratedTime: e.IntegratedTime,
+		LogIndex:       int(*e.LogIndex),
+	}
 
 	return &obj, nil
 }
 
 func BuildTree() {
-
+	//verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, pub, crypto.SHA256)
+	//v := logverifier.New(rfc6962.DefaultHasher)
 }
 
 // END OF CODE FROM SIGSTORE/REKOR
