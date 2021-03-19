@@ -21,6 +21,10 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/types/rekord"
+	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
+	"github.com/sigstore/rekor/pkg/types/rpm"
+	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
@@ -167,19 +171,19 @@ type getCmdOutput struct {
 	UUID           string
 }
 
-func ParseEntry(uuid string, e models.LogEntryAnon) (interface{}, error) {
+func ParseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
 	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
 	if err != nil {
-		return nil, err
+		return getCmdOutput{}, err
 	}
 
 	pe, err := models.UnmarshalProposedEntry(bytes.NewReader(b), runtime.JSONConsumer())
 	if err != nil {
-		return nil, err
+		return getCmdOutput{}, err
 	}
 	eimpl, err := types.NewEntry(pe)
 	if err != nil {
-		return nil, err
+		return getCmdOutput{}, err
 	}
 
 	obj := getCmdOutput{
@@ -189,7 +193,7 @@ func ParseEntry(uuid string, e models.LogEntryAnon) (interface{}, error) {
 		LogIndex:       int(*e.LogIndex),
 	}
 
-	return &obj, nil
+	return obj, nil
 }
 
 func BuildTree() {
