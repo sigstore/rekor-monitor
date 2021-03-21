@@ -1,14 +1,11 @@
 package main
 
 import (
+	"encoding/hex"
 	"testing"
 
-	"encoding/base64"
-	"fmt"
 	rekorclient "github.com/sigstore/rekor-monitor/pkg"
 	"github.com/spf13/viper"
-	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
-	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 )
 
 // TestVerifySignature tests normal operation of the verifySignature function.
@@ -20,7 +17,36 @@ func TestVerifySignature(t *testing.T) {
 	}
 }
 
-func TestGetLogEntryByIndex(t *testing.T) {
+func TestFetchLeavesByRange(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	leaves, err := rekorclient.FetchLeavesByRange(0, 10)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	} else {
+		t.Logf("%s\n", leaves)
+	}
+}
+
+func TestBuildTree(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	leaves, err := rekorclient.FetchLeavesByRange(0, 8)
+	if err != nil {
+		t.Errorf("%s\n", err)
+		return
+	}
+	STH, err := rekorclient.ComputeSTH(leaves)
+	if err != nil {
+		t.Errorf("%s\n", err)
+		return
+	}
+	// 4th hash in inclusion proof of entry at log index 8
+	h := "441828658e8d21c60ba3923da71cdac07f8e4c621ce611c94499ce9c185a5dcb"
+	if hex.EncodeToString(STH) != h {
+		t.Errorf("Computed STH is incorrect.")
+	}
+}
+
+/*func TestGetLogEntryByIndex(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
 	ix, entry, err := rekorclient.GetLogEntryByIndex(10)
 	if err != nil {
@@ -61,4 +87,12 @@ func TestGetLogEntryByIndex(t *testing.T) {
 		// }
 		// t.Errorf("%s\n", decoded)
 	}
-}
+}*/
+
+/*func TestBuildTree(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	err := rekorclient.BuildTree()
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+}*/
