@@ -30,8 +30,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// START OF CODE FROM SIGSTORE/REKOR
-
 // NewClient creates a Rekor Client for log queries.
 func NewClient() (*client.Rekor, error) {
 	//rekorAPI.ConfigureAPI() // enable_retrieve_api? possible performance improvement
@@ -93,7 +91,7 @@ func GetPublicKey() (string, error) {
 	return publicKey, nil
 }
 
-// VerifySignature a
+// VerifySignature verifies the integrity of the signed tree hash.
 func VerifySignature(pub string) error {
 	logInfo, err := GetLogInfo()
 	if err != nil {
@@ -261,11 +259,10 @@ type queueElement struct {
 }
 
 func ComputeRoot(artifacts []Artifact) ([]byte, error) {
-	//verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, pub, crypto.SHA256)
-	//v := logverifier.New(rfc6962.DefaultHasher)
 
 	queue := list.New()
 	el := queueElement{}
+
 	// hash leaves here and fill queue with []byte representations of hashes
 	for _, artifact := range artifacts {
 		str := artifact.MerkleTreeHash
@@ -279,8 +276,6 @@ func ComputeRoot(artifacts []Artifact) ([]byte, error) {
 		queue.PushBack(el)
 	}
 
-	// code needs to be fixed. 'wrap around' is wrong.
-	// recursive is easy but stack height scares me
 	for queue.Len() >= 2 {
 		a := queue.Front()
 		aVal := queue.Remove(a).(queueElement)
@@ -412,7 +407,6 @@ func FullAudit() error {
 		return err
 	}
 
-	// replace this with a direct signature hash public key check. root hash is calculated correctly, it seems.
 	err = tcrypto.Verify(verifier.PubKey, verifier.SigHash, logRootBytes, sig)
 	if err != nil {
 		return err
