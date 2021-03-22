@@ -1,7 +1,8 @@
 package main
 
 import (
-	"encoding/hex"
+	"encoding/json"
+	"io/ioutil"
 	"testing"
 
 	rekorclient "github.com/sigstore/rekor-monitor/pkg"
@@ -11,7 +12,11 @@ import (
 // TestVerifySignature tests normal operation of the verifySignature function.
 func TestVerifySignature(t *testing.T) {
 	viper.Set("rekorServerURL", "http://0.0.0.0:3000")
-	err := rekorclient.VerifySignature()
+	pub, err := rekorclient.GetPublicKey()
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+	err = rekorclient.VerifySignature(pub)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
@@ -27,22 +32,57 @@ func TestFetchLeavesByRange(t *testing.T) {
 	}
 }
 
-func TestBuildTree(t *testing.T) {
+func TestComputeRoot(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
-	leaves, err := rekorclient.FetchLeavesByRange(0, 8)
+	f, err := ioutil.ReadFile(".tree")
 	if err != nil {
 		t.Errorf("%s\n", err)
 		return
 	}
-	STH, err := rekorclient.ComputeSTH(leaves)
+
+	var leaves []rekorclient.Artifact
+	err = json.Unmarshal(f, &leaves)
 	if err != nil {
 		t.Errorf("%s\n", err)
 		return
 	}
-	// 4th hash in inclusion proof of entry at log index 8
-	h := "441828658e8d21c60ba3923da71cdac07f8e4c621ce611c94499ce9c185a5dcb"
-	if hex.EncodeToString(STH) != h {
-		t.Errorf("Computed STH is incorrect.")
+
+	STH, err := rekorclient.ComputeRoot(leaves)
+	if err != nil {
+		t.Errorf("%s\n", err)
+		t.Log(STH)
+		return
+	}
+	/*
+		// 4th hash in inclusion proof of entry at log index 8
+		h := "441828658e8d21c60ba3923da71cdac07f8e4c621ce611c94499ce9c185a5dcb"
+		if hex.EncodeToString(STH) != h {
+			t.Errorf("Computed STH is incorrect.")
+		}
+
+		leaves, err = rekorclient.FetchLeavesByRange(0, 32)
+		if err != nil {
+			t.Errorf("%s\n", err)
+			return
+		}
+		STH, err = rekorclient.ComputeRoot(leaves)
+		if err != nil {
+			t.Errorf("%s\n", err)
+			return
+		}
+
+		// 6th hash in inclusion proof of entry at log index 33
+		h = "3c2e1362343083e685240da2c9bfbbe2d61a4ca3768b6b4c8ddeb0f1c5d6a034"
+		if hex.EncodeToString(STH) != h {
+			t.Errorf("Computed STH is incorrect.")
+		}*/
+}
+
+func TestFullAudit(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	err := rekorclient.FullAudit()
+	if err != nil {
+		t.Errorf("%s\n", err)
 	}
 }
 
