@@ -1,13 +1,9 @@
 FROM golang:latest
 
 RUN mkdir /mirroring
-RUN apt-get install curl
-RUN apt-get install openssl
 WORKDIR /mirroring
 
-COPY ./mirror_log.go .
-COPY ./go.mod .
-COPY ./go.sum .
+COPY ./mirror_log.go ./go.mod ./go.sum ./
 
 RUN go mod download
 
