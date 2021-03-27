@@ -1,0 +1,7 @@
+---
+
+- name: basic setup for a monitor with k0s
+  hosts: all
+  become: yes
+  roles:
+    - { role: tekton }
