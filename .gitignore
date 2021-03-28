@@ -98,3 +98,7 @@ output/*/index.html
 # Monitor Specific #
 ####################
 **/rekor-monitor
+
+*.metadata
+*.tree
+*.vscode

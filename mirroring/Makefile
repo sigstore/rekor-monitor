@@ -1,3 +1,5 @@
 default:
-	go build ./...
+	go build -o . ./...
 	gofmt -d .
+
+.PHONY: default

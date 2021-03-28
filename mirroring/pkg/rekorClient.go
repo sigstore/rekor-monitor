@@ -1,12 +1,14 @@
 package rekorclient
 
 import (
+	"bytes"
+	"container/list"
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"net/url"
 
 	"github.com/go-openapi/runtime"
@@ -17,7 +19,11 @@ import (
 	tcrypto "github.com/google/trillian/crypto"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/rekor/pkg/types"
+	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
+	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
@@ -42,6 +48,7 @@ func NewClient() (*client.Rekor, error) {
 		rt.DefaultAuthentication = httptransport.APIKeyAuth("apiKey", "query", viper.GetString("api-key"))
 	}
 	rekorClient := client.New(rt, strfmt.Default)
+
 	return rekorClient, nil
 }
 
@@ -64,14 +71,27 @@ func GetLogInfo() (*models.LogInfo, error) {
 	return logInfo, nil
 }
 
-// VerifySignature a
-func VerifySignature() error {
-	logInfo, err := GetLogInfo()
+// GetPublicKey returns public key of entity that signed STH in string type.
+func GetPublicKey() (string, error) {
+	rekorClient, err := NewClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	rekorClient, err := NewClient()
+	publicKey := viper.GetString("rekor_server_public_key")
+	if publicKey == "" {
+		keyResp, err := rekorClient.Tlog.GetPublicKey(nil)
+		if err != nil {
+			return "", err
+		}
+		publicKey = keyResp.Payload
+	}
+	return publicKey, nil
+}
+
+// VerifySignature verifies the integrity of the signed tree hash.
+func VerifySignature(pub string) error {
+	logInfo, err := GetLogInfo()
 	if err != nil {
 		return err
 	}
@@ -97,41 +117,258 @@ func VerifySignature() error {
 		LogRootSignature: signature,
 	}
 
-	publicKey := viper.GetString("rekor_server_public_key")
-	if publicKey == "" {
-		keyResp, err := rekorClient.Tlog.GetPublicKey(nil)
-		if err != nil {
-			return err
-		}
-		publicKey = keyResp.Payload
-	}
-
-	block, _ := pem.Decode([]byte(publicKey))
+	block, _ := pem.Decode([]byte(pub))
 	if block == nil {
 		return errors.New("failed to decode public key of server")
 	}
 
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return err
 	}
 
-	verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, pub, crypto.SHA256)
-	lr, err := tcrypto.VerifySignedLogRoot(verifier.PubKey, verifier.SigHash, &sth)
+	verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, publicKey, crypto.SHA256)
+	_, err = tcrypto.VerifySignedLogRoot(verifier.PubKey, verifier.SigHash, &sth)
 
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%+v", lr)
 	return nil
 }
 
-/*
-func fetchAll() {
-	// gRPCRequest
+// GetLogEntryByIndex returns an object with the log index,
+// integratedTime, UUID, and body
+// logEntry := models.LogEntry{
+// 	hex.EncodeToString(leaf.MerkleLeafHash): models.LogEntryAnon{
+// 		LogIndex:       &leaf.LeafIndex,
+// 		Body:           leaf.LeafValue,
+// 		IntegratedTime: leaf.IntegrateTimestamp.AsTime().Unix(),
+// 	},
+// }
+func GetLogEntryByIndex(logIndex int64, rekorClient *client.Rekor) (string, models.LogEntryAnon, error) {
+	params := entries.NewGetLogEntryByIndexParams()
+	params.LogIndex = logIndex
+
+	resp, err := rekorClient.Entries.GetLogEntryByIndex(params)
+	if err != nil {
+		return "", models.LogEntryAnon{}, err
+	}
+	for ix, entry := range resp.Payload {
+		return ix, entry, nil
+	}
+
+	return "", models.LogEntryAnon{}, errors.New("Response returned no entries. Please check logIndex.")
 }
 
-func fetchFromRange(startIndex int) {
-	// gRPCRequest
+type getCmdOutput struct {
+	Body           types.EntryImpl
+	LogIndex       int
+	IntegratedTime int64
+	UUID           string
 }
-*/
+
+type Artifact struct {
+	Pk             string `json:"pk,omitempty"`
+	DataHash       string `json:"data_hash,omitempty"`
+	Sig            string `json:"sig,omitempty"`
+	MerkleTreeHash string `json:"merkle_tree_hash,omitempty"`
+}
+
+// this function also verifies the integrity of an entry.
+func ParseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
+	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
+	if err != nil {
+		return getCmdOutput{}, err
+	}
+
+	pe, err := models.UnmarshalProposedEntry(bytes.NewReader(b), runtime.JSONConsumer())
+	if err != nil {
+		return getCmdOutput{}, err
+	}
+	eimpl, err := types.NewEntry(pe)
+	if err != nil {
+		return getCmdOutput{}, err
+	}
+
+	/*
+			// verify if signature matches the given public key + hash
+
+			// verify if merkle tree hash is computed correctly
+			marshalledEntry, err := eimpl.Canonicalize(context.TODO()) ////////////
+			if err != nil {
+				return getCmdOutput{}, err
+			}
+
+		mth := rfc6962.DefaultHasher.HashLeaf(marshalledEntry)
+
+		if a, _ := hex.DecodeString(uuid); !bytes.Equal(a, mth) {
+			return getCmdOutput{}, errors.New("MALICIOUS LOG: Computed hash does not match log entry hash.")
+		}
+	*/
+
+	obj := getCmdOutput{
+		Body:           eimpl,
+		UUID:           uuid,
+		IntegratedTime: e.IntegratedTime,
+		LogIndex:       int(*e.LogIndex),
+	}
+
+	return obj, nil
+}
+
+func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error) {
+	ix, entry, err := GetLogEntryByIndex(logIndex, rekorClient)
+	if err != nil {
+		return Artifact{}, err
+	}
+
+	a, err := ParseEntry(ix, entry)
+	b := Artifact{}
+	b.MerkleTreeHash = a.UUID
+
+	switch v := a.Body.(type) {
+	case *rekord_v001.V001Entry:
+		b.Pk = string([]byte(v.RekordObj.Signature.PublicKey.Content))
+		b.Sig = base64.StdEncoding.EncodeToString([]byte(v.RekordObj.Signature.Content))
+		b.DataHash = *v.RekordObj.Data.Hash.Value
+	case *rpm_v001.V001Entry:
+		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
+	default:
+		return b, errors.New("The type of this log entry is not supported.")
+	}
+	return b, nil
+}
+
+/*func powerOfTwo(n int64) int64 {
+	var res int64
+	res = 0
+	for i := n; i >= 1; i-- {
+		if i&(i-1) == 0 {
+			res = i
+			break
+		}
+	}
+	return res
+}*/
+
+type queueElement struct {
+	hash  []byte
+	depth int64
+}
+
+func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
+	queue := list.New()
+	el := queueElement{}
+
+	// hash leaves here and fill queue with []byte representations of hashes
+	for _, artifact := range artifacts {
+
+		str := artifact.MerkleTreeHash
+
+		hash, err := hex.DecodeString(str)
+		if err != nil {
+			return nil, err
+		}
+		el.hash = hash
+		el.depth = 0
+		queue.PushBack(el)
+	}
+
+	for queue.Len() >= 2 {
+		a := queue.Front()
+		aVal := queue.Remove(a).(queueElement)
+
+		b := queue.Front()
+
+		var leftHash, rightHash []byte
+		if b.Value.(queueElement).depth > aVal.depth { // wrap around case
+			el.depth = aVal.depth + 1
+			el.hash = aVal.hash
+		} else {
+			bVal := queue.Remove(b).(queueElement)
+			rightHash = bVal.hash
+			leftHash = aVal.hash
+
+			hash := rfc6962.DefaultHasher.HashChildren(leftHash, rightHash)
+			el.depth = bVal.depth + 1
+			el.hash = hash
+		}
+
+		queue.PushBack(el)
+	}
+	if queue.Front() == nil {
+		return nil, errors.New("Something went wrong.")
+	}
+	return queue.Front().Value.(queueElement).hash, nil
+}
+
+func ComputeRoot(maxSize int64) ([]byte, error) {
+
+	queue := list.New()
+	el := queueElement{}
+
+	// hash leaves here and fill queue with []byte representations of hashes
+	for idx := int64(0); idx < maxSize; idx++ {
+		artifact, err := ReadLeaveFromFile(idx)
+		if err != nil {
+			return nil, err
+		}
+
+		str := artifact.MerkleTreeHash
+
+		hash, err := hex.DecodeString(str)
+		if err != nil {
+			return nil, err
+		}
+		el.hash = hash
+		el.depth = 0
+		queue.PushBack(el)
+	}
+
+	for queue.Len() >= 2 {
+		a := queue.Front()
+		aVal := queue.Remove(a).(queueElement)
+
+		b := queue.Front()
+
+		var leftHash, rightHash []byte
+		if b.Value.(queueElement).depth > aVal.depth { // wrap around case
+			el.depth = aVal.depth + 1
+			el.hash = aVal.hash
+		} else {
+			bVal := queue.Remove(b).(queueElement)
+			rightHash = bVal.hash
+			leftHash = aVal.hash
+
+			hash := rfc6962.DefaultHasher.HashChildren(leftHash, rightHash)
+			el.depth = bVal.depth + 1
+			el.hash = hash
+		}
+
+		queue.PushBack(el)
+	}
+	if queue.Front() == nil {
+		return nil, errors.New("Something went wrong.")
+	}
+	return queue.Front().Value.(queueElement).hash, nil
+}
+
+func FetchLeavesByRange(initSize, finalSize int64) ([]Artifact, error) {
+	rekorClient, err := NewClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var leaves []Artifact
+	var i int64
+	// use retrieve post request instead, retrieve multiple entries at once
+	for i = initSize; i < finalSize; i++ {
+		artifact, err := GetLogEntryData(i, rekorClient)
+		if err != nil {
+			return nil, err
+		}
+		leaves = append(leaves, artifact)
+	}
+
+	return leaves, nil
+}
