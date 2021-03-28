@@ -101,4 +101,4 @@ output/*/index.html
 
 *.metadata
 *.tree
-.vscode
+*.vscode
