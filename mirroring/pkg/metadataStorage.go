@@ -4,7 +4,15 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+
+	"github.com/sigstore/rekor/pkg/generated/models"
 )
+
+type TreeMetadata struct {
+	PublicKey     string          `json:"public_key,omitempty"`
+	LogInfo       *models.LogInfo `json:"log_info,omitempty"`
+	SavedMaxIndex int64           `json:"saved_max_index,omitempty"`
+}
 
 // consider loading filenames/paths from viper registry
 func LoadTreeMetadata() (TreeMetadata, error) {

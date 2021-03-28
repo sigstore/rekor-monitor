@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"net/url"
 
 	"github.com/go-openapi/runtime"
@@ -19,7 +18,6 @@ import (
 	tclient "github.com/google/trillian/client"
 	tcrypto "github.com/google/trillian/crypto"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
-	trilliantypes "github.com/google/trillian/types"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -258,13 +256,13 @@ type queueElement struct {
 	depth int64
 }
 
-func ComputeRoot(artifacts []Artifact) ([]byte, error) {
-
+func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 	queue := list.New()
 	el := queueElement{}
 
 	// hash leaves here and fill queue with []byte representations of hashes
 	for _, artifact := range artifacts {
+
 		str := artifact.MerkleTreeHash
 
 		hash, err := hex.DecodeString(str)
@@ -295,10 +293,58 @@ func ComputeRoot(artifacts []Artifact) ([]byte, error) {
 			el.depth = bVal.depth + 1
 			el.hash = hash
 		}
-		de := hex.EncodeToString(el.hash)
-		if de == "0d0f2102d842d56843727e1848872655501af276613f8d04b6ccad806a334d57" {
-			fmt.Printf("asdf")
+
+		queue.PushBack(el)
+	}
+	if queue.Front() == nil {
+		return nil, errors.New("Something went wrong.")
+	}
+	return queue.Front().Value.(queueElement).hash, nil
+}
+
+func ComputeRoot(maxSize int64) ([]byte, error) {
+
+	queue := list.New()
+	el := queueElement{}
+
+	// hash leaves here and fill queue with []byte representations of hashes
+	for idx := int64(0); idx < maxSize; idx++ {
+		artifact, err := ReadLeaveFromFile(idx)
+		if err != nil {
+			return nil, err
 		}
+
+		str := artifact.MerkleTreeHash
+
+		hash, err := hex.DecodeString(str)
+		if err != nil {
+			return nil, err
+		}
+		el.hash = hash
+		el.depth = 0
+		queue.PushBack(el)
+	}
+
+	for queue.Len() >= 2 {
+		a := queue.Front()
+		aVal := queue.Remove(a).(queueElement)
+
+		b := queue.Front()
+
+		var leftHash, rightHash []byte
+		if b.Value.(queueElement).depth > aVal.depth { // wrap around case
+			el.depth = aVal.depth + 1
+			el.hash = aVal.hash
+		} else {
+			bVal := queue.Remove(b).(queueElement)
+			rightHash = bVal.hash
+			leftHash = aVal.hash
+
+			hash := rfc6962.DefaultHasher.HashChildren(leftHash, rightHash)
+			el.depth = bVal.depth + 1
+			el.hash = hash
+		}
+
 		queue.PushBack(el)
 	}
 	if queue.Front() == nil {
@@ -325,97 +371,4 @@ func FetchLeavesByRange(initSize, finalSize int64) ([]Artifact, error) {
 	}
 
 	return leaves, nil
-}
-
-func FullAudit() error {
-
-	metadata, err := LoadTreeMetadata()
-	if err != nil { // if metadata isn't saved properly (or at all)
-		err1 := SaveTreeMetadata()
-		if err1 != nil {
-			return err1
-		}
-	}
-
-	metadata, err = LoadTreeMetadata()
-	if err != nil {
-		return err
-	}
-
-	logInfo, err := GetLogInfo()
-	if err != nil {
-		return err
-	}
-	logRootBytes, err := base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.LogRoot.String())
-	if err != nil {
-		return err
-	}
-
-	logRoot := trilliantypes.LogRootV1{}
-	err = logRoot.UnmarshalBinary(logRootBytes)
-	if err != nil {
-		return err
-	}
-
-	pub := metadata.PublicKey
-
-	block, _ := pem.Decode([]byte(pub))
-	if block == nil {
-		return errors.New("failed to decode public key of server")
-	}
-
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return err
-	}
-
-	sth := logInfo.SignedTreeHead
-
-	err = VerifySignature(pub)
-	if err != nil {
-		return err
-	}
-
-	leaves, err := FetchLeavesByRange(metadata.SavedMaxIndex+1, *logInfo.TreeSize)
-	if err != nil {
-		return err
-	}
-
-	err = AppendArtifactsToFile(leaves)
-	if err != nil {
-		return err
-	}
-
-	err = UpdateMetadataByIndex(*logInfo.TreeSize)
-
-	computedSTH, err := ComputeRoot(leaves)
-	if err != nil {
-		return err
-	}
-
-	logRoot.RootHash = computedSTH
-
-	verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, publicKey, crypto.SHA256)
-
-	sig, err := base64.StdEncoding.DecodeString(sth.Signature.String())
-	if err != nil {
-		return err
-	}
-
-	logRootBytes, err = logRoot.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	err = tcrypto.Verify(verifier.PubKey, verifier.SigHash, logRootBytes, sig)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type TreeMetadata struct {
-	PublicKey     string          `json:"public_key,omitempty"`
-	LogInfo       *models.LogInfo `json:"log_info,omitempty"`
-	SavedMaxIndex int64           `json:"saved_max_index,omitempty"`
 }

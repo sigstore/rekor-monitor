@@ -47,7 +47,7 @@ func TestComputeRoot(t *testing.T) {
 		return
 	}
 
-	STH, err := rekorclient.ComputeRoot(leaves)
+	STH, err := rekorclient.ComputeRootFromMemory(leaves)
 	if err != nil {
 		t.Errorf("%s\n", err)
 		t.Log(STH)

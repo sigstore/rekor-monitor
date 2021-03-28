@@ -1,6 +1,7 @@
 package rekorclient
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 )
@@ -14,26 +15,41 @@ func AppendArtifactsToFile(artifacts []Artifact) error {
 
 	defer f.Close()
 
-	/*for _, leave := range artifacts {
+	for _, leave := range artifacts {
 		serialLeave, err := json.Marshal(leave)
 		if err != nil {
 			return err
 		}
-
+		serialLeave = append(serialLeave, '\n')
 		_, err = f.Write(serialLeave)
 		if err != nil {
 			return err
 		}
-	}*/
-
-	serialArtifacts, err := json.Marshal(artifacts)
-	if err != nil {
-		return err
 	}
 
-	_, err = f.Write(serialArtifacts)
-	if err != nil {
-		return err
-	}
 	return nil
+}
+
+func ReadLeaveFromFile(idx int64) (Artifact, error) {
+	file, err := os.Open(".tree")
+	if err != nil {
+		return Artifact{}, err
+	}
+	defer file.Close()
+	leave := Artifact{}
+
+	reader := bufio.NewReader(file)
+	var line string
+	for i := int64(0); i <= idx; i++ {
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			return Artifact{}, err
+		}
+
+	}
+	err = json.Unmarshal([]byte(line), &leave)
+	if err != nil {
+		return Artifact{}, err
+	}
+	return leave, nil
 }
