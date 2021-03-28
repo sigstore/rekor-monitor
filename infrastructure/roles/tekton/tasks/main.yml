@@ -1,0 +1,21 @@
+---
+
+- name: install docker dependencies
+  apt: name=docker.io state=present
+
+- name: start docker
+  service: name=docker enabled=yes state=started
+
+- name: download k0s
+  get_url:
+    url: https://github.com/k0sproject/k0s/releases/download/v0.12.0/k0s-v0.12.0-amd64
+    dest: /usr/bin/k0s
+    mode: '0755'
+
+- name: install k0s 
+  shell:
+    cmd: k0s install controller --single
+
+- name: start and enable the k0s service
+  service: name=k0scontroller enabled=yes state=started
+
