@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+
+	"github.com/spf13/viper"
 )
 
 //consider loading filenames/paths from viper registry
 func AppendArtifactsToFile(artifacts []Artifact) error {
-	f, err := os.OpenFile(".tree", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	str := viper.GetString("tree_file_dir")
+	f, err := os.OpenFile(str, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
@@ -31,7 +34,8 @@ func AppendArtifactsToFile(artifacts []Artifact) error {
 }
 
 func ReadLeaveFromFile(idx int64) (Artifact, error) {
-	file, err := os.Open(".tree")
+	str := viper.GetString("tree_file_dir")
+	file, err := os.Open(str)
 	if err != nil {
 		return Artifact{}, err
 	}

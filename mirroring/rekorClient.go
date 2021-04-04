@@ -239,7 +239,8 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 	return b, nil
 }
 
-/*func powerOfTwo(n int64) int64 {
+/*
+func powerOfTwo(n int64) int64 {
 	var res int64
 	res = 0
 	for i := n; i >= 1; i-- {
@@ -249,8 +250,8 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 		}
 	}
 	return res
-}*/
-
+}
+*/
 type queueElement struct {
 	hash  []byte
 	depth int64
@@ -302,6 +303,39 @@ func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 	return queue.Front().Value.(queueElement).hash, nil
 }
 
+/*
+func ComputeRootRecursive(maxSize int64) ([]byte, error) {
+	return computeRootRecursive(0, maxSize)
+}
+
+func computeRootRecursive(minSize, maxSize int64) ([]byte, error) {
+	if minSize == maxSize-1 {
+		artifact, err := ReadLeaveFromFile(minSize)
+		if err != nil {
+			return nil, err
+		}
+		str := artifact.MerkleTreeHash
+
+		hash, err := hex.DecodeString(str)
+		if err != nil {
+			return nil, err
+		}
+		return hash, nil
+	} else {
+		separator := powerOfTwo(maxSize)
+		leftHash, err := computeRootRecursive(minSize, separator)
+		if err != nil {
+			return nil, err
+		}
+		rightHash, err := computeRootRecursive(separator, maxSize)
+		if err != nil {
+			return nil, err
+		}
+		hash := rfc6962.DefaultHasher.HashChildren(leftHash, rightHash)
+		return hash, nil
+	}
+}
+*/
 func ComputeRoot(maxSize int64) ([]byte, error) {
 
 	queue := list.New()

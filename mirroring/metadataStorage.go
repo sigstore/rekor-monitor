@@ -34,7 +34,8 @@ func LoadTreeMetadata() (TreeMetadata, error) {
 }
 
 func SaveTreeMetadata() error {
-	f, err := os.OpenFile(".metadata", os.O_WRONLY|os.O_CREATE, 0600)
+	str := viper.GetString("metadata_file_dir")
+	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
@@ -66,7 +67,8 @@ func SaveTreeMetadata() error {
 }
 
 func UpdateMetadataByIndex(i int64) error {
-	bytes, err := ioutil.ReadFile(".metadata")
+	str := viper.GetString("metadata_file_dir")
+	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return err
 	}
@@ -85,12 +87,12 @@ func UpdateMetadataByIndex(i int64) error {
 		return err
 	}
 
-	err = os.Remove(".metadata")
+	err = os.Remove(str)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.OpenFile(".metadata", os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}

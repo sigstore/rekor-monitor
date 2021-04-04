@@ -11,6 +11,8 @@ import (
 // TestVerifySignature tests normal operation of the verifySignature function.
 func TestVerifySignature(t *testing.T) {
 	viper.Set("rekorServerURL", "http://0.0.0.0:3000")
+	viper.Set("tree_file_dir", ".tree")
+	viper.Set("metadata_file_dir", ".metadata")
 	pub, err := GetPublicKey()
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -23,6 +25,8 @@ func TestVerifySignature(t *testing.T) {
 
 func TestFetchLeavesByRange(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("tree_file_dir", ".tree")
+	viper.Set("metadata_file_dir", ".metadata")
 	leaves, err := FetchLeavesByRange(0, 10)
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -33,6 +37,8 @@ func TestFetchLeavesByRange(t *testing.T) {
 
 func TestComputeRoot(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("tree_file_dir", ".tree")
+	viper.Set("metadata_file_dir", ".metadata")
 	f, err := ioutil.ReadFile(".tree")
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -77,6 +83,8 @@ func TestComputeRoot(t *testing.T) {
 
 func TestFullAudit(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("tree_file_dir", ".tree")
+	viper.Set("metadata_file_dir", ".metadata")
 	err := FullAudit()
 	if err != nil {
 		t.Errorf("%s\n", err)
