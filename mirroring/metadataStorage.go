@@ -15,7 +15,6 @@ type TreeMetadata struct {
 	SavedMaxIndex int64           `json:"saved_max_index,omitempty"`
 }
 
-// consider loading filenames/paths from viper registry
 func LoadTreeMetadata() (TreeMetadata, error) {
 	str := viper.GetString("metadata_file_dir")
 	bytes, err := ioutil.ReadFile(str)

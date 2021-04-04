@@ -63,12 +63,7 @@ func FullAudit() error {
 		return err
 	}
 
-	leaves, err := FetchLeavesByRange(metadata.SavedMaxIndex+1, *logInfo.TreeSize)
-	if err != nil {
-		return err
-	}
-
-	err = AppendArtifactsToFile(leaves)
+	err = FetchLeavesByRange(metadata.SavedMaxIndex+1, *logInfo.TreeSize)
 	if err != nil {
 		return err
 	}

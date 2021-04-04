@@ -387,22 +387,27 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 	return queue.Front().Value.(queueElement).hash, nil
 }
 
-func FetchLeavesByRange(initSize, finalSize int64) ([]Artifact, error) {
+// FetchLeavesByRange fetches leaves by range and saves them into a file.
+func FetchLeavesByRange(initSize, finalSize int64) error {
 	rekorClient, err := NewClient()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var leaves []Artifact
+	leaves := make([]Artifact, 1)
 	var i int64
 	// use retrieve post request instead, retrieve multiple entries at once
 	for i = initSize; i < finalSize; i++ {
 		artifact, err := GetLogEntryData(i, rekorClient)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		leaves = append(leaves, artifact)
+		leaves[0] = artifact
+		err = AppendArtifactsToFile(leaves)
+		if err != nil {
+			return err
+		}
 	}
 
-	return leaves, nil
+	return nil
 }

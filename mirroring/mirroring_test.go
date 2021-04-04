@@ -27,11 +27,9 @@ func TestFetchLeavesByRange(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
 	viper.Set("tree_file_dir", ".tree")
 	viper.Set("metadata_file_dir", ".metadata")
-	leaves, err := FetchLeavesByRange(0, 10)
+	err := FetchLeavesByRange(0, 10)
 	if err != nil {
 		t.Errorf("%s\n", err)
-	} else {
-		t.Logf("%s\n", leaves)
 	}
 }
 
