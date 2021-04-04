@@ -1,4 +1,4 @@
-package rekorclient
+package mirroring
 
 import (
 	"bytes"
@@ -157,7 +157,7 @@ func GetLogEntryByIndex(logIndex int64, rekorClient *client.Rekor) (string, mode
 		return ix, entry, nil
 	}
 
-	return "", models.LogEntryAnon{}, errors.New("Response returned no entries. Please check logIndex.")
+	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex.")
 }
 
 type getCmdOutput struct {

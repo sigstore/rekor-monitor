@@ -1,4 +1,4 @@
-module github.com/sigstore/rekor-monitor
+module github.com/sigstore/rekor-monitor/mirroring
 
 go 1.15
 

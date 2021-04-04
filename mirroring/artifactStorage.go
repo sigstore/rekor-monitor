@@ -1,4 +1,4 @@
-package rekorclient
+package mirroring
 
 import (
 	"bufio"

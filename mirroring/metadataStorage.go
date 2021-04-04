@@ -1,4 +1,4 @@
-package rekorclient
+package mirroring
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/spf13/viper"
 )
 
 type TreeMetadata struct {
@@ -16,8 +17,8 @@ type TreeMetadata struct {
 
 // consider loading filenames/paths from viper registry
 func LoadTreeMetadata() (TreeMetadata, error) {
-
-	bytes, err := ioutil.ReadFile(".metadata")
+	str := viper.GetString("metadata_file_dir")
+	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return TreeMetadata{}, err
 	}

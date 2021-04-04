@@ -1,4 +1,4 @@
-package rekorclient
+package mirroring
 
 import (
 	"crypto"
@@ -74,6 +74,9 @@ func FullAudit() error {
 	}
 
 	err = UpdateMetadataByIndex(*logInfo.TreeSize - 1)
+	if err != nil {
+		return err
+	}
 
 	computedSTH, err := ComputeRoot(*logInfo.TreeSize)
 	if err != nil {
