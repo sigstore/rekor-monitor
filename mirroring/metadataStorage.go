@@ -34,6 +34,8 @@ func LoadTreeMetadata() (TreeMetadata, error) {
 
 func SaveTreeMetadata() error {
 	str := viper.GetString("metadata_file_dir")
+	// assumes that if file cannot be removed, it does not exist
+	os.Remove(str)
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
@@ -85,11 +87,51 @@ func UpdateMetadataByIndex(i int64) error {
 	if err != nil {
 		return err
 	}
+	// assumes that if file cannot be removed, it does not exist
+	os.Remove(str)
 
-	err = os.Remove(str)
+	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
+
+	defer f.Close()
+
+	_, err = f.Write(serialMetadata)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateMetadataBySTH() error {
+	str := viper.GetString("metadata_file_dir")
+	bytes, err := ioutil.ReadFile(str)
+	if err != nil {
+		return err
+	}
+
+	metadata := TreeMetadata{}
+
+	err = json.Unmarshal(bytes, &metadata)
+	if err != nil {
+		return err
+	}
+
+	logInfo, err := GetLogInfo()
+	if err != nil {
+		return err
+	}
+
+	metadata.LogInfo = logInfo
+
+	serialMetadata, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+
+	// assumes that if file cannot be removed, it does not exist
+	os.Remove(str)
 
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {

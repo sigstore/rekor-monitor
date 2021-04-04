@@ -68,11 +68,6 @@ func FullAudit() error {
 		return err
 	}
 
-	err = UpdateMetadataByIndex(*logInfo.TreeSize - 1)
-	if err != nil {
-		return err
-	}
-
 	computedSTH, err := ComputeRoot(*logInfo.TreeSize)
 	if err != nil {
 		return err
@@ -97,7 +92,12 @@ func FullAudit() error {
 		return err
 	}
 	// sth verified
-	err = SaveTreeMetadata()
+	err = UpdateMetadataBySTH()
+	if err != nil {
+		return err
+	}
+
+	err = UpdateMetadataByIndex(*logInfo.TreeSize - 1)
 	if err != nil {
 		return err
 	}
