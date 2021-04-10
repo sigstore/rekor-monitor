@@ -157,7 +157,7 @@ func GetLogEntryByIndex(logIndex int64, rekorClient *client.Rekor) (string, mode
 		return ix, entry, nil
 	}
 
-	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex.")
+	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex")
 }
 
 type getCmdOutput struct {
@@ -223,6 +223,9 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 	}
 
 	a, err := ParseEntry(ix, entry)
+	if err != nil {
+		return Artifact{}, err
+	}
 	b := Artifact{}
 	b.MerkleTreeHash = a.UUID
 
@@ -234,7 +237,7 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 	case *rpm_v001.V001Entry:
 		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
 	default:
-		return b, errors.New("The type of this log entry is not supported.")
+		return b, errors.New("the type of this log entry is not supported")
 	}
 	return b, nil
 }
@@ -298,7 +301,7 @@ func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 		queue.PushBack(el)
 	}
 	if queue.Front() == nil {
-		return nil, errors.New("Something went wrong.")
+		return nil, errors.New("something went wrong")
 	}
 	return queue.Front().Value.(queueElement).hash, nil
 }
@@ -382,7 +385,7 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 		queue.PushBack(el)
 	}
 	if queue.Front() == nil {
-		return nil, errors.New("Something went wrong.")
+		return nil, errors.New("something went wrong")
 	}
 	return queue.Front().Value.(queueElement).hash, nil
 }

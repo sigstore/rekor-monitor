@@ -79,16 +79,6 @@ func TestComputeRoot(t *testing.T) {
 		}*/
 }
 
-func TestFullAudit(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
-	viper.Set("tree_file_dir", ".tree")
-	viper.Set("metadata_file_dir", ".metadata")
-	err := FullAudit()
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-}
-
 /*func TestGetLogEntryByIndex(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
 	ix, entry, err := rekorclient.GetLogEntryByIndex(10)
