@@ -81,7 +81,7 @@ func PollSTH() error {
 		return err
 	}
 
-	if sth != fetchedLogInfo.SignedTreeHead.Signature { // new leaves must have been appended, or it's a malicious log
+	if sth.String() != fetchedLogInfo.SignedTreeHead.Signature.String() { // new leaves must have been appended, or it's a malicious log
 		pub := metadata.PublicKey
 
 		block, _ := pem.Decode([]byte(pub))
