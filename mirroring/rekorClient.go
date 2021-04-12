@@ -172,6 +172,7 @@ type Artifact struct {
 	DataHash       string `json:"data_hash,omitempty"`
 	Sig            string `json:"sig,omitempty"`
 	MerkleTreeHash string `json:"merkle_tree_hash,omitempty"`
+	Kind           string `json:"kind,omitempty"`
 }
 
 // this function also verifies the integrity of an entry.
@@ -234,11 +235,14 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 		b.Pk = string([]byte(v.RekordObj.Signature.PublicKey.Content))
 		b.Sig = base64.StdEncoding.EncodeToString([]byte(v.RekordObj.Signature.Content))
 		b.DataHash = *v.RekordObj.Data.Hash.Value
+		b.Kind = "rekord"
 	case *rpm_v001.V001Entry:
 		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
+		b.Kind = "rpm"
 	default:
 		return b, errors.New("the type of this log entry is not supported")
 	}
+
 	return b, nil
 }
 

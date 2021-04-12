@@ -1,3 +1,4 @@
 {
-    "metadata_file_dir":"./.metadata"
+    "metadata_file_dir":"./.metadata",
+    "tree_file_dir":"./.tree"
 }

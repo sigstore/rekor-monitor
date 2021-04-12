@@ -1,15 +1,18 @@
 package mirroring
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/go-openapi/strfmt"
 	trilliantypes "github.com/google/trillian/types"
 	"github.com/sigstore/rekor/cmd/cli/app"
+	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/spf13/viper"
@@ -18,12 +21,14 @@ import (
 // consider adding a rekorClient field so that the same client struct is used for all operations, potentially saving some time
 type LogHandler struct {
 	metadata TreeMetadata
+	client   *client.Rekor
 }
 
 // LoadFromLocal parses a JSON file to create a log handler that can be used
 // to fetch and verify properties about the log.
-func LoadFromLocal(filePath string) (LogHandler, error) {
-	viper.AddConfigPath(filePath)
+func LoadFromLocal(fileName string) (LogHandler, error) {
+	viper.SetConfigFile(fileName)
+	viper.AddConfigPath(".")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {
 		panic(fmt.Errorf("configuration file could not be found.\n%s", err))
@@ -31,6 +36,10 @@ func LoadFromLocal(filePath string) (LogHandler, error) {
 
 	handler := LogHandler{}
 	metadata, err := LoadTreeMetadata()
+	if err != nil {
+		return handler, err
+	}
+	handler.client, err = NewClient()
 	if err != nil {
 		return handler, err
 	}
@@ -103,11 +112,7 @@ func (h *LogHandler) GetRemoteRootSignature() (strfmt.Base64, error) {
 }
 
 func (h *LogHandler) GetRemoteRootPublicKey() (string, error) {
-	rekorClient, err := NewClient()
-	if err != nil {
-		return "", err
-	}
-	keyResp, err := rekorClient.Tlog.GetPublicKey(nil)
+	keyResp, err := h.client.Tlog.GetPublicKey(nil)
 	if err != nil {
 		return "", err
 	}
@@ -161,15 +166,11 @@ func (h *LogHandler) SetLocalTreeSize(treeSize int64) {
 	h.metadata.SavedMaxIndex = treeSize - 1
 }
 
-// GetAllLeavesForKind contains code from github.com/sigstore/rekor/cmd/rekor-cli/app/verify.go
-func (h *LogHandler) GetAllLeavesForKind(kind string) ([]models.LogEntry, error) {
-	rekorClient, err := NewClient()
-	if err != nil {
-		return nil, err
-	}
-
+// FetchAllLeavesForKind contains code from github.com/sigstore/rekor/cmd/rekor-cli/app/verify.go
+func (h *LogHandler) FetchAllLeavesForKind(kind string) ([]models.LogEntry, error) {
 	params := entries.NewSearchLogQueryParams()
 	var entry models.ProposedEntry
+	var err error
 	switch kind {
 	case "rekord":
 		entry, err = app.CreateRekordFromPFlags()
@@ -188,9 +189,41 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) ([]models.LogEntry, error)
 	entries := []models.ProposedEntry{entry}
 	params.Entry.SetEntries(entries)
 
-	resp, err := rekorClient.Entries.SearchLogQuery(params)
+	resp, err := h.client.Entries.SearchLogQuery(params)
 	if err != nil {
 		return nil, err
 	}
 	return resp.GetPayload(), nil
+}
+
+func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
+	str := viper.GetString("tree_file_dir")
+	file, err := os.Open(str)
+	artifacts := make([]Artifact, 0)
+	if err != nil {
+		return artifacts, err
+	}
+	defer file.Close()
+	leaf := Artifact{}
+	reader := bufio.NewReader(file)
+	var line string
+	for {
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return artifacts, err
+			}
+		}
+
+		err = json.Unmarshal([]byte(line), &leaf)
+		if err != nil {
+			return artifacts, err
+		}
+		if leaf.Kind == kind {
+			artifacts = append(artifacts, leaf)
+		}
+	}
+	return artifacts, nil
 }
