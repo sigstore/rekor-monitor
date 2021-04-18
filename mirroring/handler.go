@@ -4,17 +4,13 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/go-openapi/strfmt"
 	trilliantypes "github.com/google/trillian/types"
-	"github.com/sigstore/rekor/cmd/cli/app"
 	"github.com/sigstore/rekor/pkg/generated/client"
-	"github.com/sigstore/rekor/pkg/generated/client/entries"
-	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/spf13/viper"
 )
 
@@ -166,34 +162,27 @@ func (h *LogHandler) SetLocalTreeSize(treeSize int64) {
 	h.metadata.SavedMaxIndex = treeSize - 1
 }
 
-// FetchAllLeavesForKind contains code from github.com/sigstore/rekor/cmd/rekor-cli/app/verify.go
-func (h *LogHandler) FetchAllLeavesForKind(kind string) ([]models.LogEntry, error) {
-	params := entries.NewSearchLogQueryParams()
-	var entry models.ProposedEntry
-	var err error
-	switch kind {
-	case "rekord":
-		entry, err = app.CreateRekordFromPFlags()
-		if err != nil {
-			return nil, err
-		}
-	case "rpm":
-		entry, err = app.CreateRpmFromPFlags()
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.New("invalid type specified")
-	}
+func (h *LogHandler) FetchAllLeavesForKind(kind string) ([]Artifact, error) {
+	leaves := make([]Artifact, 0)
 
-	entries := []models.ProposedEntry{entry}
-	params.Entry.SetEntries(entries)
-
-	resp, err := h.client.Entries.SearchLogQuery(params)
+	size, err := h.GetRemoteTreeSize()
 	if err != nil {
 		return nil, err
 	}
-	return resp.GetPayload(), nil
+
+	var i int64
+	// use retrieve post request instead, retrieve multiple entries at once
+	for i = 0; i < size; i++ {
+		artifact, err := GetLogEntryData(i, h.client)
+		if err != nil {
+			return nil, err
+		}
+		if artifact.Kind == kind {
+			leaves = append(leaves, artifact)
+		}
+	}
+
+	return leaves, nil
 }
 
 func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
