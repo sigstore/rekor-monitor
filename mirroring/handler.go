@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	trilliantypes "github.com/google/trillian/types"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/spf13/viper"
 )
 
@@ -23,6 +25,8 @@ type LogHandler struct {
 
 func LoadFromRemote(serverURL string) (h LogHandler, err error) {
 	viper.Set("rekorServerURL", serverURL)
+	viper.SetDefault("metadata_file_dir", "./.newmetadata")
+	viper.SetDefault("tree_file_dir", "./.newtree")
 	pub, err := GetPublicKey()
 	if err != nil {
 		return
@@ -79,37 +83,6 @@ func LoadFromLocal(fileName string) (LogHandler, error) {
 	*/
 	handler.newLeavesBuffer = make([]Artifact, 0)
 	return handler, nil
-}
-
-func (h *LogHandler) Save() error {
-	metadata := h.metadata
-	serialMetadata, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
-
-	str := viper.GetString("metadata_file_dir")
-	// assumes that if file cannot be removed, it does not exist
-	os.Remove(str)
-	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	_, err = f.Write(serialMetadata)
-	if err != nil {
-		return err
-	}
-
-	err = AppendArtifactsToFile(h.GetLeafBuffer())
-	if err != nil {
-		return err
-	}
-
-	h.newLeavesBuffer = make([]Artifact, 0)
-	return nil
 }
 
 func (h *LogHandler) GetLeafBuffer() []Artifact {
@@ -199,36 +172,16 @@ func (h *LogHandler) SetLocalTreeSize(treeSize int64) {
 	h.metadata.SavedMaxIndex = treeSize - 1
 }
 
-func (h *LogHandler) FetchAllLeavesForKind(kind string) ([]Artifact, error) {
-	leaves := make([]Artifact, 0)
-
-	size, err := h.GetRemoteTreeSize()
-	if err != nil {
-		return nil, err
-	}
-
-	var i int64
-	// use retrieve post request instead, retrieve multiple entries at once
-	for i = 0; i < size; i++ {
-		artifact, err := GetLogEntryData(i, h.client)
-		if err != nil {
-			return nil, err
-		}
-		if kind == "" || artifact.Kind == kind {
-			leaves = append(leaves, artifact)
-		}
-	}
-	h.SetLocalTreeSize(int64(len(leaves)))
-	return leaves, nil
-}
-
 // if kind=="", get all kinds of leaves
-func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
+func (h *LogHandler) GetAllLeavesForKind(kind string) error {
 	str := viper.GetString("tree_file_dir")
+	if h.newLeavesBuffer != nil && len(h.newLeavesBuffer) != 0 {
+		return errors.New("leaf buffer is not empty, please sync by saving")
+	}
 	file, err := os.Open(str)
 	artifacts := make([]Artifact, 0)
 	if err != nil {
-		return artifacts, err
+		return err
 	}
 	defer file.Close()
 	leaf := Artifact{}
@@ -240,13 +193,13 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
 			if err == io.EOF {
 				break
 			} else {
-				return artifacts, err
+				return err
 			}
 		}
 
 		err = json.Unmarshal([]byte(line), &leaf)
 		if err != nil {
-			return artifacts, err
+			return err
 		}
 		if leaf.Kind == kind {
 			artifacts = append(artifacts, leaf)
@@ -258,15 +211,20 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
 			if err == io.EOF {
 				break
 			} else {
-				return artifacts, err
+				return err
 			}
 		}
 
 		err = json.Unmarshal([]byte(line), &leaf)
 		if err != nil {
-			return artifacts, err
+			return err
 		}
 		artifacts = append(artifacts, leaf)
 	}
-	return artifacts, nil
+	h.newLeavesBuffer = artifacts
+	return nil
+}
+
+func (h *LogHandler) SetLogRoot(a *models.LogInfoSignedTreeHead) {
+	h.metadata.LogInfo.SignedTreeHead = a
 }

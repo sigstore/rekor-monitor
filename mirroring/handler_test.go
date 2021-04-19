@@ -2,8 +2,6 @@ package mirroring
 
 import (
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestLoadFromLocal(t *testing.T) {
@@ -22,11 +20,10 @@ func TestGetAllLeavesForKind(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	a, err := h.GetAllLeavesForKind("rekord")
+	err = h.GetAllLeavesForKind("rekord")
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	t.Log(a)
 }
 
 func TestFetchAllLeavesForKind(t *testing.T) {
@@ -34,11 +31,11 @@ func TestFetchAllLeavesForKind(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	a, err := h.FetchAllLeavesForKind("rekord")
+	err = h.FetchAllLeavesForKind("rekord")
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	t.Log(a)
+
 }
 
 func TestSaveTree(t *testing.T) {
@@ -46,14 +43,29 @@ func TestSaveTree(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	a, err := h.FetchAllLeavesForKind("")
+	err = h.FetchAllLeavesForKind("")
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	h.SetLeafBuffer(a)
-	viper.Set("metadata_file_dir", "./.newmetadata")
-	viper.Set("tree_file_dir", "./.newtree")
+
 	h.Save()
 
-	t.Log(a)
+}
+
+func TestFetchByRange(t *testing.T) {
+	h, err := LoadFromLocal("./.config.json")
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	finalSize, err := h.GetRemoteTreeSize()
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	err = h.FetchByRange(h.GetLocalTreeSize(), finalSize)
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+
+	h.Save()
+
 }
