@@ -1,3 +1,18 @@
+//
+// Copyright 2021 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package mirroring
 
 import (
@@ -18,6 +33,8 @@ import (
 	tclient "github.com/google/trillian/client"
 	tcrypto "github.com/google/trillian/crypto"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/spf13/viper"
+
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -25,7 +42,6 @@ import (
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
 	"github.com/sigstore/rekor/pkg/util"
-	"github.com/spf13/viper"
 )
 
 // NewClient creates a Rekor Client for log queries.
@@ -86,6 +102,7 @@ func GetPublicKey() (string, error) {
 		}
 		publicKey = keyResp.Payload
 	}
+
 	return publicKey, nil
 }
 
@@ -133,6 +150,7 @@ func VerifySignature(pub string) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -236,6 +254,7 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 	default:
 		return b, errors.New("The type of this log entry is not supported.")
 	}
+
 	return b, nil
 }
 
@@ -300,6 +319,7 @@ func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 	if queue.Front() == nil {
 		return nil, errors.New("Something went wrong.")
 	}
+
 	return queue.Front().Value.(queueElement).hash, nil
 }
 
@@ -337,7 +357,6 @@ func computeRootRecursive(minSize, maxSize int64) ([]byte, error) {
 }
 */
 func ComputeRoot(maxSize int64) ([]byte, error) {
-
 	queue := list.New()
 	el := queueElement{}
 
@@ -384,6 +403,7 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 	if queue.Front() == nil {
 		return nil, errors.New("Something went wrong.")
 	}
+
 	return queue.Front().Value.(queueElement).hash, nil
 }
 
