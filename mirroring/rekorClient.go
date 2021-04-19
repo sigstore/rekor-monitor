@@ -113,9 +113,12 @@ func VerifySignature(pub string) error {
 		return err
 	}
 
-	keyHint, err := base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.KeyHint.String())
-	if err != nil {
-		return err
+	var keyHint []byte
+	if logInfo.SignedTreeHead.KeyHint != nil {
+		keyHint, err = base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.KeyHint.String())
+		if err != nil {
+			return err
+		}
 	}
 
 	logRoot, err := base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.LogRoot.String())
@@ -364,11 +367,11 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 	for idx := int64(0); idx < maxSize; idx++ {
 		artifact, err := ReadLeaveFromFile(idx)
 		if err != nil {
+
 			return nil, err
 		}
 
 		str := artifact.MerkleTreeHash
-
 		hash, err := hex.DecodeString(str)
 		if err != nil {
 			return nil, err
@@ -400,6 +403,7 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 
 		queue.PushBack(el)
 	}
+
 	if queue.Front() == nil {
 		return nil, errors.New("Something went wrong.")
 	}

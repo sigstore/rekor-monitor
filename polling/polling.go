@@ -79,7 +79,6 @@ func pollPublicKey(hashes map[string]bool, publicKey string) error {
 }
 
 func PollSTH() error {
-
 	metadata, err := mirroring.LoadTreeMetadata()
 	if err != nil { // if metadata isn't saved properly (or at all)
 		// fetch all leaves
@@ -88,6 +87,7 @@ func PollSTH() error {
 			return err1
 		}
 	}
+
 	metadata, err = mirroring.LoadTreeMetadata()
 	if err != nil {
 		return err
@@ -161,7 +161,6 @@ func PollSTH() error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
