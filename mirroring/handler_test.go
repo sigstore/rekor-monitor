@@ -2,6 +2,8 @@ package mirroring
 
 import (
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 func TestLoadFromLocal(t *testing.T) {
@@ -36,5 +38,22 @@ func TestFetchAllLeavesForKind(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s", err)
 	}
+	t.Log(a)
+}
+
+func TestSaveTree(t *testing.T) {
+	h, err := LoadFromRemote("https://api.sigstore.dev")
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	a, err := h.FetchAllLeavesForKind("")
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	h.SetLeafBuffer(a)
+	viper.Set("metadata_file_dir", "./.newmetadata")
+	viper.Set("tree_file_dir", "./.newtree")
+	h.Save()
+
 	t.Log(a)
 }

@@ -16,8 +16,31 @@ import (
 
 // consider adding a rekorClient field so that the same client struct is used for all operations, potentially saving some time
 type LogHandler struct {
-	metadata TreeMetadata
-	client   *client.Rekor
+	metadata        TreeMetadata
+	client          *client.Rekor
+	newLeavesBuffer []Artifact
+}
+
+func LoadFromRemote(serverURL string) (h LogHandler, err error) {
+	viper.Set("rekorServerURL", serverURL)
+	pub, err := GetPublicKey()
+	if err != nil {
+		return
+	}
+
+	logInfo, err := GetLogInfo()
+	if err != nil {
+		return
+	}
+
+	metadata := TreeMetadata{PublicKey: pub, LogInfo: logInfo, SavedMaxIndex: -1}
+	h.metadata = metadata
+
+	h.client, err = NewClient()
+	if err != nil {
+		return h, err
+	}
+	return
 }
 
 // LoadFromLocal parses a JSON file to create a log handler that can be used
@@ -54,12 +77,12 @@ func LoadFromLocal(fileName string) (LogHandler, error) {
 		logRoot.
 			if logRoot.RootHash != []byte(*metadata.LogInfo.RootHash)
 	*/
+	handler.newLeavesBuffer = make([]Artifact, 0)
 	return handler, nil
 }
 
 func (h *LogHandler) Save() error {
 	metadata := h.metadata
-
 	serialMetadata, err := json.Marshal(metadata)
 	if err != nil {
 		return err
@@ -80,7 +103,21 @@ func (h *LogHandler) Save() error {
 		return err
 	}
 
+	err = AppendArtifactsToFile(h.GetLeafBuffer())
+	if err != nil {
+		return err
+	}
+
+	h.newLeavesBuffer = make([]Artifact, 0)
 	return nil
+}
+
+func (h *LogHandler) GetLeafBuffer() []Artifact {
+	return h.newLeavesBuffer
+}
+
+func (h *LogHandler) SetLeafBuffer(b []Artifact) {
+	h.newLeavesBuffer = b
 }
 
 func (h *LogHandler) GetLocalPublicKey() string {
@@ -177,14 +214,15 @@ func (h *LogHandler) FetchAllLeavesForKind(kind string) ([]Artifact, error) {
 		if err != nil {
 			return nil, err
 		}
-		if artifact.Kind == kind {
+		if kind == "" || artifact.Kind == kind {
 			leaves = append(leaves, artifact)
 		}
 	}
-
+	h.SetLocalTreeSize(int64(len(leaves)))
 	return leaves, nil
 }
 
+// if kind=="", get all kinds of leaves
 func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
 	str := viper.GetString("tree_file_dir")
 	file, err := os.Open(str)
@@ -196,7 +234,7 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
 	leaf := Artifact{}
 	reader := bufio.NewReader(file)
 	var line string
-	for {
+	for kind != "" {
 		line, err = reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
@@ -213,6 +251,22 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) ([]Artifact, error) {
 		if leaf.Kind == kind {
 			artifacts = append(artifacts, leaf)
 		}
+	}
+	for kind == "" {
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return artifacts, err
+			}
+		}
+
+		err = json.Unmarshal([]byte(line), &leaf)
+		if err != nil {
+			return artifacts, err
+		}
+		artifacts = append(artifacts, leaf)
 	}
 	return artifacts, nil
 }
