@@ -2,8 +2,13 @@ package mirroring
 
 import (
 	"bufio"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -16,11 +21,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-// consider adding a rekorClient field so that the same client struct is used for all operations, potentially saving some time
 type LogHandler struct {
 	metadata        TreeMetadata
 	client          *client.Rekor
 	newLeavesBuffer []Artifact
+	logRoot         *trilliantypes.LogRootV1
 }
 
 func LoadFromRemote(serverURL string) (h LogHandler, err error) {
@@ -39,7 +44,10 @@ func LoadFromRemote(serverURL string) (h LogHandler, err error) {
 
 	metadata := TreeMetadata{PublicKey: pub, LogInfo: logInfo, SavedMaxIndex: -1}
 	h.metadata = metadata
-
+	err = h.verifyLogRoot(h.metadata.LogInfo.SignedTreeHead.LogRoot)
+	if err != nil {
+		return
+	}
 	h.client, err = NewClient()
 	if err != nil {
 		return h, err
@@ -66,23 +74,116 @@ func LoadFromLocal(fileName string) (LogHandler, error) {
 	if err != nil {
 		return handler, err
 	}
+
 	handler.metadata = metadata
-	// stored information will contain duplicates. should these duplicates be checked?
-	/*
-			logRoot := trilliantypes.LogRootV1{}
-			logRootBytes, err := base64.StdEncoding.DecodeString(metadata.LogInfo.SignedTreeHead.LogRoot.String())
-			if err != nil {
-				return handler, err
-			}
-			err = logRoot.UnmarshalBinary(logRootBytes)
-			if err != nil {
-				return handler, err
-			}
-		logRoot.
-			if logRoot.RootHash != []byte(*metadata.LogInfo.RootHash)
-	*/
+	err = handler.verifyLogRoot(handler.metadata.LogInfo.SignedTreeHead.LogRoot)
+	if err != nil {
+		return handler, err
+	}
+
 	handler.newLeavesBuffer = make([]Artifact, 0)
 	return handler, nil
+}
+
+func (h *LogHandler) verifyLogRoot(logRootBase64 *strfmt.Base64) error {
+	// stored information will contain duplicates. the following code checks if these duplicates match.
+	// if they don't, the log-handler fails to instantiate.
+	logRoot := trilliantypes.LogRootV1{}
+	logRootBytes, err := base64.StdEncoding.DecodeString(logRootBase64.String())
+	if err != nil {
+		return err
+	}
+	err = logRoot.UnmarshalBinary(logRootBytes)
+	if err != nil {
+		return err
+	}
+
+	if logRoot.TreeSize != uint64(*h.metadata.LogInfo.TreeSize) {
+		return errors.New("the log provided may not be trusted, as the duplicates of the tree size field do not match")
+	}
+
+	if hex.EncodeToString(logRoot.RootHash) != *h.metadata.LogInfo.RootHash {
+		return errors.New("the log provided may not be trusted, as the duplicates of the root hash field do not match")
+	}
+
+	err = h.verifyLogRootSignature(true, logRoot)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// This function is copied from https://github.com/sigstore/rekor/blob/main/pkg/verify/log_root.go
+// as it isn't in a major  release yet.
+
+// SignedLogRoot verifies the signed log root and returns its contents
+func SignedLogRoot(pub crypto.PublicKey, logRoot, logRootSignature []byte) (*trilliantypes.LogRootV1, error) {
+	hash := crypto.SHA256
+	if err := verify(pub, hash, logRoot, logRootSignature); err != nil {
+		return nil, err
+	}
+
+	var lr trilliantypes.LogRootV1
+	if err := lr.UnmarshalBinary(logRoot); err != nil {
+		return nil, err
+	}
+	return &lr, nil
+}
+
+// This function is copied from https://github.com/sigstore/rekor/blob/main/pkg/verify/log_root.go
+// as it isn't in a major release yet.
+
+// verify cryptographically verifies the output of Signer.
+func verify(pub crypto.PublicKey, hasher crypto.Hash, data, sig []byte) error {
+	if sig == nil {
+		return errors.New("signature is nil")
+	}
+
+	h := hasher.New()
+	if _, err := h.Write(data); err != nil {
+		return err
+	}
+	digest := h.Sum(nil)
+
+	switch pub := pub.(type) {
+	case *ecdsa.PublicKey:
+		if !ecdsa.VerifyASN1(pub, digest, sig) {
+			return errors.New("verification failed")
+		}
+	default:
+		return fmt.Errorf("unknown public key type: %T", pub)
+	}
+	return nil
+}
+func (h *LogHandler) verifyLogRootSignature(addLogRoot bool, logRoot trilliantypes.LogRootV1) error {
+	signature, err := base64.StdEncoding.DecodeString(h.metadata.LogInfo.SignedTreeHead.Signature.String())
+	if err != nil {
+		return err
+	}
+
+	block, _ := pem.Decode([]byte(h.metadata.PublicKey))
+	if block == nil {
+		return errors.New("failed to decode public key of server")
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+	logRootBytes, err := logRoot.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	_, err = SignedLogRoot(publicKey, logRootBytes, signature)
+	if err != nil {
+		return err
+	}
+
+	if addLogRoot {
+		h.logRoot = &logRoot
+	}
+	return nil
 }
 
 func (h *LogHandler) GetLeafBuffer() []Artifact {
