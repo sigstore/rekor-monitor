@@ -16,7 +16,7 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: mirroringAgentRun
+  name: mirroring_agent_run
 spec:
   schedule: “*/1 * * * *”
   concurrencyPolicy: Forbid
@@ -25,7 +25,7 @@ spec:
       template:
         spec:
           containers:
-          - name: mirroringAgent
+          - name: mirroring_agent
             image: sigstoremonitor/mirroring_agent
             imagePullPolicy: IfNotPresent
           restartPolicy: OnFailure
