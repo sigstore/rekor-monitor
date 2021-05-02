@@ -1,5 +1,5 @@
 {
-    "metadata_file_dir":"./.newmetadata",
-    "tree_file_dir":"./.newtree",
+    "metadata_file_directory":"./.newmetadata",
+    "tree_file_directory":"./.newtree",
     "rekorServerURL": "https://api.sigstore.dev"
 }

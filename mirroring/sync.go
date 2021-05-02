@@ -36,7 +36,7 @@ func (h *LogHandler) Save() error {
 		return err
 	}
 
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	// assumes that if file cannot be removed, it does not exist
 	os.Remove(str)
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)

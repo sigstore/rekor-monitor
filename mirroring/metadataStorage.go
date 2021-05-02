@@ -16,7 +16,7 @@ type TreeMetadata struct {
 }
 
 func LoadTreeMetadata() (TreeMetadata, error) {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return TreeMetadata{}, err
@@ -33,7 +33,7 @@ func LoadTreeMetadata() (TreeMetadata, error) {
 }
 
 func SaveTreeMetadata() error {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	// assumes that if file cannot be removed, it does not exist
 	os.Remove(str)
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
@@ -68,7 +68,7 @@ func SaveTreeMetadata() error {
 }
 
 func UpdateMetadataByIndex(i int64) error {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func UpdateMetadataByIndex(i int64) error {
 }
 
 func UpdateMetadataBySTH() error {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return err

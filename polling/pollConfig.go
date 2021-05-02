@@ -18,7 +18,7 @@ type pollCfg struct {
 }
 
 func ReadCfg() (PollCfg, error) {
-	cfgFileDir := viper.GetString("poll_config_file_dir")
+	cfgFileDir := viper.GetString("poll_config_file_directory")
 
 	bytes, err := ioutil.ReadFile(cfgFileDir)
 	if err != nil {

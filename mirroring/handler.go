@@ -30,8 +30,8 @@ type LogHandler struct {
 
 func LoadFromRemote(serverURL string) (h LogHandler, err error) {
 	viper.Set("rekorServerURL", serverURL)
-	viper.SetDefault("metadata_file_dir", "./.newmetadata")
-	viper.SetDefault("tree_file_dir", "./.newtree")
+	viper.SetDefault("metadata_file_directory", "./.newmetadata")
+	viper.SetDefault("tree_file_directory", "./.newtree")
 	pub, err := GetPublicKey()
 	if err != nil {
 		return
@@ -275,7 +275,7 @@ func (h *LogHandler) SetLocalTreeSize(treeSize int64) {
 
 // if kind=="", get all kinds of leaves
 func (h *LogHandler) GetAllLeavesForKind(kind string) error {
-	str := viper.GetString("tree_file_dir")
+	str := viper.GetString("tree_file_directory")
 	if h.newLeavesBuffer != nil && len(h.newLeavesBuffer) != 0 {
 		return errors.New("leaf buffer is not empty, please sync by saving")
 	}
