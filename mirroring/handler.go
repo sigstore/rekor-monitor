@@ -288,7 +288,7 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) error {
 	leaf := Artifact{}
 	reader := bufio.NewReader(file)
 	var line string
-	for kind != "" {
+	for {
 		line, err = reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
@@ -302,25 +302,9 @@ func (h *LogHandler) GetAllLeavesForKind(kind string) error {
 		if err != nil {
 			return err
 		}
-		if leaf.Kind == kind {
+		if kind == "" || leaf.Kind == kind {
 			artifacts = append(artifacts, leaf)
 		}
-	}
-	for kind == "" {
-		line, err = reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				return err
-			}
-		}
-
-		err = json.Unmarshal([]byte(line), &leaf)
-		if err != nil {
-			return err
-		}
-		artifacts = append(artifacts, leaf)
 	}
 	h.newLeavesBuffer = artifacts
 	return nil
