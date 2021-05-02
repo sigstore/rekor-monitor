@@ -1,6 +1,6 @@
 module github.com/sigstore/rekor-monitor/polling
 
-go 1.15
+go 1.16
 
 require (
 	github.com/google/trillian v1.3.13
