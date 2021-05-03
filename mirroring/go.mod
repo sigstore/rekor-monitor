@@ -10,6 +10,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.1 // indirect
 	github.com/google/trillian v1.3.13
 	github.com/sigstore/rekor v0.1.2-0.20210314202552-1cc4fbb11b5d
+	github.com/sigstore/rekor-monitor v0.0.0-20210502231540-778561b8be8f // indirect
 	github.com/spf13/viper v1.7.1
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc // indirect

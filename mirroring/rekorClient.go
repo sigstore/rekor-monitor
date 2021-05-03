@@ -37,6 +37,8 @@ import (
 
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/index"
+	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
@@ -46,6 +48,13 @@ import (
 
 // NewClient creates a Rekor Client for log queries.
 func NewClient() (*client.Rekor, error) {
+	if viper.Get("testing") == true {
+		rekorClient := client.New(nil, strfmt.Default)
+		rekorClient.Entries = viper.Get("mockEntries").(entries.ClientService)
+		rekorClient.Tlog = viper.Get("mockTlog").(tlog.ClientService)
+		rekorClient.Index = viper.Get("mockIndex").(index.ClientService)
+		return rekorClient, nil
+	}
 	//rekorAPI.ConfigureAPI() // enable_retrieve_api? possible performance improvement
 	//context := context.TODO()
 	//trillianClient := rekorAPI.NewTrillianClient(context)

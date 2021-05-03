@@ -17,6 +17,7 @@ package mirroring
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 
@@ -44,7 +45,9 @@ func LoadTreeMetadata() (TreeMetadata, error) {
 	if err != nil {
 		return TreeMetadata{}, err
 	}
-
+	if *metadata.LogInfo.TreeSize+1 < metadata.SavedMaxIndex {
+		return TreeMetadata{}, errors.New("tree size smaller than saved_max_index - 1, loaded metadata is corrupt")
+	}
 	return metadata, nil
 }
 
@@ -121,7 +124,7 @@ func UpdateMetadataByIndex(i int64) error {
 	return nil
 }
 
-func UpdateMetadataBySTH() error {
+func UpdateMetadataBySTH(sth *models.LogInfoSignedTreeHead) error {
 	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
@@ -135,12 +138,7 @@ func UpdateMetadataBySTH() error {
 		return err
 	}
 
-	logInfo, err := GetLogInfo()
-	if err != nil {
-		return err
-	}
-
-	metadata.LogInfo = logInfo
+	metadata.LogInfo.SignedTreeHead = sth
 
 	serialMetadata, err := json.Marshal(metadata)
 	if err != nil {

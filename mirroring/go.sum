@@ -737,6 +737,8 @@ github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeV
 github.com/sigstore/rekor v0.1.1 h1:KCMKXwzpwnRwhxQojpFFEOMP4Hepp4exncv4EzVUIFY=
 github.com/sigstore/rekor v0.1.2-0.20210314202552-1cc4fbb11b5d h1:hpfR5mGQq0209m4p4GqwjMiTHnXul2w770OWF/0mMaU=
 github.com/sigstore/rekor v0.1.2-0.20210314202552-1cc4fbb11b5d/go.mod h1:b+T8TvGKWgaFbtPRQgF/gXjbj/R9HdJ5lA93cnGT3Sc=
+github.com/sigstore/rekor-monitor v0.0.0-20210502231540-778561b8be8f h1:7DLLFzU8Es4v0I/Ju3WRARFgBBciA9oABSqTO/pUaMI=
+github.com/sigstore/rekor-monitor v0.0.0-20210502231540-778561b8be8f/go.mod h1:2WGFVxeecXCID6BhV6jw38P4M5vgA0a1yEnipuJvZNU=
 github.com/sirupsen/logrus v1.0.5/go.mod h1:pMByvHTf9Beacp5x1UXfOR9xyW/9antXMhjMPG0dEzc=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

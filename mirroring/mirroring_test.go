@@ -51,11 +51,11 @@ func TestFetchLeavesByRange(t *testing.T) {
 
 func TestComputeRoot(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
-
 	viper.Set("tree_file_directory", ".tree")
 	viper.Set("metadata_file_directory", ".metadata")
-	f, err := ioutil.ReadFile(".tree")
 
+	// the .tree file is not an json array instead it have one json per line
+	f, err := os.Open(".tree")
 	if err != nil {
 		t.Errorf("%s\n", err)
 		return
@@ -105,7 +105,6 @@ func TestComputeRoot(t *testing.T) {
 			t.Errorf("Computed STH is incorrect.")
 		}*/
 }
-
 
 // TODO: commented out missing FullAudit func
 // func TestFullAudit(t *testing.T) {
