@@ -702,6 +702,8 @@ github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404054753-ab663ea478db h
 github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404054753-ab663ea478db/go.mod h1:kKuckXR582ua2mSPHdEayjhFV2sJrvzfYO06jTIlGJA=
 github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404181508-f19b2bbe5ab4 h1:xDsUeWxg5oHuHMtLYBWPhe68UnnmmQIBXsNftg2ux8c=
 github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404181508-f19b2bbe5ab4/go.mod h1:kKuckXR582ua2mSPHdEayjhFV2sJrvzfYO06jTIlGJA=
+github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404191810-05c336d00f29 h1:95rcWYw//JgiMaFlx5Ti50Fgu1qrgwGv0JTJQ/gzV9c=
+github.com/sigstore/rekor-monitor/mirroring v0.0.0-20210404191810-05c336d00f29/go.mod h1:kKuckXR582ua2mSPHdEayjhFV2sJrvzfYO06jTIlGJA=
 github.com/sirupsen/logrus v1.0.5/go.mod h1:pMByvHTf9Beacp5x1UXfOR9xyW/9antXMhjMPG0dEzc=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

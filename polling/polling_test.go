@@ -23,11 +23,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+
 // TODO: fixme! :)
 // func TestPolling(t *testing.T) {
-// 	viper.Set("tree_file_dir", "./tree.test")
-// 	viper.Set("metadata_file_dir", "./metadata.test")
-// 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+//	viper.Set("tree_file_directory", "./tree.test")
+//	viper.Set("metadata_file_directory", "./metadata.test")
+//	viper.Set("rekorServerURL", "https://api.sigstore.dev")
 
 // 	err := PollSTH()
 // 	if err != nil {
@@ -36,9 +37,9 @@ import (
 // }
 
 func TestPollPublicKey(t *testing.T) {
-	viper.Set("poll_config_file_dir", "./pollConfig.test")
-	viper.Set("metadata_file_dir", "./metadata.test")
-	viper.Set("tree_file_dir", "./tree.test")
+	viper.Set("poll_config_file_directory", "./pollConfig.test")
+	viper.Set("metadata_file_directory", "./metadata.test")
+	viper.Set("tree_file_directory", "./tree.test")
 	err := makePollCfg()
 	if err != nil {
 		t.Error(err)
@@ -53,7 +54,7 @@ func TestPollPublicKey(t *testing.T) {
 }
 
 func makePollCfg() error {
-	str := viper.GetString("poll_config_file_dir")
+	str := viper.GetString("poll_config_file_directory")
 	// assumes that if file cannot be removed, it does not exist
 	os.Remove(str)
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)

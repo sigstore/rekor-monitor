@@ -17,6 +17,7 @@ package mirroring
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 
@@ -32,7 +33,7 @@ type TreeMetadata struct {
 }
 
 func LoadTreeMetadata() (TreeMetadata, error) {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return TreeMetadata{}, err
@@ -44,12 +45,14 @@ func LoadTreeMetadata() (TreeMetadata, error) {
 	if err != nil {
 		return TreeMetadata{}, err
 	}
-
+	if *metadata.LogInfo.TreeSize+1 < metadata.SavedMaxIndex {
+		return TreeMetadata{}, errors.New("tree size smaller than saved_max_index - 1, loaded metadata is corrupt")
+	}
 	return metadata, nil
 }
 
 func SaveTreeMetadata() error {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	// assumes that if file cannot be removed, it does not exist
 	os.Remove(str)
 	f, err := os.OpenFile(str, os.O_WRONLY|os.O_CREATE, 0600)
@@ -84,7 +87,7 @@ func SaveTreeMetadata() error {
 }
 
 func UpdateMetadataByIndex(i int64) error {
-	str := viper.GetString("metadata_file_dir")
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return err
@@ -121,8 +124,8 @@ func UpdateMetadataByIndex(i int64) error {
 	return nil
 }
 
-func UpdateMetadataBySTH() error {
-	str := viper.GetString("metadata_file_dir")
+func UpdateMetadataBySTH(sth *models.LogInfoSignedTreeHead) error {
+	str := viper.GetString("metadata_file_directory")
 	bytes, err := ioutil.ReadFile(str)
 	if err != nil {
 		return err
@@ -135,12 +138,7 @@ func UpdateMetadataBySTH() error {
 		return err
 	}
 
-	logInfo, err := GetLogInfo()
-	if err != nil {
-		return err
-	}
-
-	metadata.LogInfo = logInfo
+	metadata.LogInfo.SignedTreeHead = sth
 
 	serialMetadata, err := json.Marshal(metadata)
 	if err != nil {

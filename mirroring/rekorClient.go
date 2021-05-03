@@ -37,6 +37,8 @@ import (
 
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/index"
+	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
@@ -46,6 +48,13 @@ import (
 
 // NewClient creates a Rekor Client for log queries.
 func NewClient() (*client.Rekor, error) {
+	if viper.Get("testing") == true {
+		rekorClient := client.New(nil, strfmt.Default)
+		rekorClient.Entries = viper.Get("mockEntries").(entries.ClientService)
+		rekorClient.Tlog = viper.Get("mockTlog").(tlog.ClientService)
+		rekorClient.Index = viper.Get("mockIndex").(index.ClientService)
+		return rekorClient, nil
+	}
 	//rekorAPI.ConfigureAPI() // enable_retrieve_api? possible performance improvement
 	//context := context.TODO()
 	//trillianClient := rekorAPI.NewTrillianClient(context)
@@ -178,7 +187,7 @@ func GetLogEntryByIndex(logIndex int64, rekorClient *client.Rekor) (string, mode
 		return ix, entry, nil
 	}
 
-	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex.")
+	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex")
 }
 
 type getCmdOutput struct {
@@ -193,6 +202,7 @@ type Artifact struct {
 	DataHash       string `json:"data_hash,omitempty"`
 	Sig            string `json:"sig,omitempty"`
 	MerkleTreeHash string `json:"merkle_tree_hash,omitempty"`
+	Kind           string `json:"kind,omitempty"`
 }
 
 // this function also verifies the integrity of an entry.
@@ -244,6 +254,9 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 	}
 
 	a, err := ParseEntry(ix, entry)
+	if err != nil {
+		return Artifact{}, err
+	}
 	b := Artifact{}
 	b.MerkleTreeHash = a.UUID
 
@@ -252,10 +265,12 @@ func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error
 		b.Pk = string([]byte(v.RekordObj.Signature.PublicKey.Content))
 		b.Sig = base64.StdEncoding.EncodeToString([]byte(v.RekordObj.Signature.Content))
 		b.DataHash = *v.RekordObj.Data.Hash.Value
+		b.Kind = "rekord"
 	case *rpm_v001.V001Entry:
 		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
+		b.Kind = "rpm"
 	default:
-		return b, errors.New("The type of this log entry is not supported.")
+		return b, errors.New("the type of this log entry is not supported")
 	}
 
 	return b, nil
@@ -320,7 +335,7 @@ func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 		queue.PushBack(el)
 	}
 	if queue.Front() == nil {
-		return nil, errors.New("Something went wrong.")
+		return nil, errors.New("something went wrong")
 	}
 
 	return queue.Front().Value.(queueElement).hash, nil
@@ -405,7 +420,7 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 	}
 
 	if queue.Front() == nil {
-		return nil, errors.New("Something went wrong.")
+		return nil, errors.New("something went wrong")
 	}
 
 	return queue.Front().Value.(queueElement).hash, nil
