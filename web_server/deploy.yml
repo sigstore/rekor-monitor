@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: test
+  name: test-site
+  labels:
+      test-app: website
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        test-app: website
+    template:
+      metadata:
+        labels:
+          test-app: website
+      spec:
+        containers:
+        - env:
+          image: a0su/test-app
+          imagePullPolicy: Always
+          name: test-site
+          ports:
+          - containerPort: 80
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
