@@ -18,144 +18,22 @@ package mirroring
 import (
 	"bytes"
 	"container/list"
-	"crypto"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
-	"net/url"
 
 	"github.com/go-openapi/runtime"
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
-	"github.com/google/trillian"
-	tclient "github.com/google/trillian/client"
-	tcrypto "github.com/google/trillian/crypto"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/spf13/viper"
 
-	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/client"
+	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
-	"github.com/sigstore/rekor/pkg/util"
 )
-
-// NewClient creates a Rekor Client for log queries.
-func NewClient() (*client.Rekor, error) {
-	//rekorAPI.ConfigureAPI() // enable_retrieve_api? possible performance improvement
-	//context := context.TODO()
-	//trillianClient := rekorAPI.NewTrillianClient(context)
-	// sigstore/rekor/cmd/cli/app/root.go:117
-	rekorServerURL := viper.GetString("rekorServerURL")
-	url, err := url.Parse(rekorServerURL)
-	if err != nil {
-		return nil, err
-	}
-	rt := httptransport.New(url.Host, client.DefaultBasePath, []string{url.Scheme})
-	rt.Consumers["application/yaml"] = util.YamlConsumer()
-	rt.Consumers["application/x-pem-file"] = runtime.TextConsumer()
-	rt.Producers["application/yaml"] = util.YamlProducer()
-
-	if viper.GetString("api-key") != "" {
-		rt.DefaultAuthentication = httptransport.APIKeyAuth("apiKey", "query", viper.GetString("api-key"))
-	}
-	rekorClient := client.New(rt, strfmt.Default)
-
-	return rekorClient, nil
-}
-
-// GetLogInfo retrieves the root hash, the tree size,
-// the key hint, log root, and signature of the log
-// through the Rekor API.
-func GetLogInfo() (*models.LogInfo, error) {
-	rekorClient, err := NewClient()
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := rekorClient.Tlog.GetLogInfo(nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	logInfo := result.GetPayload()
-	return logInfo, nil
-}
-
-// GetPublicKey returns public key of entity that signed STH in string type.
-func GetPublicKey() (string, error) {
-	rekorClient, err := NewClient()
-	if err != nil {
-		return "", err
-	}
-
-	publicKey := viper.GetString("rekor_server_public_key")
-	if publicKey == "" {
-		keyResp, err := rekorClient.Tlog.GetPublicKey(nil)
-		if err != nil {
-			return "", err
-		}
-		publicKey = keyResp.Payload
-	}
-
-	return publicKey, nil
-}
-
-// VerifySignature verifies the integrity of the signed tree hash.
-func VerifySignature(pub string) error {
-	logInfo, err := GetLogInfo()
-	if err != nil {
-		return err
-	}
-
-	var keyHint []byte
-	if logInfo.SignedTreeHead.KeyHint != nil {
-		keyHint, err = base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.KeyHint.String())
-		if err != nil {
-			return err
-		}
-	}
-
-	logRoot, err := base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.LogRoot.String())
-	if err != nil {
-		return err
-	}
-
-	signature, err := base64.StdEncoding.DecodeString(logInfo.SignedTreeHead.Signature.String())
-	if err != nil {
-		return err
-	}
-
-	sth := trillian.SignedLogRoot{
-		KeyHint:          keyHint,
-		LogRoot:          logRoot,
-		LogRootSignature: signature,
-	}
-
-	block, _ := pem.Decode([]byte(pub))
-	if block == nil {
-		return errors.New("failed to decode public key of server")
-	}
-
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return err
-	}
-
-	verifier := tclient.NewLogVerifier(rfc6962.DefaultHasher, publicKey, crypto.SHA256)
-	_, err = tcrypto.VerifySignedLogRoot(verifier.PubKey, verifier.SigHash, &sth)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // GetLogEntryByIndex returns an object with the log index,
 // integratedTime, UUID, and body
@@ -166,7 +44,7 @@ func VerifySignature(pub string) error {
 // 		IntegratedTime: leaf.IntegrateTimestamp.AsTime().Unix(),
 // 	},
 // }
-func GetLogEntryByIndex(logIndex int64, rekorClient *client.Rekor) (string, models.LogEntryAnon, error) {
+func GetLogEntryByIndex(logIndex int64, rekorClient *gclient.Rekor) (string, models.LogEntryAnon, error) {
 	params := entries.NewGetLogEntryByIndexParams()
 	params.LogIndex = logIndex
 
@@ -230,14 +108,14 @@ func ParseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
 	obj := getCmdOutput{
 		Body:           eimpl,
 		UUID:           uuid,
-		IntegratedTime: e.IntegratedTime,
+		IntegratedTime: *e.IntegratedTime,
 		LogIndex:       int(*e.LogIndex),
 	}
 
 	return obj, nil
 }
 
-func GetLogEntryData(logIndex int64, rekorClient *client.Rekor) (Artifact, error) {
+func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, error) {
 	ix, entry, err := GetLogEntryByIndex(logIndex, rekorClient)
 	if err != nil {
 		return Artifact{}, err
@@ -413,7 +291,8 @@ func ComputeRoot(maxSize int64) ([]byte, error) {
 
 // FetchLeavesByRange fetches leaves by range and saves them into a file.
 func FetchLeavesByRange(initSize, finalSize int64) error {
-	rekorClient, err := NewClient()
+	rekorServerURL := viper.GetString("rekorServerURL")
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
 	if err != nil {
 		return err
 	}

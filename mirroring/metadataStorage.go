@@ -22,7 +22,9 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/rekor/pkg/util"
 )
 
 type TreeMetadata struct {
@@ -59,17 +61,29 @@ func SaveTreeMetadata() error {
 
 	defer f.Close()
 
-	pub, err := GetPublicKey()
+	rekorServerURL := viper.GetString("rekorServerURL")
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
 	if err != nil {
 		return err
 	}
 
-	logInfo, err := GetLogInfo()
+	pubkeyResp, err := rekorClient.Pubkey.GetPublicKey(nil)
 	if err != nil {
 		return err
 	}
 
-	metadata := TreeMetadata{PublicKey: pub, LogInfo: logInfo, SavedMaxIndex: -1}
+	logInfoResp, err := rekorClient.Tlog.GetLogInfo(nil)
+	if err != nil {
+		return err
+	}
+
+	logInfo := logInfoResp.GetPayload()
+	sth := util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		return err
+	}
+
+	metadata := TreeMetadata{PublicKey: pubkeyResp.Payload, LogInfo: logInfo, SavedMaxIndex: -1}
 
 	serialMetadata, err := json.Marshal(metadata)
 	if err != nil {
@@ -135,8 +149,20 @@ func UpdateMetadataBySTH() error {
 		return err
 	}
 
-	logInfo, err := GetLogInfo()
+	rekorServerURL := viper.GetString("rekorServerURL")
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
 	if err != nil {
+		return err
+	}
+
+	logInfoResp, err := rekorClient.Tlog.GetLogInfo(nil)
+	if err != nil {
+		return err
+	}
+
+	logInfo := logInfoResp.GetPayload()
+	sth := util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
 		return err
 	}
 
