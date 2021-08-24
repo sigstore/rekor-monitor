@@ -23,6 +23,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+func TestVerifySignedTreeHead(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	if err := VerifySignedTreeHead(); err != nil {
+		t.Errorf("%s\n", err)
+	}
+}
+
+/*
 // TestVerifySignature tests normal operation of the verifySignature function.
 func TestVerifySignature(t *testing.T) {
 	viper.Set("rekorServerURL", "http://0.0.0.0:3000")
@@ -38,6 +46,7 @@ func TestVerifySignature(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 }
+*/
 
 func TestFetchLeavesByRange(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")

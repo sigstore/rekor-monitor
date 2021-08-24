@@ -16,17 +16,6 @@
 package polling
 
 import (
-	"crypto"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/pem"
-	"errors"
-
-	tclient "github.com/google/trillian/client"
-	tcrypto "github.com/google/trillian/crypto"
-	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
-	trilliantypes "github.com/google/trillian/types"
-
 	mirroring "github.com/sigstore/rekor-monitor/mirroring"
 )
 
@@ -78,6 +67,7 @@ func pollPublicKey(hashes map[string]bool, publicKey string) error {
 	return nil
 }
 
+/*
 func PollSTH() error {
 	metadata, err := mirroring.LoadTreeMetadata()
 	if err != nil { // if metadata isn't saved properly (or at all)
@@ -165,3 +155,4 @@ func PollSTH() error {
 
 	return nil
 }
+*/
