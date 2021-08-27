@@ -1,19 +1,5 @@
-#
-# Copyright 2021 The Sigstore Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 ---
+
 - name: install docker dependencies
   apt: name=docker.io state=present
 
@@ -26,9 +12,64 @@
     dest: /usr/bin/k0s
     mode: '0755'
 
-- name: install k0s
+- name: install k0s 
   shell:
     cmd: k0s install controller --single
 
 - name: start and enable the k0s service
   service: name=k0scontroller enabled=yes state=started
+
+- name: download k8s
+  become: true
+  become_user: root
+  shell:
+    cmd: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+- name: install k8s
+  become: true
+  become_user: root
+  shell:
+    cmd: install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+- name: update machine
+  become: true
+  become_user: root
+  shell:
+    cmd: apt update
+    
+
+- name: install gnupg
+  become: true
+  become_user: root
+  apt:
+    name: gnupg
+    state: present
+
+- name: key command
+  become: true
+  become_user: root
+  ansible.builtin.apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: 3EFE0E0A2F2F60AA
+  
+- name: debian file echo plus tee
+  become: true
+  become_user: root
+  shell:
+    cmd: echo "deb http://ppa.launchpad.net/tektoncd/cli/ubuntu eoan main"|tee /etc/apt/sources.list.d/tektoncd-ubuntu-cli.list
+
+- name: update again
+  become: true
+  become_user: root
+  shell:
+    cmd: apt update
+
+- name: install tekton
+  become: true
+  become_user: root
+  shell:
+    cmd: apt-get install -y tektoncd-cli
+
+
+
+
