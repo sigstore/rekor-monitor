@@ -31,6 +31,27 @@ func TestVerifySignedTreeHead(t *testing.T) {
 	}
 }
 
+func TestVerifyConsistencyProof(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+
+	logInfo, err := GetLogInfo()
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	// Pass in latest tree size witnessed; For now, use current tree size
+	logProof, err := GetLogProof(logInfo.TreeSize)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	if VerifyConsistencyProof(logInfo.RootHash, logProof) {
+		t.Log("Root Hash Consistency Verified.")
+	} else {
+		t.Log("Root Hash Inconsistency!")
+	}
+}
+
 func TestFetchLeavesByRange(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
 	viper.Set("tree_file_dir", ".tree")
