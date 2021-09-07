@@ -30,6 +30,7 @@ import (
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
@@ -88,6 +89,42 @@ func GetLogInfo() (*models.LogInfo, error) {
 		return nil, err
 	}
 	return logInfoResp.GetPayload(), nil
+}
+
+func GetLogProof(firstSize *int64) (*models.ConsistencyProof, error) {
+	rekorServerURL := viper.GetString("rekorServerURL")
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	logInfo, err := GetLogInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	params := tlog.NewGetLogProofParams()
+	if *firstSize > 1 {
+		params.FirstSize = firstSize
+	}
+	params.LastSize = *logInfo.TreeSize
+
+	logProofResp, err := rekorClient.Tlog.GetLogProof(params)
+	if err != nil {
+		return nil, err
+	}
+	return logProofResp.GetPayload(), nil
+}
+
+func VerifyConsistencyProof(rootHash *string, logProof *models.ConsistencyProof) bool {
+	if len(logProof.Hashes) == 0 {
+		if *rootHash == *logProof.RootHash {
+			return true
+		} else {
+			return false
+		}
+	}
+	return *rootHash == logProof.Hashes[0]
 }
 
 func VerifySignedTreeHead() error {
