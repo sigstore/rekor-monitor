@@ -13,8 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: default
+.PHONY: test
 
-default:
+default: test
+
+test:
+	go test ./...
+
+build:
 	go build -o . ./...
 	gofmt -d .
