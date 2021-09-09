@@ -40,6 +40,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const rekorServerURL = "https://api.sigstore.dev"
+
 type getCmdOutput struct {
 	Body           types.EntryImpl
 	LogIndex       int
@@ -59,15 +61,7 @@ type queueElement struct {
 	depth int64
 }
 
-func GetPublicKey() (string, error) {
-	// Initialize Rekor client
-	rekorServerURL := viper.GetString("rekorServerURL")
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return "", err
-	}
-
-	// Get Rekor public key
+func GetPublicKey(rekorClient *gclient.Rekor) (string, error) {
 	pubkeyResp, err := rekorClient.Pubkey.GetPublicKey(nil)
 	if err != nil {
 		return "", err
@@ -75,15 +69,7 @@ func GetPublicKey() (string, error) {
 	return pubkeyResp.Payload, nil
 }
 
-func GetLogInfo() (*models.LogInfo, error) {
-	// Initialize Rekor client
-	rekorServerURL := viper.GetString("rekorServerURL")
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get log info
+func GetLogInfo(rekorClient *gclient.Rekor) (*models.LogInfo, error) {
 	logInfoResp, err := rekorClient.Tlog.GetLogInfo(nil)
 	if err != nil {
 		return nil, err
@@ -91,23 +77,12 @@ func GetLogInfo() (*models.LogInfo, error) {
 	return logInfoResp.GetPayload(), nil
 }
 
-func GetLogProof(firstSize *int64) (*models.ConsistencyProof, error) {
-	rekorServerURL := viper.GetString("rekorServerURL")
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return nil, err
-	}
-
-	logInfo, err := GetLogInfo()
-	if err != nil {
-		return nil, err
-	}
-
+func GetLogProof(rekorClient *gclient.Rekor, firstSize, lastSize *int64) (*models.ConsistencyProof, error) {
 	params := tlog.NewGetLogProofParams()
 	if *firstSize > 1 {
 		params.FirstSize = firstSize
 	}
-	params.LastSize = *logInfo.TreeSize
+	params.LastSize = *lastSize
 
 	logProofResp, err := rekorClient.Tlog.GetLogProof(params)
 	if err != nil {
@@ -116,19 +91,13 @@ func GetLogProof(firstSize *int64) (*models.ConsistencyProof, error) {
 	return logProofResp.GetPayload(), nil
 }
 
-func VerifyConsistencyProof(rootHash *string, logProof *models.ConsistencyProof) bool {
-	if len(logProof.Hashes) == 0 {
-		if *rootHash == *logProof.RootHash {
-			return true
-		} else {
-			return false
-		}
-	}
-	return *rootHash == logProof.Hashes[0]
-}
-
 func VerifySignedTreeHead() error {
-	logInfo, err := GetLogInfo()
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
+	if err != nil {
+		return err
+	}
+
+	logInfo, err := GetLogInfo(rekorClient)
 	if err != nil {
 		return err
 	}
@@ -139,7 +108,7 @@ func VerifySignedTreeHead() error {
 	}
 
 	// Get Rekor public key
-	pubkey, err := GetPublicKey()
+	pubkey, err := GetPublicKey(rekorClient)
 	if err != nil {
 		return err
 	}
@@ -164,6 +133,50 @@ func VerifySignedTreeHead() error {
 		return errors.New("signature on tree head did not verify")
 	}
 
+	return nil
+}
+
+func ComputeNewRootHash(oldRootHash string, logProof *models.ConsistencyProof) (string, error) {
+	newRootHash, err := hex.DecodeString(oldRootHash)
+	if err != nil {
+		return "", err
+	}
+
+	for _, hashStr := range logProof.Hashes {
+		hash, err := hex.DecodeString(hashStr)
+		if err != nil {
+			return "", err
+		}
+		newRootHash = rfc6962.DefaultHasher.HashChildren(newRootHash, hash)
+	}
+	return hex.EncodeToString(newRootHash), nil
+}
+
+func VerifyLogConsistency(oldSize int64, oldRootHash string) error {
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
+	if err != nil {
+		return err
+	}
+
+	logInfo, err := GetLogInfo(rekorClient)
+	if err != nil {
+		return err
+	}
+
+	logProof, err := GetLogProof(rekorClient, &oldSize, logInfo.TreeSize)
+	if err != nil {
+		return err
+	}
+
+	computedNewRootHash, err := ComputeNewRootHash(oldRootHash, logProof)
+	if err != nil {
+		return err
+	}
+
+	// Compare it against currently advertised new root hash
+	if computedNewRootHash != *logInfo.RootHash {
+		return errors.New("VerifyLogConsistency: Inconsistency in root hash")
+	}
 	return nil
 }
 
