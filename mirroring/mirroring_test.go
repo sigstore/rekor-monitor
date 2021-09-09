@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sigstore/rekor/pkg/client"
 	"github.com/spf13/viper"
 )
 
@@ -31,24 +32,21 @@ func TestVerifySignedTreeHead(t *testing.T) {
 	}
 }
 
-func TestVerifyConsistencyProof(t *testing.T) {
+func TestVerifyLogConsistency(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
-
-	logInfo, err := GetLogInfo()
+	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 
-	// Pass in latest tree size witnessed; For now, use current tree size
-	logProof, err := GetLogProof(logInfo.TreeSize)
+	firstEntry, err := GetLogEntryData(0, rekorClient)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 
-	if VerifyConsistencyProof(logInfo.RootHash, logProof) {
-		t.Log("Root Hash Consistency Verified.")
-	} else {
-		t.Log("Root Hash Inconsistency!")
+	err = VerifyLogConsistency(1, firstEntry.MerkleTreeHash)
+	if err != nil {
+		t.Errorf("%s\n", err)
 	}
 }
 
