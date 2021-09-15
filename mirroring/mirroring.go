@@ -26,6 +26,7 @@ import (
 	"errors"
 
 	"github.com/go-openapi/runtime"
+	"github.com/google/trillian/merkle/logverifier"
 	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
@@ -136,22 +137,6 @@ func VerifySignedTreeHead() error {
 	return nil
 }
 
-func ComputeNewRootHash(oldRootHash string, logProof *models.ConsistencyProof) (string, error) {
-	newRootHash, err := hex.DecodeString(oldRootHash)
-	if err != nil {
-		return "", err
-	}
-
-	for _, hashStr := range logProof.Hashes {
-		hash, err := hex.DecodeString(hashStr)
-		if err != nil {
-			return "", err
-		}
-		newRootHash = rfc6962.DefaultHasher.HashChildren(newRootHash, hash)
-	}
-	return hex.EncodeToString(newRootHash), nil
-}
-
 func VerifyLogConsistency(oldSize int64, oldRootHash string) error {
 	rekorClient, err := client.GetRekorClient(rekorServerURL)
 	if err != nil {
@@ -168,14 +153,72 @@ func VerifyLogConsistency(oldSize int64, oldRootHash string) error {
 		return err
 	}
 
-	computedNewRootHash, err := ComputeNewRootHash(oldRootHash, logProof)
+	oldRoot, err := hex.DecodeString(oldRootHash)
 	if err != nil {
 		return err
 	}
 
-	// Compare it against currently advertised new root hash
-	if computedNewRootHash != *logInfo.RootHash {
-		return errors.New("VerifyLogConsistency: Inconsistency in root hash")
+	newRoot, err := hex.DecodeString(*logInfo.RootHash)
+	if err != nil {
+		return err
+	}
+
+	proofs := make([][]byte, len(logProof.Hashes))
+	for i, h := range logProof.Hashes {
+		hash, err := hex.DecodeString(h)
+		if err != nil {
+			return err
+		}
+		proofs[i] = hash
+	}
+
+	verifier := logverifier.New(rfc6962.DefaultHasher)
+	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRoot, newRoot, proofs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func VerifyLogInclusion(entryUUID string) error {
+	rekorClient, err := client.GetRekorClient(rekorServerURL)
+	if err != nil {
+		return err
+	}
+
+	params := entries.NewGetLogEntryByUUIDParams()
+	params.EntryUUID = entryUUID
+	resp, err := rekorClient.Entries.GetLogEntryByUUID(params)
+	if err != nil {
+		return err
+	}
+	entry := resp.GetPayload()[entryUUID]
+
+	treeSize := entry.Verification.InclusionProof.TreeSize
+
+	proof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
+	for i, hash := range entry.Verification.InclusionProof.Hashes {
+		h, err := hex.DecodeString(hash)
+		if err != nil {
+			return err
+		}
+		proof[i] = h
+	}
+
+	root, err := hex.DecodeString(*entry.Verification.InclusionProof.RootHash)
+	if err != nil {
+		return err
+	}
+
+	leafHash, err := hex.DecodeString(entryUUID)
+	if err != nil {
+		return err
+	}
+
+	verifier := logverifier.New(rfc6962.DefaultHasher)
+	err = verifier.VerifyInclusionProof(*entry.LogIndex, *treeSize, proof, root, leafHash)
+	if err != nil {
+		return err
 	}
 	return nil
 }

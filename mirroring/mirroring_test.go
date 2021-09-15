@@ -39,12 +39,30 @@ func TestVerifyLogConsistency(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 
-	firstEntry, err := GetLogEntryData(0, rekorClient)
+	entry, err := GetLogEntryData(0, rekorClient)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 
-	err = VerifyLogConsistency(1, firstEntry.MerkleTreeHash)
+	err = VerifyLogConsistency(1, entry.MerkleTreeHash)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+}
+
+func TestVerifyLogInclusion(t *testing.T) {
+	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	entry, err := GetLogEntryData(47906, rekorClient)
+	if err != nil {
+		panic(err)
+	}
+
+	err = VerifyLogInclusion(entry.MerkleTreeHash)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
