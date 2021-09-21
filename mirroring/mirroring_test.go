@@ -27,7 +27,22 @@ import (
 
 func TestVerifySignedTreeHead(t *testing.T) {
 	viper.Set("rekorServerURL", "https://api.sigstore.dev")
-	if err := VerifySignedTreeHead(); err != nil {
+	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	logInfo, err := GetLogInfo(rekorClient)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	pubkey, err := GetPublicKey(rekorClient)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	if err := VerifySignedTreeHead(logInfo, pubkey); err != nil {
 		t.Errorf("%s\n", err)
 	}
 }
@@ -44,7 +59,7 @@ func TestVerifyLogConsistency(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 
-	err = VerifyLogConsistency(1, entry.MerkleTreeHash)
+	_, _, err = VerifyLogConsistency(rekorClient, 1, entry.MerkleTreeHash)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
@@ -62,7 +77,7 @@ func TestVerifyLogInclusion(t *testing.T) {
 		panic(err)
 	}
 
-	err = VerifyLogInclusion(entry.MerkleTreeHash)
+	err = VerifyLogInclusion(rekorClient, entry.MerkleTreeHash)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
