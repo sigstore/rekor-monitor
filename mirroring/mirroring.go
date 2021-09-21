@@ -41,8 +41,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-const rekorServerURL = "https://api.sigstore.dev"
-
 type getCmdOutput struct {
 	Body           types.EntryImpl
 	LogIndex       int
@@ -92,25 +90,9 @@ func GetLogProof(rekorClient *gclient.Rekor, firstSize, lastSize *int64) (*model
 	return logProofResp.GetPayload(), nil
 }
 
-func VerifySignedTreeHead() error {
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return err
-	}
-
-	logInfo, err := GetLogInfo(rekorClient)
-	if err != nil {
-		return err
-	}
-
+func VerifySignedTreeHead(logInfo *models.LogInfo, pubkey string) error {
 	sth := util.SignedCheckpoint{}
 	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-		return err
-	}
-
-	// Get Rekor public key
-	pubkey, err := GetPublicKey(rekorClient)
-	if err != nil {
 		return err
 	}
 
@@ -137,37 +119,32 @@ func VerifySignedTreeHead() error {
 	return nil
 }
 
-func VerifyLogConsistency(oldSize int64, oldRootHash string) error {
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return err
-	}
-
+func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash string) (int64, string, error) {
 	logInfo, err := GetLogInfo(rekorClient)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 
 	logProof, err := GetLogProof(rekorClient, &oldSize, logInfo.TreeSize)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 
 	oldRoot, err := hex.DecodeString(oldRootHash)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 
 	newRoot, err := hex.DecodeString(*logInfo.RootHash)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 
 	proofs := make([][]byte, len(logProof.Hashes))
 	for i, h := range logProof.Hashes {
 		hash, err := hex.DecodeString(h)
 		if err != nil {
-			return err
+			return 0, "", err
 		}
 		proofs[i] = hash
 	}
@@ -175,17 +152,12 @@ func VerifyLogConsistency(oldSize int64, oldRootHash string) error {
 	verifier := logverifier.New(rfc6962.DefaultHasher)
 	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRoot, newRoot, proofs)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
-	return nil
+	return *logInfo.TreeSize, hex.EncodeToString(newRoot), nil
 }
 
-func VerifyLogInclusion(entryUUID string) error {
-	rekorClient, err := client.GetRekorClient(rekorServerURL)
-	if err != nil {
-		return err
-	}
-
+func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
 	params := entries.NewGetLogEntryByUUIDParams()
 	params.EntryUUID = entryUUID
 	resp, err := rekorClient.Entries.GetLogEntryByUUID(params)
