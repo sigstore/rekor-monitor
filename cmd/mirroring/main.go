@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"log/syslog"
 	"os"
 	"strconv"
 	"strings"
@@ -80,11 +79,11 @@ func main() {
 	flag.Parse()
 
 	// Initialize system logger
-	syslogger, err := syslog.New(syslog.LOG_INFO, "rekor-monitor")
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.SetOutput(syslogger)
+	// syslogger, err := syslog.New(syslog.LOG_INFO, "rekor-monitor")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.SetOutput(syslogger)
 
 	// Initialize a rekor client
 	rekorClient, err := client.GetRekorClient(*serverURL)
