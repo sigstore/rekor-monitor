@@ -13,17 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.16-alpine
-
-WORKDIR /build
-
+FROM golang:1.16-alpine AS builder
+WORKDIR /builder
 COPY go.mod ./
 COPY go.sum ./
-
 RUN mkdir mirroring
 COPY ./mirroring/*.go ./mirroring
 COPY ./cmd/mirroring/main.go ./
+RUN go build -o build/mirroring
 
-RUN go build -o /mirroring
-
+FROM alpine
+COPY --from=builder /builder/build/mirroring ./
 ENTRYPOINT [ "/mirroring" ]
