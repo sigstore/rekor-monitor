@@ -23,5 +23,6 @@ COPY ./cmd/mirroring/main.go ./
 RUN go build -o build/mirroring
 
 FROM alpine
+WORKDIR /monitor
 COPY --from=builder /builder/build/mirroring ./
-ENTRYPOINT [ "/mirroring" ]
+ENTRYPOINT [ "/monitor/mirroring" ]
