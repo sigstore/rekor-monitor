@@ -16,15 +16,12 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sigstore/rekor-monitor/mirroring"
@@ -37,36 +34,7 @@ const (
 	logInfoFileName      = "logInfo.txt"
 )
 
-// readLogInfo reads and loads the latest monitored log's tree size
-// and root hash from the specified text file.
-func readLogInfo(treeSize *int64, root *string) error {
-	// Each line in the file is one snapshot data of the log
-	file, err := os.Open(logInfoFileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Read line by line and get the last line
-	scanner := bufio.NewScanner(file)
-	line := ""
-	for scanner.Scan() {
-		line = scanner.Text()
-	}
-
-	// Each line is in the format of space-separeted info: "treeSize rootHash"
-	parsed := strings.Split(line, " ")
-	*treeSize, err = strconv.ParseInt(parsed[0], 10, 64)
-	if err != nil {
-		return err
-	}
-	*root = parsed[1]
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return nil
-}
+var inconsistencyErr *mirroring.LogInconsistencyError
 
 // This main function performs a periodic root hash consistency check.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
@@ -77,13 +45,6 @@ func main() {
 	interval := flag.Int64("interval", 5, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	flag.Parse()
-
-	// Initialize system logger
-	// syslogger, err := syslog.New(syslog.LOG_INFO, "rekor-monitor")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.SetOutput(syslogger)
 
 	// Initialize a rekor client
 	rekorClient, err := client.GetRekorClient(*serverURL)
@@ -98,7 +59,7 @@ func main() {
 
 	if _, err := os.Stat(*logInfoFile); err == nil {
 		// File containing old snapshot exists
-		err := readLogInfo(&treeSize, &root)
+		treeSize, root, err = mirroring.ReadLogInfo(logInfoFileName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -131,7 +92,7 @@ func main() {
 	// Open file to create/append new snapshots
 	file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 
@@ -139,15 +100,17 @@ func main() {
 	if first {
 		_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
 		if err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
 	}
 
 	for {
 		// Check for root hash consistency
 		newTreeSize, newRoot, err := mirroring.VerifyLogConsistency(rekorClient, treeSize, root)
-		if err != nil {
-			log.Println(err)
+		if errors.As(err, &inconsistencyErr) {
+			log.Printf("%v\n", err)
+		} else if err != nil {
+			log.Fatal(err)
 		} else {
 			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newTreeSize, newRoot)
 		}

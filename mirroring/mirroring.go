@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
+	"fmt"
 
 	"github.com/go-openapi/runtime"
 	"github.com/google/trillian/merkle/logverifier"
@@ -58,6 +59,14 @@ type Artifact struct {
 type queueElement struct {
 	hash  []byte
 	depth int64
+}
+
+type LogInconsistencyError struct {
+	Err error
+}
+
+func (e *LogInconsistencyError) Error() string {
+	return fmt.Sprintf("Log consistency check failed: %v", e.Err)
 }
 
 func GetPublicKey(rekorClient *gclient.Rekor) (string, error) {
@@ -152,7 +161,7 @@ func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash
 	verifier := logverifier.New(rfc6962.DefaultHasher)
 	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRoot, newRoot, proofs)
 	if err != nil {
-		return 0, "", err
+		return 0, "", &LogInconsistencyError{err}
 	}
 	return *logInfo.TreeSize, hex.EncodeToString(newRoot), nil
 }
