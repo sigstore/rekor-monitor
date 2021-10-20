@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package monitor;
+
+option go_package = "github.com/sigstore/rekor-monitor/internal/monitorGRPC";
+
+service MonitorService {
+    rpc GetLastSnapshot (Request) returns (Response);
+}
+
+message Request {
+}
+
+message Response {
+    int64 treeSize = 1;
+    string root = 2;
+}
