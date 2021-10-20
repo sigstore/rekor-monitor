@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	logInfoFileName = "logInfo.txt"
+	logInfoFileName = "/monitor/logInfo.txt"
 )
 
 type Server struct {
