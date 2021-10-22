@@ -25,6 +25,7 @@ const (
 	logInfoFileName = "/monitor/logInfo.txt"
 )
 
+// Monitor gRPC server implementation
 type Server struct {
 	UnimplementedMonitorServiceServer
 }
@@ -33,6 +34,7 @@ func NewServer() *Server {
 	return &Server{}
 }
 
+// RPC that returns latest log info that has been verified by the monitor
 func (s *Server) GetLastSnapshot(ctx context.Context, request *Request) (*Response, error) {
 	treeSize, root, err := mirroring.ReadLogInfo(logInfoFileName)
 	if err != nil {

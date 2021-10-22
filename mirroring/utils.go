@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-// readLogInfo reads and loads the latest monitored log's tree size
+// ReadLogInfo reads and loads the latest monitored log's tree size
 // and root hash from the specified text file.
 func ReadLogInfo(filename string) (int64, string, error) {
 	// Each line in the file is one snapshot data of the log
