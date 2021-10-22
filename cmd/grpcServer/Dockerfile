@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Apply multi-stage build
 FROM golang:alpine AS builder
 WORKDIR /builder
 
+# Copy go source files for build
 COPY go.mod ./
 COPY go.sum ./
 COPY cmd/grpcServer/main.go ./
-
-ADD ./internal ./internal
-ADD ./mirroring ./mirroring 
+COPY ./internal ./internal
+COPY ./mirroring ./mirroring 
 
 RUN go build -o grpcServer
 
+# Final image only contains go executable with alpine base image
 FROM alpine
 WORKDIR /monitor-grpc-service
 COPY --from=builder /builder/grpcServer ./

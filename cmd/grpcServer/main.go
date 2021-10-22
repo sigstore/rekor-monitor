@@ -26,7 +26,10 @@ import (
 )
 
 func main() {
-	port := os.Getenv("GRPC_PORT")
+	port := "9000"
+	if val, ok := os.LookupEnv("GRPC_PORT"); ok {
+		port = val
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
