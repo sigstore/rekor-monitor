@@ -98,6 +98,7 @@ func main() {
 
 	// If this is the very first snapshot within the monitor, save the snapshot
 	if first {
+		log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", treeSize, root)
 		_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
 		if err != nil {
 			log.Fatal(err)
