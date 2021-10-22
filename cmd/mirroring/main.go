@@ -111,13 +111,13 @@ func main() {
 			log.Printf("%v\n", err)
 		} else if err != nil {
 			log.Fatal(err)
-		} else {
-			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newTreeSize, newRoot)
 		}
 
 		// Append new, consistency-checked snapshots
 		if newTreeSize != treeSize {
-			_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
+			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newTreeSize, newRoot)
+
+			_, err = file.WriteString(fmt.Sprintf("%d %s\n", newTreeSize, newRoot))
 			if err != nil {
 				log.Println(err)
 			}
