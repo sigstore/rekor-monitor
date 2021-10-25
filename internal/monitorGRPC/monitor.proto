@@ -20,13 +20,13 @@ package monitor;
 option go_package = "github.com/sigstore/rekor-monitor/internal/monitorGRPC";
 
 service MonitorService {
-    rpc GetLastSnapshot (Request) returns (Response);
+    rpc GetLastSnapshot (LastSnapshotRequest) returns (LastSnapshotResponse);
 }
 
-message Request {
+message LastSnapshotRequest {
 }
 
-message Response {
+message LastSnapshotResponse {
     int64 treeSize = 1;
     string root = 2;
 }

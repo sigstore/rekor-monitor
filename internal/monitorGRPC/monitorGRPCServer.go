@@ -35,10 +35,10 @@ func NewServer() *Server {
 }
 
 // RPC that returns latest log info that has been verified by the monitor
-func (s *Server) GetLastSnapshot(ctx context.Context, request *Request) (*Response, error) {
+func (s *Server) GetLastSnapshot(ctx context.Context, request *LastSnapshotRequest) (*LastSnapshotResponse, error) {
 	treeSize, root, err := mirroring.ReadLogInfo(logInfoFileName)
 	if err != nil {
-		return &Response{}, err
+		return &LastSnapshotResponse{}, err
 	}
-	return &Response{TreeSize: treeSize, Root: root}, nil
+	return &LastSnapshotResponse{TreeSize: treeSize, Root: root}, nil
 }
