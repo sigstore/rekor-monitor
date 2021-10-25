@@ -31,3 +31,4 @@ FROM alpine
 WORKDIR /monitor-grpc-service
 COPY --from=builder /builder/grpcServer ./
 ENTRYPOINT [ "/monitor-grpc-service/grpcServer" ]
+EXPOSE 9000
