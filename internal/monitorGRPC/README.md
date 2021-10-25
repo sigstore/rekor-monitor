@@ -8,10 +8,10 @@ Provides remote procedure calls that other future services can utilize
 
 ## Defined message types
 
-### `Request`
+### `LastSnapshotRequest`
 - Empty input payload to `GetLastSnapshot` call
 
-### `Response`
+### `LastSnapshotResponse`
 - Response payload from `GetLastSnapshot` containing tree size and root hash of last verified log info
 
 ## Compile and Generate gRPC code
