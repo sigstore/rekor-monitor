@@ -23,11 +23,9 @@ func iterate(database *sql.DB) {
     var id int
     var firstname string
     var lastname string
-    var numRows int
     for rows.Next() {
         rows.Scan(&id, &firstname, &lastname)
         fmt.Println(strconv.Itoa(id) + ": " + firstname + " " + lastname)
-        numRows = id
     }
 }
 
@@ -39,7 +37,7 @@ func main() {
     // for num.Next() {
     //     fmt.Println("NUM: " + strconv.Itoa(int(num)))
     // }
-    // numRows, _ := database.Query("SELECT * FROM    TABLEWHERE   ID = (SELECT MAX(ID)  FROM TABLE);") //("SELECT COUNT(*) FROM people")
+    numRows, _ := database.Query("SELECT index FROM people ORDER BY index DESC LIMIT 1")  //("SELECT COUNT(*) FROM people")
     fmt.Println(numRows)
 
 }
