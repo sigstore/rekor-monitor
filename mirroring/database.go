@@ -1,43 +1,52 @@
-package main
-
+package mirroring
 import (
-    "database/sql"
-    "fmt"
-    "strconv"
+	"database/sql"
+	"fmt"
+	"log"
+	"strconv"
 
-    _ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
-
-func initTable(database *sql.DB) {
-    statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY, firstname TEXT, lastname TEXT)") //sql query string (if no db)
-    statement.Exec() 
+type data struct {
+    ID string
+    payload string
 }
 
-func insert(database *sql.DB) {
-    statement, _ = database.Prepare("INSERT INTO people (firstname, lastname) VALUES (?, ?)")
-    statement.Exec("Kim", "K")
-}
-
-func iterate(database *sql.DB) {
-    rows, _ := database.Query("SELECT id, firstname, lastname FROM people")
-    var id int
-    var firstname string
-    var lastname string
-    for rows.Next() {
-        rows.Scan(&id, &firstname, &lastname)
-        fmt.Println(strconv.Itoa(id) + ": " + firstname + " " + lastname)
+func initTable(database *sql.DB) error{
+    statement, err := database.Exec("CREATE TABLE entries (idx INTEGER PRIMARY KEY NOT NULL, payload TEXT)") //sql query string (if no db)
+    if(err != nil){
+        log.Printf("Error %s when creating product table", err)
+        return err
     }
+    no, _ := statement.RowsAffected()
+    log.Printf("rows affected %d\n", no)
+    return nil
 }
 
-func main() {
-    database, _ := sql.Open("sqlite3", "./nraboy.db") //open database
-    initTable(database)
-    // var num int
-    // num, _ := database.Query("SELECT * FROM" + "./nraboy.db")
-    // for num.Next() {
-    //     fmt.Println("NUM: " + strconv.Itoa(int(num)))
-    // }
-    numRows, _ := database.Query("SELECT index FROM people ORDER BY index DESC LIMIT 1")  //("SELECT COUNT(*) FROM people")
-    fmt.Println(numRows)
+func insert(db *sql.DB, d data) error {
+    query := "INSERT INTO entries (idx, payload) VALUES (?, ?)"
+    statement, err := db.Prepare(query)
+    res, err := statement.Exec(d.ID, d.payload)
+    if(err != nil){
+        log.Printf("Error %s when finding rows affected", err)
+        return err
+    }
+    rows, _ := res.RowsAffected()
+    log.Printf("%d products created ", rows)
+    return nil
+}
 
+func getLatest(database *sql.DB) (int, error){
+    rows, err := database.Query("SELECT * FROM entries ORDER BY idx DESC LIMIT 1")
+    if(err != nil){
+        log.Printf("Error %s when retrieving rows", err)
+        return -1, err
+    }
+    var id int
+    var payload string
+    for rows.Next() {
+        rows.Scan(&id, &payload)
+        fmt.Println(strconv.Itoa(id) + ": " + payload)
+    }
+    return id, nil
 }
