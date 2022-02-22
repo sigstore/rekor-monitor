@@ -23,17 +23,17 @@ func initTable(database *sql.DB) error{
     return nil
 }
 
-func insert(db *sql.DB, d data) error {
+func insert(db *sql.DB, d data) (int64, error) {
     query := "INSERT INTO entries (idx, payload) VALUES (?, ?)"
     statement, err := db.Prepare(query)
     res, err := statement.Exec(d.ID, d.payload)
     if(err != nil){
         log.Printf("Error %s when finding rows affected", err)
-        return err
+        return -1, err
     }
     rows, _ := res.RowsAffected()
     log.Printf("%d products created ", rows)
-    return nil
+    return rows, nil
 }
 
 func getLatest(database *sql.DB) (int, error){

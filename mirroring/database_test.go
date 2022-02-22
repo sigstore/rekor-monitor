@@ -29,6 +29,7 @@ import (
 	"database/sql"
 )
 
+
 func TestGetLatestIndex(t *testing.T) {
 	database, _ := sql.Open("sqlite3", "./test.db") //open database
     id, err := getLatest(database)
@@ -41,3 +42,17 @@ func TestGetLatestIndex(t *testing.T) {
 }
 
 
+func TestInsert(t *testing.T){
+	database, _ := sql.Open("sqlite3", "./test.db") 
+	d :=  data{
+		ID: "5",
+		payload: "test payload",
+	}
+	rows, err := insert(database, d)
+	if(err != nil){
+		t.Errorf("%s\n", err)
+	}
+	if(rows == -1){
+		t.Errorf("Expected to get a row insert but instead recieved error")
+	}
+}
