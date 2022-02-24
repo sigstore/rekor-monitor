@@ -26,6 +26,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"database/sql"
+	"testing"
+	"encoding/json"
 
 	"github.com/sigstore/rekor-monitor/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
@@ -36,6 +39,40 @@ const (
 	publicRekorServerURL = "https://api.sigstore.dev"
 	logInfoFileName      = "logInfo.txt"
 )
+
+type Payload struct {
+	Attestation     string `json:"Attestation"`    
+	AttestationType string `json:"AttestationType"`
+	Body            Body   `json:"Body"`           
+	LogIndex        int64  `json:"LogIndex"`       
+	IntegratedTime  int64  `json:"IntegratedTime"` 
+	UUID            string `json:"UUID"`           
+	LogID           string `json:"LogID"`          
+}
+
+type Body struct {
+	RekordObj RekordObj `json:"RekordObj"`
+}
+
+type RekordObj struct {
+	Data      Data      `json:"data"`     
+	Signature Signature `json:"signature"`
+}
+
+type Data struct {
+	Hash Hash `json:"hash"`
+}
+
+type Hash struct {
+	Algorithm string `json:"algorithm"`
+	Value     string `json:"value"`    
+}
+
+type Signature struct {
+	Content   string    `json:"content"`  
+	Format    string    `json:"format"`   
+	PublicKey PublicKey `json:"publicKey"`
+}
 
 // readLogInfo reads and loads the latest monitored log's tree size
 // and root hash from the specified text file.
@@ -162,7 +199,30 @@ func main() {
 			treeSize = newTreeSize
 			root = newRoot
 		}
+		
 
+		database, _ := sql.Open("sqlite3", "./test.db") //open database
+		id, stringPay, err := mirroring.getLatest(database)
+		var payload Payload
+		fmt.Println("ID: ", id, "PAYLOAD: ", payload)	
+		
+		if (err != nil){
+			log.Println(err)
+		}
+		if (id != 1999) {
+			log.Println("Expected Result 1999, instead retrieved %d", id)
+		} else {
+			err := json.Unmarshal(stringPay, &payload)
+			
+			if err != nil {
+				log.Println(err)
+			}
+			// if (ptload.)
+		}
+
+		if (payload.Body.RekorObj.Data.Hash.Value != newRoot) {
+			log.Println("New Root hash does not match latest hash in log")
+		}
 		time.Sleep(time.Duration(*interval) * time.Minute)
 	}
 }

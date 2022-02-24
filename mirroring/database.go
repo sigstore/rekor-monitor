@@ -36,11 +36,11 @@ func insert(db *sql.DB, d data) (int64, error) {
     return rows, nil
 }
 
-func getLatest(database *sql.DB) (int, error){
+func getLatest(database *sql.DB) (int, string, error){
     rows, err := database.Query("SELECT * FROM entries ORDER BY idx DESC LIMIT 1")
     if(err != nil){
         log.Printf("Error %s when retrieving rows", err)
-        return -1, err
+        return -1,"/0", err
     }
     var id int
     var payload string
@@ -48,5 +48,5 @@ func getLatest(database *sql.DB) (int, error){
         rows.Scan(&id, &payload)
         fmt.Println(strconv.Itoa(id) + ": " + payload)
     }
-    return id, nil
+    return id,payload, nil
 }
