@@ -50,3 +50,19 @@ func getLatest(database *sql.DB) (int, string, error){
     }
     return id,payload, nil
 }
+
+func getLatestX(database *sql.DB, x int) (*sql.Rows, error) {
+    rows, err := database.Query("SELECT * FROM entries ORDER BY idx DESC LIMIT " + strconv.Itoa(x))
+    if(err != nil){
+        log.Printf("Error %s when retrieving rows", err)
+        return nil, err
+        // return -1,"/0", err
+    }
+    var id int
+    var payload string
+    for rows.Next() {
+        rows.Scan(&id, &payload)
+        fmt.Println(strconv.Itoa(id) + ": " + payload)
+    }
+    return rows, err
+}

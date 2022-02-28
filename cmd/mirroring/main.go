@@ -17,6 +17,8 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,9 +28,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"database/sql"
-	"testing"
-	"encoding/json"
 
 	"github.com/sigstore/rekor-monitor/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
@@ -41,13 +40,13 @@ const (
 )
 
 type Payload struct {
-	Attestation     string `json:"Attestation"`    
+	Attestation     string `json:"Attestation"`
 	AttestationType string `json:"AttestationType"`
-	Body            Body   `json:"Body"`           
-	LogIndex        int64  `json:"LogIndex"`       
-	IntegratedTime  int64  `json:"IntegratedTime"` 
-	UUID            string `json:"UUID"`           
-	LogID           string `json:"LogID"`          
+	Body            Body   `json:"Body"`
+	LogIndex        int64  `json:"LogIndex"`
+	IntegratedTime  int64  `json:"IntegratedTime"`
+	UUID            string `json:"UUID"`
+	LogID           string `json:"LogID"`
 }
 
 type Body struct {
@@ -55,7 +54,7 @@ type Body struct {
 }
 
 type RekordObj struct {
-	Data      Data      `json:"data"`     
+	Data      Data      `json:"data"`
 	Signature Signature `json:"signature"`
 }
 
@@ -65,13 +64,17 @@ type Data struct {
 
 type Hash struct {
 	Algorithm string `json:"algorithm"`
-	Value     string `json:"value"`    
+	Value     string `json:"value"`
 }
 
 type Signature struct {
-	Content   string    `json:"content"`  
-	Format    string    `json:"format"`   
+	Content   string    `json:"content"`
+	Format    string    `json:"format"`
 	PublicKey PublicKey `json:"publicKey"`
+}
+
+type PublicKey struct {
+	Content string `json:"content"`
 }
 
 // readLogInfo reads and loads the latest monitored log's tree size
@@ -199,30 +202,43 @@ func main() {
 			treeSize = newTreeSize
 			root = newRoot
 		}
-		
 
 		database, _ := sql.Open("sqlite3", "./test.db") //open database
 		id, stringPay, err := mirroring.getLatest(database)
 		var payload Payload
-		fmt.Println("ID: ", id, "PAYLOAD: ", payload)	
-		
-		if (err != nil){
+		fmt.Println("currentLastID: ", id, "newTreeSize: ", newTreeSize)
+		if newTreeSize-id != 0 { //last id in our database compared to new tree size
+			mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
+			for mirroring.rows.Next() {
+				mirroring.rows.Scan(&id, &payload)
+				// fmt.Println(strconv.Itoa(id) + ": " + payload)
+				d := mirroring.data{
+					ID:      id,
+					payload: payload,
+				}
+				rows, err := mirroring.insert(database, d)
+				if err != nil {
+					log.Println("%s\n", err)
+				}
+				if rows == -1 {
+					log.Println("Expected to get a row insert but instead recieved error")
+				}
+			}
+		}
+
+		if err != nil {
 			log.Println(err)
 		}
-		if (id != 1999) {
+		if id != 1999 {
 			log.Println("Expected Result 1999, instead retrieved %d", id)
 		} else {
 			err := json.Unmarshal(stringPay, &payload)
-			
+
 			if err != nil {
 				log.Println(err)
 			}
-			// if (ptload.)
 		}
 
-		if (payload.Body.RekorObj.Data.Hash.Value != newRoot) {
-			log.Println("New Root hash does not match latest hash in log")
-		}
 		time.Sleep(time.Duration(*interval) * time.Minute)
 	}
 }

@@ -18,7 +18,8 @@ package mirroring
 import (
 	// "bufio"
 	// "encoding/json"
-	// "fmt"
+	"fmt"
+	"strconv"
 	// "os"
 	"testing"
 
@@ -32,21 +33,29 @@ import (
 
 func TestGetLatestIndex(t *testing.T) {
 	database, _ := sql.Open("sqlite3", "./test.db") //open database
-    id, err := getLatest(database)
+    rows, err := getLatestX(database, 3)
 	if(err != nil){
 		t.Errorf("%s\n", err)
 	}
-	if(id != 1999){
-		t.Errorf("Expected Result 1999, instead retrieved %d", id)
-	}
+	// if(id != 1999){
+	// 	t.Errorf("Expected Result 1999, instead retrieved %d", id)
+	// 	t.Errorf("payload is: %s", stringPay)
+	// }
+	var id int
+    var payload string
+    for rows.Next() {
+        rows.Scan(&id, &payload)
+        fmt.Println(strconv.Itoa(id) + ": " + payload)
+    }
+
 }
 
 
 func TestInsert(t *testing.T){
 	database, _ := sql.Open("sqlite3", "./test.db") 
 	d :=  data{
-		ID: "5",
-		payload: "test payload",
+		ID: "6",
+		payload: "testing",
 	}
 	rows, err := insert(database, d)
 	if(err != nil){
