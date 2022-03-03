@@ -53,11 +53,11 @@ func TestGetLatestIndex(t *testing.T) {
 
 func TestInsert(t *testing.T){
 	database, _ := sql.Open("sqlite3", "./test.db") 
-	d :=  data{
-		ID: "6",
-		payload: "testing",
+	d :=  Data{
+		ID: 8,
+		Payload: "test4",
 	}
-	rows, err := insert(database, d)
+	rows, err := Insert(database, d)
 	if(err != nil){
 		t.Errorf("%s\n", err)
 	}

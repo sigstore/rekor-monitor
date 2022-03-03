@@ -18,7 +18,9 @@ package main
 import (
 	"bufio"
 	"database/sql"
-	"encoding/json"
+
+	// "encoding/json"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -38,6 +40,11 @@ const (
 	publicRekorServerURL = "https://api.sigstore.dev"
 	logInfoFileName      = "logInfo.txt"
 )
+
+// type dataRow struct {
+// 	ID      int64
+// 	payload string
+// }
 
 type Payload struct {
 	Attestation     string `json:"Attestation"`
@@ -203,41 +210,45 @@ func main() {
 			root = newRoot
 		}
 
-		database, _ := sql.Open("sqlite3", "./test.db") //open database
-		id, stringPay, err := mirroring.getLatest(database)
-		var payload Payload
-		fmt.Println("currentLastID: ", id, "newTreeSize: ", newTreeSize)
+		database, _ := sql.Open("sqlite3", "./testMain2.db") //open database
+		id, _, err := mirroring.GetLatest(database)
+		log.Println("currentLastID: ", id, "newTreeSize: ", newTreeSize)
 		if newTreeSize-id != 0 { //last id in our database compared to new tree size
-			mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
-			for mirroring.rows.Next() {
-				mirroring.rows.Scan(&id, &payload)
-				// fmt.Println(strconv.Itoa(id) + ": " + payload)
-				d := mirroring.data{
-					ID:      id,
-					payload: payload,
+			// mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
+			for i := id; i < newTreeSize; i++ {
+				_, payload, _ := mirroring.GetLogEntryByIndex(i, rekorClient)
+				// log.Println("payload value: %s", payload.Body.(string))
+				b, _ := base64.StdEncoding.DecodeString(payload.Body.(string))
+				decodeB := string(b[:])
+				log.Println("ID IS: %d", id)
+				log.Println("payload value: %s", decodeB)
+				// idS := string(id)
+				d := mirroring.Data{
+					ID:      i,
+					Payload: decodeB,
 				}
-				rows, err := mirroring.insert(database, d)
+				_, err := mirroring.Insert(database, d)
 				if err != nil {
 					log.Println("%s\n", err)
 				}
-				if rows == -1 {
-					log.Println("Expected to get a row insert but instead recieved error")
-				}
+				// if rows == -1 {
+				// 	log.Println("Expected to get a row insert but instead recieved error")
+				// }
 			}
 		}
 
-		if err != nil {
-			log.Println(err)
-		}
-		if id != 1999 {
-			log.Println("Expected Result 1999, instead retrieved %d", id)
-		} else {
-			err := json.Unmarshal(stringPay, &payload)
+		// if err != nil {
+		// 	log.Println(err)
+		// }
+		// if id != 1999 {
+		// 	log.Println("Expected Result 1999, instead retrieved %d", id)
+		// } else {
+		// 	err := json.Unmarshal(stringPay, &payload)
 
-			if err != nil {
-				log.Println(err)
-			}
-		}
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 	}
+		// }
 
 		time.Sleep(time.Duration(*interval) * time.Minute)
 	}
