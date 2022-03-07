@@ -210,12 +210,12 @@ func main() {
 			root = newRoot
 		}
 
-		database, _ := sql.Open("sqlite3", "./testMain2.db") //open database
+		database, _ := sql.Open("sqlite3", "./testy.db") //open database
 		id, _, err := mirroring.GetLatest(database)
 		log.Println("currentLastID: ", id, "newTreeSize: ", newTreeSize)
 		if newTreeSize-id != 0 { //last id in our database compared to new tree size
 			// mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
-			for i := id; i < newTreeSize; i++ {
+			for i := id + 1; i < newTreeSize; i++ {
 				_, payload, _ := mirroring.GetLogEntryByIndex(i, rekorClient)
 				// log.Println("payload value: %s", payload.Body.(string))
 				b, _ := base64.StdEncoding.DecodeString(payload.Body.(string))
