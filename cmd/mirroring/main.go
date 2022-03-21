@@ -20,7 +20,7 @@ import (
 	"database/sql"
 
 	// "encoding/json"
-	"encoding/base64"
+	// "encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -218,8 +218,11 @@ func main() {
 			for i := id + 1; i < newTreeSize; i++ {
 				_, payload, _ := mirroring.GetLogEntryByIndex(i, rekorClient)
 				// log.Println("payload value: %s", payload.Body.(string))
-				b, _ := base64.StdEncoding.DecodeString(payload.Body.(string))
-				decodeB := string(b[:])
+				// b, _ := base64.StdEncoding.DecodeString(payload.Body.(string))
+				pay, _ := payload.MarshalBinary()
+				// b, _ := base64.StdEncoding.DecodeString(pay)
+
+				decodeB := string(pay[:])
 				log.Println("ID IS: %d", id)
 				log.Println("payload value: %s", decodeB)
 				// idS := string(id)
