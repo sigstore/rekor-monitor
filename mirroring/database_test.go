@@ -30,11 +30,10 @@ import (
 	"database/sql"
 )
 
-
 func TestGetLatestIndex(t *testing.T) {
 	database, _ := sql.Open("sqlite3", "./test.db") //open database
-    rows, err := getLatestX(database, 3)
-	if(err != nil){
+	rows, err := getLatestX(database, 3)
+	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 	// if(id != 1999){
@@ -42,26 +41,25 @@ func TestGetLatestIndex(t *testing.T) {
 	// 	t.Errorf("payload is: %s", stringPay)
 	// }
 	var id int
-    var payload string
-    for rows.Next() {
-        rows.Scan(&id, &payload)
-        fmt.Println(strconv.Itoa(id) + ": " + payload)
-    }
+	var payload string
+	for rows.Next() {
+		rows.Scan(&id, &payload)
+		fmt.Println(strconv.Itoa(id) + ": " + payload)
+	}
 
 }
 
-
-func TestInsert(t *testing.T){
-	database, _ := sql.Open("sqlite3", "./test.db") 
-	d :=  Data{
-		ID: 8,
+func TestInsert(t *testing.T) {
+	database, _ := sql.Open("sqlite3", "./test.db")
+	d := Data{
+		ID:      8,
 		Payload: "test4",
 	}
 	rows, err := Insert(database, d)
-	if(err != nil){
+	if err != nil {
 		t.Errorf("%s\n", err)
 	}
-	if(rows == -1){
+	if rows == -1 {
 		t.Errorf("Expected to get a row insert but instead recieved error")
 	}
 }

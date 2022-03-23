@@ -41,49 +41,6 @@ const (
 	logInfoFileName      = "logInfo.txt"
 )
 
-// type dataRow struct {
-// 	ID      int64
-// 	payload string
-// }
-
-type Payload struct {
-	Attestation     string `json:"Attestation"`
-	AttestationType string `json:"AttestationType"`
-	Body            Body   `json:"Body"`
-	LogIndex        int64  `json:"LogIndex"`
-	IntegratedTime  int64  `json:"IntegratedTime"`
-	UUID            string `json:"UUID"`
-	LogID           string `json:"LogID"`
-}
-
-type Body struct {
-	RekordObj RekordObj `json:"RekordObj"`
-}
-
-type RekordObj struct {
-	Data      Data      `json:"data"`
-	Signature Signature `json:"signature"`
-}
-
-type Data struct {
-	Hash Hash `json:"hash"`
-}
-
-type Hash struct {
-	Algorithm string `json:"algorithm"`
-	Value     string `json:"value"`
-}
-
-type Signature struct {
-	Content   string    `json:"content"`
-	Format    string    `json:"format"`
-	PublicKey PublicKey `json:"publicKey"`
-}
-
-type PublicKey struct {
-	Content string `json:"content"`
-}
-
 // readLogInfo reads and loads the latest monitored log's tree size
 // and root hash from the specified text file.
 func readLogInfo(treeSize *int64, root *string) error {
@@ -221,15 +178,11 @@ func main() {
 			// mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
 			for i := id + 1 ; i < newTreeSize; i++ {
 				_, payload, _ := mirroring.GetLogEntryByIndex(i, rekorClient)
-				// log.Println("payload value: %s", payload.Body.(string))
-				// b, _ := base64.StdEncoding.DecodeString(payload.Body.(string))
-				pay, _ := payload.MarshalBinary()
-				// b, _ := base64.StdEncoding.DecodeString(pay)
 
+				pay, _ := payload.MarshalBinary()
 				decodeB := string(pay[:])
 				log.Println("ID IS: %d", id)
 				log.Println("payload value: %s", decodeB)
-				// idS := string(id)
 				d := mirroring.Data{
 					ID:      i,
 					Payload: decodeB,
@@ -238,24 +191,8 @@ func main() {
 				if err != nil {
 					log.Println("%s\n", err)
 				}
-				// if rows == -1 {
-				// 	log.Println("Expected to get a row insert but instead recieved error")
-				// }
 			}
 		}
-
-		// if err != nil {
-		// 	log.Println(err)
-		// }
-		// if id != 1999 {
-		// 	log.Println("Expected Result 1999, instead retrieved %d", id)
-		// } else {
-		// 	err := json.Unmarshal(stringPay, &payload)
-
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 	}
-		// }
 
 		time.Sleep(time.Duration(*interval) * time.Minute)
 	}
