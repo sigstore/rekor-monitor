@@ -76,6 +76,7 @@ func readLogInfo(treeSize *int64, root *string) error {
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
 func main() {
+	os.Setenv("dbName", "./ourDB.db")
 	// Command-line flags that are parameters to the mirroring job
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
 	interval := flag.Int64("interval", 5, "Length of interval between each periodical consistency check")
@@ -166,14 +167,19 @@ func main() {
 			treeSize = newTreeSize
 			root = newRoot
 		}
+		// log.Println("NEWDB: ", "root:"+os.Getenv("mySQLPassword")+"@tcp("+os.Getenv("mySQLIPAddress")+":"+ os.Getenv("mySQLIPPort") +")/")
+		database, err := sql.Open("sqlite3", os.Getenv("dbName")) //open database
+		if err != nil {
+			log.Printf("Error %s when openeing DB\n", err)
+		}
+		
+		mirroring.InitTable(database)
 
-		database, _ := sql.Open("sqlite3", "./testy2.db") //open database
 		id, _, err := mirroring.GetLatest(database)
 		if (id == -1) {
 			id = 0
 		}
 
-		log.Println("currentLastID: ", id, "newTreeSize: ", newTreeSize)
 		if newTreeSize-id != 0 { //last id in our database compared to new tree size
 			// mirroring.rows, err = mirroring.getLatestX(database, (newTreeSize - id))
 			for i := id + 1 ; i < newTreeSize; i++ {
@@ -182,7 +188,8 @@ func main() {
 				pay, _ := payload.MarshalBinary()
 				decodeB := string(pay[:])
 				log.Println("ID IS: %d", id)
-				log.Println("payload value: %s", decodeB)
+				// log.Println("payload value: %s", decodeB)
+				log.Println("index is: ", i)
 				d := mirroring.Data{
 					ID:      i,
 					Payload: decodeB,
