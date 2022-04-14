@@ -14,7 +14,7 @@ type Data struct {
 	Payload string
 }
 
-func initTable(database *sql.DB) error {
+func InitTable(database *sql.DB) error {
 	//sql query string (if no db)
 	statement, err := database.Exec("CREATE TABLE entries (idx INTEGER PRIMARY KEY NOT NULL, payload TEXT)") 
 	if err != nil {

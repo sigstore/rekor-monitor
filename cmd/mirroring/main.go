@@ -76,6 +76,7 @@ func readLogInfo(treeSize *int64, root *string) error {
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
 func main() {
+	fmt.Println("CODE STARTED")
 	os.Setenv("dbName", "./ourDB.db")
 	// Command-line flags that are parameters to the mirroring job
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
