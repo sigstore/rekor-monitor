@@ -7,7 +7,7 @@ import (
 )
 
 var (
-    listen = flag.String("listen", ":9090", "listen address")
+    listen = flag.String("listen", ":8080", "listen address")
 )
 
 func main() {

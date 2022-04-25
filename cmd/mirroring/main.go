@@ -76,7 +76,7 @@ func readLogInfo(treeSize *int64, root *string) error {
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
 func main() {
-	fmt.Println("CODE STARTED")
+	fmt.Println("CODE START")
 	os.Setenv("dbName", "./ourDB.db")
 	// Command-line flags that are parameters to the mirroring job
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
@@ -129,18 +129,17 @@ func main() {
 		treeSize = *logInfo.TreeSize
 		root = *logInfo.RootHash
 		first = true
+		
 	} else {
 		// Any other errors reading the file
 		log.Fatal(err)
 	}
-
 	// Open file to create/append new snapshots
 	file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 	}
 	defer file.Close()
-
 	// If this is the very first snapshot within the monitor, save the snapshot
 	if first {
 		_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
@@ -148,7 +147,6 @@ func main() {
 			log.Println(err)
 		}
 	}
-
 	for {
 		// Check for root hash consistency
 		newTreeSize, newRoot, err := mirroring.VerifyLogConsistency(rekorClient, treeSize, root)
@@ -171,7 +169,8 @@ func main() {
 		// log.Println("NEWDB: ", "root:"+os.Getenv("mySQLPassword")+"@tcp("+os.Getenv("mySQLIPAddress")+":"+ os.Getenv("mySQLIPPort") +")/")
 		database, err := sql.Open("sqlite3", os.Getenv("dbName")) //open database
 		if err != nil {
-			log.Printf("Error %s when openeing DB\n", err)
+			log.Printf("Error %s when opening DB\n", err)
+			
 		}
 		
 		mirroring.InitTable(database)
