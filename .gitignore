@@ -102,3 +102,5 @@ output/*/index.html
 *.metadata
 *.tree
 *.vscode
+
+logInfo.txt
