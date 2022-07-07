@@ -18,7 +18,7 @@ name: Check
 on:
   workflow_dispatch:
   schedule:
-    cron: '0 * * * *' # every hour
+  - cron: '0 * * * *' # every hour
 
 jobs:
   check:
