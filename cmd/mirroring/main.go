@@ -74,8 +74,9 @@ func readLogInfo(treeSize *int64, root *string) error {
 func main() {
 	// Command-line flags that are parameters to the mirroring job
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
-	interval := flag.Int64("interval", 5, "Length of interval between each periodical consistency check")
+	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
+	once := flag.Bool("once", false, "Perform consistency check once and exit")
 	flag.Parse()
 
 	// Initialize system logger
@@ -88,7 +89,7 @@ func main() {
 	// Initialize a rekor client
 	rekorClient, err := client.GetRekorClient(*serverURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Getting Rekor client: %v", err)
 	}
 
 	// Load any existing latest signed tree head information
@@ -98,26 +99,24 @@ func main() {
 
 	if _, err := os.Stat(*logInfoFile); err == nil {
 		// File containing old snapshot exists
-		err := readLogInfo(&treeSize, &root)
-		if err != nil {
-			log.Fatal(err)
+		if err := readLogInfo(&treeSize, &root); err != nil {
+			log.Fatalf("Reading log info: %v", err)
 		}
 	} else if errors.Is(err, fs.ErrNotExist) {
 		// No old snapshot data available: get latest signed tree head and load
 		logInfo, err := mirroring.GetLogInfo(rekorClient)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Getting log info: %v", err)
 		}
 
 		pubkey, err := mirroring.GetPublicKey(rekorClient)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Getting public key: %v", err)
 		}
 
 		// Verify the queried signed tree head with server's public key
-		err = mirroring.VerifySignedTreeHead(logInfo, pubkey)
-		if err != nil {
-			log.Fatal(err)
+		if err := mirroring.VerifySignedTreeHead(logInfo, pubkey); err != nil {
+			log.Fatalf("Verifying signed tree head: %v", err)
 		}
 
 		treeSize = *logInfo.TreeSize
@@ -125,7 +124,7 @@ func main() {
 		first = true
 	} else {
 		// Any other errors reading the file
-		log.Fatal(err)
+		log.Fatalf("Reading %q: %v", *logInfoFile, err)
 	}
 
 	// Open file to create/append new snapshots
@@ -137,9 +136,8 @@ func main() {
 
 	// If this is the very first snapshot within the monitor, save the snapshot
 	if first {
-		_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
-		if err != nil {
-			log.Println(err)
+		if _, err := file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root)); err != nil {
+			log.Fatalf("Failed to write to file: %v", err)
 		}
 	}
 
@@ -147,15 +145,14 @@ func main() {
 		// Check for root hash consistency
 		newTreeSize, newRoot, err := mirroring.VerifyLogConsistency(rekorClient, treeSize, root)
 		if err != nil {
-			log.Println(err)
+			log.Fatalf("Failed to verify log consistency: %v", err)
 		} else {
 			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newTreeSize, newRoot)
 		}
 
 		// Append new, consistency-checked snapshots
 		if newTreeSize != treeSize {
-			_, err = file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root))
-			if err != nil {
+			if _, err := file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root)); err != nil {
 				log.Println(err)
 			}
 
@@ -163,6 +160,9 @@ func main() {
 			root = newRoot
 		}
 
-		time.Sleep(time.Duration(*interval) * time.Minute)
+		if *once {
+			return
+		}
+		time.Sleep(*interval)
 	}
 }
