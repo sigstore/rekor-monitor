@@ -90,12 +90,7 @@ func GetLogProof(rekorClient *gclient.Rekor, firstSize, lastSize *int64) (*model
 	return logProofResp.GetPayload(), nil
 }
 
-func VerifySignedTreeHead(logInfo *models.LogInfo, pubkey string) error {
-	sth := util.SignedCheckpoint{}
-	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-		return err
-	}
-
+func VerifySignedTreeHead(sth *util.SignedCheckpoint, pubkey string) error {
 	block, _ := pem.Decode([]byte(pubkey))
 	if block == nil {
 		return errors.New("failed to decode public key of server")
@@ -119,42 +114,41 @@ func VerifySignedTreeHead(logInfo *models.LogInfo, pubkey string) error {
 	return nil
 }
 
-func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash string) (int64, string, error) {
+func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash []byte) (*util.SignedCheckpoint, error) {
 	logInfo, err := GetLogInfo(rekorClient)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	logProof, err := GetLogProof(rekorClient, &oldSize, logInfo.TreeSize)
 	if err != nil {
-		return 0, "", err
-	}
-
-	oldRoot, err := hex.DecodeString(oldRootHash)
-	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	newRoot, err := hex.DecodeString(*logInfo.RootHash)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	proofs := make([][]byte, len(logProof.Hashes))
 	for i, h := range logProof.Hashes {
 		hash, err := hex.DecodeString(h)
 		if err != nil {
-			return 0, "", err
+			return nil, err
 		}
 		proofs[i] = hash
 	}
 
 	verifier := logverifier.New(rfc6962.DefaultHasher)
-	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRoot, newRoot, proofs)
+	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRootHash, newRoot, proofs)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
-	return *logInfo.TreeSize, hex.EncodeToString(newRoot), nil
+	sth := util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		return nil, err
+	}
+	return &sth, nil
 }
 
 func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {

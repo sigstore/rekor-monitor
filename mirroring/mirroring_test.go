@@ -17,16 +17,19 @@ package mirroring
 
 import (
 	"bufio"
+	"encoding/hex"
 	"encoding/json"
+	"log"
 	"os"
 	"testing"
 
 	"github.com/sigstore/rekor/pkg/client"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
 
 func TestVerifySignedTreeHead(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -42,13 +45,18 @@ func TestVerifySignedTreeHead(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 
-	if err := VerifySignedTreeHead(logInfo, pubkey); err != nil {
+	sth := &util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		log.Fatalf("Unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
+	}
+
+	if err := VerifySignedTreeHead(sth, pubkey); err != nil {
 		t.Errorf("%s\n", err)
 	}
 }
 
 func TestVerifyLogConsistency(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -59,14 +67,19 @@ func TestVerifyLogConsistency(t *testing.T) {
 		t.Errorf("%s\n", err)
 	}
 
-	_, _, err = VerifyLogConsistency(rekorClient, 1, entry.MerkleTreeHash)
+	hash, err := hex.DecodeString(entry.MerkleTreeHash)
+	if err != nil {
+		t.Errorf("%s\n", err)
+	}
+
+	_, err = VerifyLogConsistency(rekorClient, 1, hash)
 	if err != nil {
 		t.Errorf("%s\n", err)
 	}
 }
 
 func TestVerifyLogInclusion(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
 	if err != nil {
 		t.Errorf("%s\n", err)
@@ -84,7 +97,7 @@ func TestVerifyLogInclusion(t *testing.T) {
 }
 
 func TestFetchLeavesByRange(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	viper.Set("tree_file_dir", ".tree")
 	viper.Set("metadata_file_dir", ".metadata")
 	err := FetchLeavesByRange(0, 10)
@@ -94,7 +107,7 @@ func TestFetchLeavesByRange(t *testing.T) {
 }
 
 func TestComputeRoot(t *testing.T) {
-	viper.Set("rekorServerURL", "https://api.sigstore.dev")
+	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	viper.Set("tree_file_dir", ".tree")
 	viper.Set("metadata_file_dir", ".metadata")
 

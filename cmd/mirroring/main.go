@@ -17,33 +17,34 @@ package main
 
 import (
 	"bufio"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sigstore/rekor-monitor/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
+	"github.com/sigstore/rekor/pkg/util"
 )
 
 // Default values for mirroring job parameters
 const (
-	publicRekorServerURL = "https://api.sigstore.dev"
+	publicRekorServerURL = "https://rekor.sigstore.dev"
 	logInfoFileName      = "logInfo.txt"
 )
 
-// readLogInfo reads and loads the latest monitored log's tree size
-// and root hash from the specified text file.
-func readLogInfo(treeSize *int64, root *string) error {
-	// Each line in the file is one snapshot data of the log
-	file, err := os.Open(logInfoFileName)
+// readLatestCheckpoint reads the most recent signed checkpoint
+// from the log file.
+func readLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
+	// Each line in the file is one signed checkpoint
+	file, err := os.Open(logInfoFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
@@ -54,17 +55,56 @@ func readLogInfo(treeSize *int64, root *string) error {
 		line = scanner.Text()
 	}
 
-	// Each line is in the format of space-separeted info: "treeSize rootHash"
-	parsed := strings.Split(line, " ")
-	*treeSize, err = strconv.ParseInt(parsed[0], 10, 64)
+	sth := util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(strings.Replace(line, "\\n", "\n", -1))); err != nil {
+		return nil, err
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &sth, nil
+}
+
+// deleteOldCheckpoints persists the last 100 checkpoints in the log file
+func deleteOldCheckpoints(logInfoFile string) error {
+	// read all lines from file
+	file, err := os.Open(logInfoFile)
 	if err != nil {
 		return err
 	}
-	*root = parsed[1]
-
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+
+	// exit early if there aren't checkpoints to truncate
+	if len(lines) < 100 {
+		return nil
+	}
+
+	// open file again to overwrite
+	file, err = os.OpenFile(logInfoFile, os.O_RDWR|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// keep all but the oldest checkpoint
+	for i := 1; i < len(lines); i++ {
+		if _, err := file.WriteString(fmt.Sprintf("%s\n", lines[i])); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -79,85 +119,104 @@ func main() {
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
 	flag.Parse()
 
-	// Initialize system logger
-	// syslogger, err := syslog.New(syslog.LOG_INFO, "rekor-monitor")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.SetOutput(syslogger)
-
-	// Initialize a rekor client
 	rekorClient, err := client.GetRekorClient(*serverURL)
 	if err != nil {
 		log.Fatalf("Getting Rekor client: %v", err)
 	}
 
-	// Load any existing latest signed tree head information
-	var treeSize int64
-	var root string
+	var sth *util.SignedCheckpoint
 	var first bool
 
 	if _, err := os.Stat(*logInfoFile); err == nil {
-		// File containing old snapshot exists
-		if err := readLogInfo(&treeSize, &root); err != nil {
+		// File containing previous checkpoints exists
+		sth, err = readLatestCheckpoint(*logInfoFile)
+		if err != nil {
 			log.Fatalf("Reading log info: %v", err)
 		}
 	} else if errors.Is(err, fs.ErrNotExist) {
-		// No old snapshot data available: get latest signed tree head and load
+		// No old snapshot data available, get latest checkpoint
 		logInfo, err := mirroring.GetLogInfo(rekorClient)
 		if err != nil {
 			log.Fatalf("Getting log info: %v", err)
 		}
-
-		pubkey, err := mirroring.GetPublicKey(rekorClient)
-		if err != nil {
-			log.Fatalf("Getting public key: %v", err)
+		sth = &util.SignedCheckpoint{}
+		if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+			log.Fatalf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
 		}
-
-		// Verify the queried signed tree head with server's public key
-		if err := mirroring.VerifySignedTreeHead(logInfo, pubkey); err != nil {
-			log.Fatalf("Verifying signed tree head: %v", err)
-		}
-
-		treeSize = *logInfo.TreeSize
-		root = *logInfo.RootHash
 		first = true
 	} else {
 		// Any other errors reading the file
-		log.Fatalf("Reading %q: %v", *logInfoFile, err)
+		log.Fatalf("reading %q: %v", *logInfoFile, err)
 	}
 
-	// Open file to create/append new snapshots
-	file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	pubkey, err := mirroring.GetPublicKey(rekorClient)
 	if err != nil {
-		log.Println(err)
+		log.Fatalf("getting public key: %v", err)
 	}
-	defer file.Close()
+
+	// TODO: Verify using public key from TUF
+	// Verify the checkpoint with the server's public key
+	if err := mirroring.VerifySignedTreeHead(sth, pubkey); err != nil {
+		log.Fatalf("verifying checkpoint: %v", err)
+	}
+	log.Printf("Current checkpoint verified - Tree Size: %d Root Hash: %s\n", sth.Size, hex.EncodeToString(sth.Hash))
 
 	// If this is the very first snapshot within the monitor, save the snapshot
 	if first {
-		if _, err := file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root)); err != nil {
-			log.Fatalf("Failed to write to file: %v", err)
+		s, err := sth.SignedNote.MarshalText()
+		if err != nil {
+			log.Fatalf("failed to marshal checkpoint: %v", err)
+		}
+
+		// Open file to create new snapshot
+		file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("failed to open log file: %v", err)
+		}
+		defer file.Close()
+
+		// Replace newlines to flatten checkpoint to single line
+		if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.Replace(string(s), "\n", "\\n", -1))); err != nil {
+			log.Fatalf("failed to write to file: %v", err)
 		}
 	}
 
 	for {
 		// Check for root hash consistency
-		newTreeSize, newRoot, err := mirroring.VerifyLogConsistency(rekorClient, treeSize, root)
+		newSTH, err := mirroring.VerifyLogConsistency(rekorClient, int64(sth.Size), sth.Hash)
 		if err != nil {
-			log.Fatalf("Failed to verify log consistency: %v", err)
+			log.Fatalf("failed to verify log consistency: %v", err)
 		} else {
-			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newTreeSize, newRoot)
+			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
 		}
 
-		// Append new, consistency-checked snapshots
-		if newTreeSize != treeSize {
-			if _, err := file.WriteString(fmt.Sprintf("%d %s\n", treeSize, root)); err != nil {
-				log.Println(err)
+		// Append new, consistency-checked snapshot
+		if newSTH.Size != sth.Size {
+			s, err := newSTH.SignedNote.MarshalText()
+			if err != nil {
+				log.Fatalf("failed to marshal STH: %v", err)
 			}
 
-			treeSize = newTreeSize
-			root = newRoot
+			// Open file to append new snapshot
+			file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Fatalf("failed to open log file: %v", err)
+			}
+			defer file.Close()
+
+			// Replace newlines to flatten checkpoint to single line
+			if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.Replace(string(s), "\n", "\\n", -1))); err != nil {
+				log.Fatalf("failed to write to file: %v", err)
+			}
+
+			sth = newSTH
+		}
+
+		// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
+		// to persist the last checkpoint.
+		// Delete old checkpoints to avoid the log growing indefinitely
+		if err := deleteOldCheckpoints(*logInfoFile); err != nil {
+			log.Fatalf("failed to delete old checkpoints: %v", err)
 		}
 
 		if *once {
