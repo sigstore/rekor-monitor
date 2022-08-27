@@ -127,6 +127,11 @@ func main() {
 	var sth *util.SignedCheckpoint
 	var first bool
 
+	// TODO: Change order of operations:
+	// * Fetch latest STH and verify
+	// * If old STH is present, very consistency proof
+	// * Write new STH to log
+
 	if _, err := os.Stat(*logInfoFile); err == nil {
 		// File containing previous checkpoints exists
 		sth, err = readLatestCheckpoint(*logInfoFile)
