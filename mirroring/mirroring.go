@@ -26,8 +26,6 @@ import (
 	"errors"
 
 	"github.com/go-openapi/runtime"
-	"github.com/google/trillian/merkle/logverifier"
-	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
@@ -39,6 +37,8 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/spf13/viper"
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 type getCmdOutput struct {
@@ -139,8 +139,7 @@ func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash
 		proofs[i] = hash
 	}
 
-	verifier := logverifier.New(rfc6962.DefaultHasher)
-	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRootHash, newRoot, proofs)
+	err = proof.VerifyConsistency(rfc6962.DefaultHasher, uint64(oldSize), uint64(*logInfo.TreeSize), proofs, oldRootHash, newRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +161,13 @@ func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
 
 	treeSize := entry.Verification.InclusionProof.TreeSize
 
-	proof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
+	logProof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
 	for i, hash := range entry.Verification.InclusionProof.Hashes {
 		h, err := hex.DecodeString(hash)
 		if err != nil {
 			return err
 		}
-		proof[i] = h
+		logProof[i] = h
 	}
 
 	root, err := hex.DecodeString(*entry.Verification.InclusionProof.RootHash)
@@ -181,8 +180,7 @@ func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
 		return err
 	}
 
-	verifier := logverifier.New(rfc6962.DefaultHasher)
-	err = verifier.VerifyInclusionProof(*entry.LogIndex, *treeSize, proof, root, leafHash)
+	err = proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(*entry.LogIndex), uint64(*treeSize), leafHash, logProof, root)
 	if err != nil {
 		return err
 	}
@@ -216,11 +214,11 @@ func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, erro
 
 	switch v := a.Body.(type) {
 	case *rekord_v001.V001Entry:
-		b.Pk = string([]byte(v.RekordObj.Signature.PublicKey.Content))
-		b.Sig = base64.StdEncoding.EncodeToString([]byte(v.RekordObj.Signature.Content))
+		b.Pk = string([]byte(*v.RekordObj.Signature.PublicKey.Content))
+		b.Sig = base64.StdEncoding.EncodeToString([]byte(*v.RekordObj.Signature.Content))
 		b.DataHash = *v.RekordObj.Data.Hash.Value
 	case *rpm_v001.V001Entry:
-		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
+		b.Pk = string([]byte(*v.RPMModel.PublicKey.Content))
 	default:
 		return b, errors.New("The type of this log entry is not supported.")
 	}
