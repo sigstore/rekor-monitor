@@ -67,13 +67,15 @@ func readLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
 	return &sth, nil
 }
 
-// deleteOldCheckpoints persists the last 100 checkpoints in the log file
+// deleteOldCheckpoints persists the latest 100 checkpoints. This expects that the log file
+// is not being concurrently written to.
 func deleteOldCheckpoints(logInfoFile string) error {
 	// read all lines from file
 	file, err := os.Open(logInfoFile)
 	if err != nil {
 		return err
 	}
+
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	for scanner.Scan() {
@@ -87,7 +89,7 @@ func deleteOldCheckpoints(logInfoFile string) error {
 	}
 
 	// exit early if there aren't checkpoints to truncate
-	if len(lines) < 100 {
+	if len(lines) <= 100 {
 		return nil
 	}
 
@@ -98,8 +100,7 @@ func deleteOldCheckpoints(logInfoFile string) error {
 	}
 	defer file.Close()
 
-	// keep all but the oldest checkpoint
-	for i := 1; i < len(lines); i++ {
+	for i := len(lines) - 100; i < len(lines); i++ {
 		if _, err := file.WriteString(fmt.Sprintf("%s\n", lines[i])); err != nil {
 			return err
 		}
