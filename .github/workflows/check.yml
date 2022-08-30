@@ -25,7 +25,7 @@ permissions:
 
 env:
   UPLOADED_LOG_NAME: checkpoint
-  LOG_FILE: logFile.txt
+  LOG_FILE: checkpoint_log.txt
 
 jobs:
   check:
@@ -46,7 +46,7 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/mirroring --once
+      - run: go run ./cmd/mirroring --file ${{ env.LOG_FILE }} --once
       - name: Upload checkpoint
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
