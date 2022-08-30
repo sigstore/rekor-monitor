@@ -13,12 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Check
+name: Consistency proof
 
 on:
-  workflow_dispatch:
   schedule:
-  - cron: '0 * * * *' # every hour
+    - cron: '0 * * * *' # every hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UPLOADED_LOG_NAME: checkpoint
+  LOG_FILE: logFile.txt
 
 jobs:
   check:
@@ -27,5 +34,24 @@ jobs:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.0
       - uses: actions/setup-go@b22fbbc2921299758641fab08929b4ac52b32923 # v2.2.0
         with:
-          go-version: 1.16
+          go-version: 1.19
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@ea71f332a90fd52416b1629b933dcf7e0ccd421d # v2.22.0
+        with:
+          workflow: check.yml
+          name: ${{ env.UPLOADED_LOG_NAME }}
+        # Skip on first run since there will be no checkpoint
+        continue-on-error: true
+      - name: Log current checkpoints
+        run: cat ${{ env.LOG_FILE }}
+        # Skip on first run
+        continue-on-error: true
       - run: go run ./cmd/mirroring --once
+      - name: Upload checkpoint
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        with:
+          name: ${{ env.UPLOADED_LOG_NAME }}
+          path: ${{ env.LOG_FILE }}
+          retention-days: 1
+      - name: Log new checkpoints
+        run: cat ${{ env.LOG_FILE }}

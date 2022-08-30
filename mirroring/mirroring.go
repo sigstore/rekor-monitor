@@ -26,8 +26,6 @@ import (
 	"errors"
 
 	"github.com/go-openapi/runtime"
-	"github.com/google/trillian/merkle/logverifier"
-	rfc6962 "github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
@@ -39,6 +37,8 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/spf13/viper"
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 type getCmdOutput struct {
@@ -90,12 +90,7 @@ func GetLogProof(rekorClient *gclient.Rekor, firstSize, lastSize *int64) (*model
 	return logProofResp.GetPayload(), nil
 }
 
-func VerifySignedTreeHead(logInfo *models.LogInfo, pubkey string) error {
-	sth := util.SignedCheckpoint{}
-	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-		return err
-	}
-
+func VerifySignedTreeHead(sth *util.SignedCheckpoint, pubkey string) error {
 	block, _ := pem.Decode([]byte(pubkey))
 	if block == nil {
 		return errors.New("failed to decode public key of server")
@@ -119,42 +114,40 @@ func VerifySignedTreeHead(logInfo *models.LogInfo, pubkey string) error {
 	return nil
 }
 
-func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash string) (int64, string, error) {
+func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash []byte) (*util.SignedCheckpoint, error) {
 	logInfo, err := GetLogInfo(rekorClient)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	logProof, err := GetLogProof(rekorClient, &oldSize, logInfo.TreeSize)
 	if err != nil {
-		return 0, "", err
-	}
-
-	oldRoot, err := hex.DecodeString(oldRootHash)
-	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	newRoot, err := hex.DecodeString(*logInfo.RootHash)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	proofs := make([][]byte, len(logProof.Hashes))
 	for i, h := range logProof.Hashes {
 		hash, err := hex.DecodeString(h)
 		if err != nil {
-			return 0, "", err
+			return nil, err
 		}
 		proofs[i] = hash
 	}
 
-	verifier := logverifier.New(rfc6962.DefaultHasher)
-	err = verifier.VerifyConsistencyProof(oldSize, *logInfo.TreeSize, oldRoot, newRoot, proofs)
+	err = proof.VerifyConsistency(rfc6962.DefaultHasher, uint64(oldSize), uint64(*logInfo.TreeSize), proofs, oldRootHash, newRoot)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
-	return *logInfo.TreeSize, hex.EncodeToString(newRoot), nil
+	sth := util.SignedCheckpoint{}
+	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		return nil, err
+	}
+	return &sth, nil
 }
 
 func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
@@ -168,13 +161,13 @@ func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
 
 	treeSize := entry.Verification.InclusionProof.TreeSize
 
-	proof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
+	logProof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
 	for i, hash := range entry.Verification.InclusionProof.Hashes {
 		h, err := hex.DecodeString(hash)
 		if err != nil {
 			return err
 		}
-		proof[i] = h
+		logProof[i] = h
 	}
 
 	root, err := hex.DecodeString(*entry.Verification.InclusionProof.RootHash)
@@ -187,8 +180,7 @@ func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
 		return err
 	}
 
-	verifier := logverifier.New(rfc6962.DefaultHasher)
-	err = verifier.VerifyInclusionProof(*entry.LogIndex, *treeSize, proof, root, leafHash)
+	err = proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(*entry.LogIndex), uint64(*treeSize), leafHash, logProof, root)
 	if err != nil {
 		return err
 	}
@@ -222,11 +214,11 @@ func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, erro
 
 	switch v := a.Body.(type) {
 	case *rekord_v001.V001Entry:
-		b.Pk = string([]byte(v.RekordObj.Signature.PublicKey.Content))
-		b.Sig = base64.StdEncoding.EncodeToString([]byte(v.RekordObj.Signature.Content))
+		b.Pk = string([]byte(*v.RekordObj.Signature.PublicKey.Content))
+		b.Sig = base64.StdEncoding.EncodeToString([]byte(*v.RekordObj.Signature.Content))
 		b.DataHash = *v.RekordObj.Data.Hash.Value
 	case *rpm_v001.V001Entry:
-		b.Pk = string([]byte(v.RPMModel.PublicKey.Content))
+		b.Pk = string([]byte(*v.RPMModel.PublicKey.Content))
 	default:
 		return b, errors.New("The type of this log entry is not supported.")
 	}
