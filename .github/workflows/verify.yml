@@ -17,19 +17,38 @@ name: Verify
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   license-check:
     name: license boilerplate check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v2.4.0
+      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v2.2.0
         with:
-          go-version: '1.19'
+          go-version-file: './go.mod'
+          check-latest: true
       - name: Install addlicense
-        run: go install github.com/google/addlicense@latest
+        run: go install github.com/google/addlicense@v1.0.0
       - name: Check license headers
         run: |
           set -e
-          addlicense -l apache -c 'The Sigstore Authors' -v *
-          git diff --exit-code
+          addlicense -check -l apache -c 'The Sigstore Authors' -ignore "third_party/**" -v *
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v2.4.0
+      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v2.2.0
+        with:
+          go-version-file: './go.mod'
+          check-latest: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc # v3
+        with:
+          version: v1.50
+          args: --timeout=5m --verbose

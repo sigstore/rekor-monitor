@@ -20,25 +20,46 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  
+permissions:
+  contents: read
 
 jobs:
-  build-test-mirroring:
-    runs-on: ubuntu-20.04
+  unit-tests:
+    name: Run unit tests
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    env:
+      OS: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Checkout rekor
-        uses: actions/checkout@v2
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v2.4.0
+      # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
+      - uses: actions/cache@56461b9eb0f8438fd15c7a9968e3c9ebb18ceff1 # v3.0.3
         with:
-          repository: sigstore/rekor
-          path: rekor
-          depth: 1
-      - name: Build the stack
-        run: docker-compose up -d
-        working-directory: ./rekor
-      - uses: actions/setup-go@v2
+          # In order:
+          # * Module download cache
+          # * Build cache (Linux)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            %LocalAppData%\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # v2.1.5
         with:
-          go-version: 1.19
-      - name: Test
-        run: go test -v ./...
-        working-directory: ./mirroring
+          go-version-file: './go.mod'
+          check-latest: true
+      - name: Run Go tests
+        run: go test -covermode atomic -coverprofile coverage.txt $(go list ./... | grep -v third_party/)
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v2.1.0
+        with:
+          env_vars: OS
+      - name: Run Go tests w/ `-race`
+        if: ${{ runner.os == 'Linux' }}
+        run: go test -race $(go list ./... | grep -v third_party/)
