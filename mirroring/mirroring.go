@@ -29,15 +29,12 @@ import (
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
-	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 	rpm_v001 "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
-	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/spf13/viper"
-	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -76,115 +73,18 @@ func GetLogInfo(rekorClient *gclient.Rekor) (*models.LogInfo, error) {
 	return logInfoResp.GetPayload(), nil
 }
 
-func GetLogProof(rekorClient *gclient.Rekor, firstSize, lastSize *int64) (*models.ConsistencyProof, error) {
-	params := tlog.NewGetLogProofParams()
-	if *firstSize > 1 {
-		params.FirstSize = firstSize
-	}
-	params.LastSize = *lastSize
-
-	logProofResp, err := rekorClient.Tlog.GetLogProof(params)
-	if err != nil {
-		return nil, err
-	}
-	return logProofResp.GetPayload(), nil
-}
-
-func VerifySignedTreeHead(sth *util.SignedCheckpoint, pubkey string) error {
-	block, _ := pem.Decode([]byte(pubkey))
+func LoadVerifier(pemPubKey string) (signature.Verifier, error) {
+	block, _ := pem.Decode([]byte(pemPubKey))
 	if block == nil {
-		return errors.New("failed to decode public key of server")
+		return nil, errors.New("failed to decode public key of server")
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return err
-	}
-
-	// Initialize verfier and verify
-	verifier, err := signature.LoadVerifier(pub, crypto.SHA256)
-	if err != nil {
-		return err
-	}
-
-	if !sth.Verify(verifier) {
-		return errors.New("signature on tree head did not verify")
-	}
-
-	return nil
-}
-
-func VerifyLogConsistency(rekorClient *gclient.Rekor, oldSize int64, oldRootHash []byte) (*util.SignedCheckpoint, error) {
-	logInfo, err := GetLogInfo(rekorClient)
-	if err != nil {
 		return nil, err
 	}
 
-	logProof, err := GetLogProof(rekorClient, &oldSize, logInfo.TreeSize)
-	if err != nil {
-		return nil, err
-	}
-
-	newRoot, err := hex.DecodeString(*logInfo.RootHash)
-	if err != nil {
-		return nil, err
-	}
-
-	proofs := make([][]byte, len(logProof.Hashes))
-	for i, h := range logProof.Hashes {
-		hash, err := hex.DecodeString(h)
-		if err != nil {
-			return nil, err
-		}
-		proofs[i] = hash
-	}
-
-	err = proof.VerifyConsistency(rfc6962.DefaultHasher, uint64(oldSize), uint64(*logInfo.TreeSize), proofs, oldRootHash, newRoot)
-	if err != nil {
-		return nil, err
-	}
-	sth := util.SignedCheckpoint{}
-	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-		return nil, err
-	}
-	return &sth, nil
-}
-
-func VerifyLogInclusion(rekorClient *gclient.Rekor, entryUUID string) error {
-	params := entries.NewGetLogEntryByUUIDParams()
-	params.EntryUUID = entryUUID
-	resp, err := rekorClient.Entries.GetLogEntryByUUID(params)
-	if err != nil {
-		return err
-	}
-	entry := resp.GetPayload()[entryUUID]
-
-	treeSize := entry.Verification.InclusionProof.TreeSize
-
-	logProof := make([][]byte, len(entry.Verification.InclusionProof.Hashes))
-	for i, hash := range entry.Verification.InclusionProof.Hashes {
-		h, err := hex.DecodeString(hash)
-		if err != nil {
-			return err
-		}
-		logProof[i] = h
-	}
-
-	root, err := hex.DecodeString(*entry.Verification.InclusionProof.RootHash)
-	if err != nil {
-		return err
-	}
-
-	leafHash, err := hex.DecodeString(entryUUID)
-	if err != nil {
-		return err
-	}
-
-	err = proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(*entry.LogIndex), uint64(*treeSize), leafHash, logProof, root)
-	if err != nil {
-		return err
-	}
-	return nil
+	return signature.LoadVerifier(pub, crypto.SHA256)
 }
 
 func GetLogEntryByIndex(logIndex int64, rekorClient *gclient.Rekor) (string, models.LogEntryAnon, error) {
@@ -237,7 +137,7 @@ func ParseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
 	if err != nil {
 		return getCmdOutput{}, err
 	}
-	eimpl, err := types.NewEntry(pe)
+	eimpl, err := types.UnmarshalEntry(pe)
 	if err != nil {
 		return getCmdOutput{}, err
 	}

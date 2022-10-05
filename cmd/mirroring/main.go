@@ -17,6 +17,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -30,6 +31,7 @@ import (
 	"github.com/sigstore/rekor-monitor/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/util"
+	"github.com/sigstore/rekor/pkg/verify"
 )
 
 // Default values for mirroring job parameters
@@ -155,15 +157,19 @@ func main() {
 		log.Fatalf("reading %q: %v", *logInfoFile, err)
 	}
 
-	pubkey, err := mirroring.GetPublicKey(rekorClient)
+	// TODO: Verify using public key from TUF
+	pemPubKey, err := mirroring.GetPublicKey(rekorClient)
 	if err != nil {
 		log.Fatalf("getting public key: %v", err)
 	}
+	verifier, err := mirroring.LoadVerifier(pemPubKey)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// TODO: Verify using public key from TUF
 	// Verify the checkpoint with the server's public key
-	if err := mirroring.VerifySignedTreeHead(sth, pubkey); err != nil {
-		log.Fatalf("verifying checkpoint: %v", err)
+	if !sth.Verify(verifier) {
+		log.Fatalf("verifying checkpoint (size %d, hash %s) failed", sth.Size, hex.EncodeToString(sth.Hash))
 	}
 	log.Printf("Current checkpoint verified - Tree Size: %d Root Hash: %s\n", sth.Size, hex.EncodeToString(sth.Hash))
 
@@ -189,7 +195,7 @@ func main() {
 
 	for {
 		// Check for root hash consistency
-		newSTH, err := mirroring.VerifyLogConsistency(rekorClient, int64(sth.Size), sth.Hash)
+		newSTH, err := verify.VerifyCurrentCheckpoint(context.Background(), rekorClient, verifier, sth)
 		if err != nil {
 			log.Fatalf("failed to verify log consistency: %v", err)
 		} else {

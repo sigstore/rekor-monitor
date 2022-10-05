@@ -17,85 +17,14 @@ package mirroring
 
 import (
 	"bufio"
-	"encoding/hex"
 	"encoding/json"
-	"log"
 	"os"
 	"testing"
 
-	"github.com/sigstore/rekor/pkg/client"
-	"github.com/sigstore/rekor/pkg/util"
 	"github.com/spf13/viper"
 )
 
-func TestVerifySignedTreeHead(t *testing.T) {
-	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
-	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	logInfo, err := GetLogInfo(rekorClient)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	pubkey, err := GetPublicKey(rekorClient)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	sth := &util.SignedCheckpoint{}
-	if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-		log.Fatalf("Unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
-	}
-
-	if err := VerifySignedTreeHead(sth, pubkey); err != nil {
-		t.Errorf("%s\n", err)
-	}
-}
-
-func TestVerifyLogConsistency(t *testing.T) {
-	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
-	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	entry, err := GetLogEntryData(0, rekorClient)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	hash, err := hex.DecodeString(entry.MerkleTreeHash)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	_, err = VerifyLogConsistency(rekorClient, 1, hash)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-}
-
-func TestVerifyLogInclusion(t *testing.T) {
-	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
-	rekorClient, err := client.GetRekorClient(viper.GetString("rekorServerURL"))
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-
-	entry, err := GetLogEntryData(47906, rekorClient)
-	if err != nil {
-		panic(err)
-	}
-
-	err = VerifyLogInclusion(rekorClient, entry.MerkleTreeHash)
-	if err != nil {
-		t.Errorf("%s\n", err)
-	}
-}
-
+// TODO: Tests should not make network calls, mock out connections
 func TestFetchLeavesByRange(t *testing.T) {
 	viper.Set("rekorServerURL", "https://rekor.sigstore.dev")
 	viper.Set("tree_file_dir", ".tree")
