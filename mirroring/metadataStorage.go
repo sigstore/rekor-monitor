@@ -17,7 +17,6 @@ package mirroring
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/viper"
@@ -35,7 +34,7 @@ type TreeMetadata struct {
 
 func LoadTreeMetadata() (TreeMetadata, error) {
 	str := viper.GetString("metadata_file_dir")
-	bytes, err := ioutil.ReadFile(str)
+	bytes, err := os.ReadFile(str)
 	if err != nil {
 		return TreeMetadata{}, err
 	}
@@ -99,7 +98,7 @@ func SaveTreeMetadata() error {
 
 func UpdateMetadataByIndex(i int64) error {
 	str := viper.GetString("metadata_file_dir")
-	bytes, err := ioutil.ReadFile(str)
+	bytes, err := os.ReadFile(str)
 	if err != nil {
 		return err
 	}
@@ -137,7 +136,7 @@ func UpdateMetadataByIndex(i int64) error {
 
 func UpdateMetadataBySTH() error {
 	str := viper.GetString("metadata_file_dir")
-	bytes, err := ioutil.ReadFile(str)
+	bytes, err := os.ReadFile(str)
 	if err != nil {
 		return err
 	}
