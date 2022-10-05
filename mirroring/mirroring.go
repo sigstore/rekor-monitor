@@ -99,7 +99,7 @@ func GetLogEntryByIndex(logIndex int64, rekorClient *gclient.Rekor) (string, mod
 		return ix, entry, nil
 	}
 
-	return "", models.LogEntryAnon{}, errors.New("response returned no entries. Please check logIndex.")
+	return "", models.LogEntryAnon{}, errors.New("response returned no entries, check log index")
 }
 
 func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, error) {
@@ -108,7 +108,10 @@ func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, erro
 		return Artifact{}, err
 	}
 
-	a, err := ParseEntry(ix, entry)
+	a, err := parseEntry(ix, entry)
+	if err != nil {
+		return Artifact{}, err
+	}
 	b := Artifact{}
 	b.MerkleTreeHash = a.UUID
 
@@ -120,14 +123,14 @@ func GetLogEntryData(logIndex int64, rekorClient *gclient.Rekor) (Artifact, erro
 	case *rpm_v001.V001Entry:
 		b.Pk = string([]byte(*v.RPMModel.PublicKey.Content))
 	default:
-		return b, errors.New("The type of this log entry is not supported.")
+		return b, errors.New("the type of this log entry is not supported")
 	}
 
 	return b, nil
 }
 
 // this function also verifies the integrity of an entry.
-func ParseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
+func parseEntry(uuid string, e models.LogEntryAnon) (getCmdOutput, error) {
 	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
 	if err != nil {
 		return getCmdOutput{}, err
@@ -235,7 +238,7 @@ func ComputeRootFromMemory(artifacts []Artifact) ([]byte, error) {
 		queue.PushBack(el)
 	}
 	if queue.Front() == nil {
-		return nil, errors.New("Something went wrong.")
+		return nil, errors.New("something went wrong")
 	}
 
 	return queue.Front().Value.(queueElement).hash, nil

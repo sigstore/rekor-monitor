@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-//consider loading filenames/paths from viper registry
+// consider loading filenames/paths from viper registry
 func AppendArtifactsToFile(artifacts []Artifact) error {
 	str := viper.GetString("tree_file_dir")
 	f, err := os.OpenFile(str, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
