@@ -17,6 +17,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -30,6 +31,7 @@ import (
 	"github.com/sigstore/rekor-monitor/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/util"
+	"github.com/sigstore/rekor/pkg/verify"
 )
 
 // Default values for mirroring job parameters
@@ -56,7 +58,7 @@ func readLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
 	}
 
 	sth := util.SignedCheckpoint{}
-	if err := sth.UnmarshalText([]byte(strings.Replace(line, "\\n", "\n", -1))); err != nil {
+	if err := sth.UnmarshalText([]byte(strings.ReplaceAll(line, "\\n", "\n"))); err != nil {
 		return nil, err
 	}
 
@@ -133,13 +135,15 @@ func main() {
 	// * If old STH is present, very consistency proof
 	// * Write new STH to log
 
-	if _, err := os.Stat(*logInfoFile); err == nil {
+	_, err = os.Stat(*logInfoFile)
+	switch {
+	case err == nil:
 		// File containing previous checkpoints exists
 		sth, err = readLatestCheckpoint(*logInfoFile)
 		if err != nil {
 			log.Fatalf("Reading log info: %v", err)
 		}
-	} else if errors.Is(err, fs.ErrNotExist) {
+	case errors.Is(err, fs.ErrNotExist):
 		// No old snapshot data available, get latest checkpoint
 		logInfo, err := mirroring.GetLogInfo(rekorClient)
 		if err != nil {
@@ -150,20 +154,24 @@ func main() {
 			log.Fatalf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
 		}
 		first = true
-	} else {
+	default:
 		// Any other errors reading the file
 		log.Fatalf("reading %q: %v", *logInfoFile, err)
 	}
 
-	pubkey, err := mirroring.GetPublicKey(rekorClient)
+	// TODO: Verify using public key from TUF
+	pemPubKey, err := mirroring.GetPublicKey(rekorClient)
 	if err != nil {
 		log.Fatalf("getting public key: %v", err)
 	}
+	verifier, err := mirroring.LoadVerifier(pemPubKey)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// TODO: Verify using public key from TUF
 	// Verify the checkpoint with the server's public key
-	if err := mirroring.VerifySignedTreeHead(sth, pubkey); err != nil {
-		log.Fatalf("verifying checkpoint: %v", err)
+	if !sth.Verify(verifier) {
+		log.Fatalf("verifying checkpoint (size %d, hash %s) failed", sth.Size, hex.EncodeToString(sth.Hash))
 	}
 	log.Printf("Current checkpoint verified - Tree Size: %d Root Hash: %s\n", sth.Size, hex.EncodeToString(sth.Hash))
 
@@ -177,19 +185,21 @@ func main() {
 		// Open file to create new snapshot
 		file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
+			file.Close()
 			log.Fatalf("failed to open log file: %v", err)
 		}
-		defer file.Close()
 
 		// Replace newlines to flatten checkpoint to single line
-		if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.Replace(string(s), "\n", "\\n", -1))); err != nil {
+		if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.ReplaceAll(string(s), "\n", "\\n"))); err != nil {
+			file.Close()
 			log.Fatalf("failed to write to file: %v", err)
 		}
+		file.Close()
 	}
 
 	for {
 		// Check for root hash consistency
-		newSTH, err := mirroring.VerifyLogConsistency(rekorClient, int64(sth.Size), sth.Hash)
+		newSTH, err := verify.VerifyCurrentCheckpoint(context.Background(), rekorClient, verifier, sth)
 		if err != nil {
 			log.Fatalf("failed to verify log consistency: %v", err)
 		} else {
@@ -206,14 +216,16 @@ func main() {
 			// Open file to append new snapshot
 			file, err := os.OpenFile(*logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
+				file.Close()
 				log.Fatalf("failed to open log file: %v", err)
 			}
-			defer file.Close()
 
 			// Replace newlines to flatten checkpoint to single line
-			if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.Replace(string(s), "\n", "\\n", -1))); err != nil {
+			if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.ReplaceAll(string(s), "\n", "\\n"))); err != nil {
+				file.Close()
 				log.Fatalf("failed to write to file: %v", err)
 			}
+			file.Close()
 
 			sth = newSTH
 		}
