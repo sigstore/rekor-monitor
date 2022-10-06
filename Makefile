@@ -13,7 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+defaut:
+	mkdir -p build
+	go build -o build/ ./...
+
 mirroring:
 	$(MAKE) -C mirroring
 
-.PHONY: mirroring
+.PHONY: mirroring build default
