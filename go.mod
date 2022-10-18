@@ -3,7 +3,7 @@ module github.com/sigstore/rekor-monitor
 go 1.19
 
 require (
-	github.com/go-openapi/runtime v0.24.1
+	github.com/go-openapi/runtime v0.24.2
 	github.com/sigstore/rekor v1.0.0
 	github.com/sigstore/sigstore v1.4.4
 	github.com/spf13/viper v1.13.0
