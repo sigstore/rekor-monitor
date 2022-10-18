@@ -36,7 +36,7 @@ jobs:
         with:
           go-version: 1.19
       - name: Download artifact
-        uses: dawidd6/action-download-artifact@7847792dd435a50521b8e3bd3576dae7459d1fa8 # v2.22.0
+        uses: dawidd6/action-download-artifact@46b4ae883bf0726f5949d025d31cb62c7a5ac70c # v2.22.0
         with:
           workflow: check.yml
           name: ${{ env.UPLOADED_LOG_NAME }}
