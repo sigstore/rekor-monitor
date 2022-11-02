@@ -1,9 +1,0 @@
-[Unit]
-Description=Start k0s worker
-Requires=k0s
-After=k0s
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/k0s worker --token-file /etc/k0s.worker.token
-Restart=on-failure

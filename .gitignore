@@ -104,3 +104,4 @@ output/*/index.html
 *.vscode
 
 logInfo.txt
+bin/

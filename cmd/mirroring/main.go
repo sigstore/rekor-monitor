@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/mirroring"
+	"github.com/sigstore/rekor-monitor/pkg/mirroring"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
