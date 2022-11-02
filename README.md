@@ -5,7 +5,8 @@ that the log is immutability and append-only. Monitoring is critical to
 the transparency log ecosystem, as logs are tamper-evident but not tamper-proof.
 
 To run, simply fork this repository, and you'll begin to monitor Rekor. The monitor
-runs on GitHub Actions.
+runs on GitHub Actions. After you fork, ensure Actions are enabled under the Actions
+tab to run the monitor.
 
 In the future, the action will be a reusable workflow, so that you can easily configure
 the monitor.
