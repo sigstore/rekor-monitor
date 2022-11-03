@@ -1,0 +1,70 @@
+# Copyright 2022 The Sigstore Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Consistency Proof Template
+
+on:
+  workflow_call:
+    inputs:
+
+permissions:
+  contents: read
+
+env:
+  UPLOADED_LOG_NAME: checkpoint
+  LOG_FILE: checkpoint_log.txt
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v2.4.0
+      - uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f # v2.2.0
+        with:
+          go-version: 1.19
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@b12b127cf24433d14b4f93cee62f5465076ba82a # v2.22.0
+        with:
+          workflow: check.yml
+          name: ${{ env.UPLOADED_LOG_NAME }}
+        # Skip on first run since there will be no checkpoint
+        continue-on-error: true
+      - name: Log current checkpoints
+        run: cat ${{ env.LOG_FILE }}
+        # Skip on first run
+        continue-on-error: true
+      - run: go run ./cmd/mirroring --file ${{ env.LOG_FILE }} --once
+      - name: Upload checkpoint
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v3.1.0
+        with:
+          name: ${{ env.UPLOADED_LOG_NAME }}
+          path: ${{ env.LOG_FILE }}
+          retention-days: 1
+      - name: Log new checkpoints
+        run: cat ${{ env.LOG_FILE }}
+
+  if-failed:
+    runs-on: ubuntu-latest
+    needs: [check]
+    permissions:
+      issues: 'write'
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_REPOSITORY: sigstore/
+    if: always() && needs.check.result == 'failure'
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - run: |
+          set -euo pipefail
+          ./.github/workflows/scripts/report-failure.sh
