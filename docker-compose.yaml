@@ -1,5 +1,4 @@
-#
-# Copyright 2021 The Sigstore Authors.
+# Copyright 2022 The Sigstore Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
----
-- name: daemon reload
-  command: systemctl daemon-reload
+version: '3.8'
+services:
+  rekor-monitor:
+    build:
+      context: .
+      target: "deploy"
+    command: [
+      "mirroring",
+      "--file=/etc/rekor-monitor/logInfo.txt"
+      # uncomment for more frequent polling
+      # "--interval=1m",
+      ]
+    restart: always # keep the server running
+    volumes:
+      - ./logInfo.txt:/etc/rekor-monitor/logInfo.txt:z 

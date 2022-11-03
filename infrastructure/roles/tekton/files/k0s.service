@@ -1,7 +1,0 @@
-[Unit]
-Description=Start k0s
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/k0s controller
-Restart=on-failure
