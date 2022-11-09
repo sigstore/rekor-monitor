@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO: Add flags for identities to monitor, persist identities file, file issue when identities are found
+
 name: Consistency Proof Template
 
 on:

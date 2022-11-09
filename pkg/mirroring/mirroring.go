@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: Move rekor client functions to rekor/client.go
 package mirroring
 
 import (

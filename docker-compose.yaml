@@ -26,4 +26,4 @@ services:
       ]
     restart: always # keep the server running
     volumes:
-      - ./logInfo.txt:/etc/rekor-monitor/logInfo.txt:z 
+      - ./logInfo.txt:/etc/rekor-monitor/logInfo.txt:z

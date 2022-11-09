@@ -13,4 +13,4 @@ the monitor.
 
 ## Security
 
-Please report any vulnerabilities following sigstore's [security process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
+Please report any vulnerabilities following Sigstore's [security process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
