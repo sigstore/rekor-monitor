@@ -136,6 +136,7 @@ func main() {
 	// * Write new STH to log
 
 	_, err = os.Stat(*logInfoFile)
+	logInfo, err := mirroring.GetLogInfo(rekorClient)
 	switch {
 	case err == nil:
 		// File containing previous checkpoints exists
@@ -145,7 +146,6 @@ func main() {
 		}
 	case errors.Is(err, fs.ErrNotExist):
 		// No old snapshot data available, get latest checkpoint
-		logInfo, err := mirroring.GetLogInfo(rekorClient)
 		if err != nil {
 			log.Fatalf("Getting log info: %v", err)
 		}
