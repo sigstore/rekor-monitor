@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/go-openapi/runtime v0.25.0
-	github.com/sigstore/rekor v1.0.0
+	github.com/sigstore/rekor v1.0.1
 	github.com/sigstore/sigstore v1.4.5
 	github.com/spf13/viper v1.14.0
 	github.com/transparency-dev/merkle v0.0.1
