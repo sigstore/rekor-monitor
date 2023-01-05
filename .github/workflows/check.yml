@@ -1,4 +1,3 @@
-#
 # Copyright 2022 The Sigstore Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,38 +19,14 @@ on:
     - cron: '0 * * * *' # every hour
   workflow_dispatch:
 
-permissions:
-  contents: read
-
-env:
-  UPLOADED_LOG_NAME: checkpoint
-  LOG_FILE: checkpoint_log.txt
+permissions: read-all
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v2.4.0
-      - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v2.2.0
-        with:
-          go-version: 1.19
-      - name: Download artifact
-        uses: dawidd6/action-download-artifact@e6e25ac3a2b93187502a8be1ef9e9603afc34925 # v2.22.0
-        with:
-          workflow: check.yml
-          name: ${{ env.UPLOADED_LOG_NAME }}
-        # Skip on first run since there will be no checkpoint
-        continue-on-error: true
-      - name: Log current checkpoints
-        run: cat ${{ env.LOG_FILE }}
-        # Skip on first run
-        continue-on-error: true
-      - run: go run ./cmd/mirroring --file ${{ env.LOG_FILE }} --once
-      - name: Upload checkpoint
-        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v3.1.0
-        with:
-          name: ${{ env.UPLOADED_LOG_NAME }}
-          path: ${{ env.LOG_FILE }}
-          retention-days: 1
-      - name: Log new checkpoints
-        run: cat ${{ env.LOG_FILE }}
+  run_consistency_proof:
+    permissions:
+      contents: read
+      issues: write
+      id-token: write # Needed to detect the current reusable repository and ref.
+    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yaml@main
+    with:
+      file_issue: true
