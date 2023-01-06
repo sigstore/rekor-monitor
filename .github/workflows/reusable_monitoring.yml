@@ -23,6 +23,11 @@ on:
         description: 'True to file an issue on monitoring failure'
         required: true
         type: boolean
+      artifact_retention_days:
+        description: 'The number of days to retain an artifact (default: 14). If this workflow runs as a cron job, it must be greater than the frequency of the job'
+        required: false
+        type: number
+        default: 14
 
 permissions:
   contents: read
@@ -71,7 +76,7 @@ jobs:
         with:
           name: ${{ env.UPLOADED_LOG_NAME }}
           path: ${{ env.LOG_FILE }}
-          retention-days: 1
+          retention-days: ${{ inputs.artifact_retention_days }}
       - name: Log new checkpoints
         run: cat ${{ env.LOG_FILE }}
 
