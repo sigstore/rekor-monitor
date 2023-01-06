@@ -28,6 +28,10 @@ on:
         required: false
         type: number
         default: 14
+      identities:
+        description: 'New-line separated list of identities, where each line can either be a subject or a subject followed by OIDC providers, whitespace-separated'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -70,7 +74,7 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/mirroring --file ${{ env.LOG_FILE }} --once
+      - run: go run ./cmd/mirroring --file ${{ env.LOG_FILE }} --once --identities ${{ inputs.identities }}
       - name: Upload checkpoint
         uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v3.1.1
         with:

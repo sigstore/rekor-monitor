@@ -29,15 +29,17 @@ import (
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/mirroring"
+	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
 )
 
-// Default values for mirroring job parameters
+// Default values for monitoring job parameters
 const (
 	publicRekorServerURL = "https://rekor.sigstore.dev"
 	logInfoFileName      = "logInfo.txt"
+	identitiesFileName   = "identities.txt"
 )
 
 // readLatestCheckpoint reads the most recent signed checkpoint
@@ -111,6 +113,29 @@ func deleteOldCheckpoints(logInfoFile string) error {
 	return nil
 }
 
+func ParseIdentities(identitiesFile string) (rekor.Identities, error) {
+	file, err := os.Open(identitiesFile)
+	if err != nil {
+		return rekor.Identities{}, err
+	}
+	defer file.Close()
+
+	ids := rekor.Identities{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		l := strings.Fields(scanner.Text())
+		switch len(l) {
+		case 0:
+			continue
+		case 1:
+			ids.Identities = append(ids.Identities, rekor.Identity{Subject: l[0]})
+		default:
+			ids.Identities = append(ids.Identities, rekor.Identity{Subject: l[0], Issuers: l[1:]})
+		}
+	}
+	return ids, nil
+}
+
 // This main function performs a periodic root hash consistency check.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
@@ -120,11 +145,26 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
+	identitiesFile := flag.String("identities", "", "Path to a list of identities and issuers to monitor. Format should be newline separated subjects. "+
+		"After each subject, optionally specify whitespace separated OIDC provider. If not specified, it will match any OIDC provider.")
+	identitiesFoundFile := flag.String("identities-file", identitiesFileName,
+		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	flag.Parse()
+
+	ids, err := ParseIdentities(*identitiesFile)
+	if err != nil {
+		log.Fatalf("error parsing identities: %v", err)
+	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL)
 	if err != nil {
-		log.Fatalf("Getting Rekor client: %v", err)
+		log.Fatalf("getting Rekor client: %v", err)
+	}
+
+	// Fetch log info to get total log size and initial STH if needed
+	logInfo, err := mirroring.GetLogInfo(rekorClient)
+	if err != nil {
+		log.Fatalf("Getting log info: %v", err)
 	}
 
 	var sth *util.SignedCheckpoint
@@ -141,14 +181,10 @@ func main() {
 		// File containing previous checkpoints exists
 		sth, err = readLatestCheckpoint(*logInfoFile)
 		if err != nil {
-			log.Fatalf("Reading log info: %v", err)
+			log.Fatalf("reading checkpoint log: %v", err)
 		}
 	case errors.Is(err, fs.ErrNotExist):
-		// No old snapshot data available, get latest checkpoint
-		logInfo, err := mirroring.GetLogInfo(rekorClient)
-		if err != nil {
-			log.Fatalf("Getting log info: %v", err)
-		}
+		// No old snapshot data available, read latest checkpoint
 		sth = &util.SignedCheckpoint{}
 		if err := sth.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
 			log.Fatalf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
@@ -206,6 +242,14 @@ func main() {
 			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
 		}
 
+		// Get log size of inactive shards
+		totalSize := 0
+		for _, s := range logInfo.InactiveShards {
+			totalSize += int(*s.TreeSize)
+		}
+		startIndex := int(sth.Size) + totalSize - 1
+		endIndex := int(newSTH.Size) + totalSize - 1
+
 		// Append new, consistency-checked snapshot
 		if newSTH.Size != sth.Size {
 			s, err := newSTH.SignedNote.MarshalText()
@@ -235,6 +279,36 @@ func main() {
 		// Delete old checkpoints to avoid the log growing indefinitely
 		if err := deleteOldCheckpoints(*logInfoFile); err != nil {
 			log.Fatalf("failed to delete old checkpoints: %v", err)
+		}
+
+		// Search for identities in the log range
+		if len(ids.Identities) > 0 {
+			entries, err := rekor.GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+			if err != nil {
+				log.Fatalf("error getting entries by index range: %v", err)
+			}
+			idEntries, err := rekor.MatchedIndices(entries, ids)
+			if err != nil {
+				log.Fatalf("error finding log indices: %v", err)
+			}
+
+			if len(idEntries) > 0 {
+				for _, idEntry := range idEntries {
+					log.Printf("Found subject %s, issuer %s at log index %d, uuid %s\n",
+						idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)
+
+					idFile, err := os.OpenFile(*identitiesFoundFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						idFile.Close()
+						log.Fatalf("failed to open identities file: %v", err)
+					}
+					if _, err := idFile.WriteString(fmt.Sprintf("%s %s %d %s\n", idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)); err != nil {
+						idFile.Close()
+						log.Fatalf("failed to write to file: %v", err)
+					}
+					idFile.Close()
+				}
+			}
 		}
 
 		if *once {
