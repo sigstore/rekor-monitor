@@ -27,6 +27,6 @@ jobs:
       contents: read
       issues: write
       id-token: write # Needed to detect the current reusable repository and ref.
-    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yaml@main
+    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yml@main
     with:
       file_issue: true
