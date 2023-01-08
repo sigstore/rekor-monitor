@@ -24,7 +24,7 @@ jobs:
       contents: read # Needed to checkout repositories
       issues: write # Needed if you set "file_issue: true"
       id-token: write # Needed to detect the current reusable repository and ref
-    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yaml@main
+    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yml@main
     with:
       file_issue: true # Strongly recommended: Files an issue on monitoring failure
       artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
