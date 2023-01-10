@@ -113,15 +113,9 @@ func deleteOldCheckpoints(logInfoFile string) error {
 	return nil
 }
 
-func ParseIdentities(identitiesFile string) (rekor.Identities, error) {
-	file, err := os.Open(identitiesFile)
-	if err != nil {
-		return rekor.Identities{}, err
-	}
-	defer file.Close()
-
+func ParseIdentities(identitiesInput string) (rekor.Identities, error) {
 	ids := rekor.Identities{}
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(strings.NewReader(identitiesInput))
 	for scanner.Scan() {
 		l := strings.Fields(scanner.Text())
 		switch len(l) {
@@ -132,6 +126,9 @@ func ParseIdentities(identitiesFile string) (rekor.Identities, error) {
 		default:
 			ids.Identities = append(ids.Identities, rekor.Identity{Subject: l[0], Issuers: l[1:]})
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return ids, err
 	}
 	return ids, nil
 }
@@ -145,15 +142,22 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
-	identitiesFile := flag.String("identities", "", "Path to a list of identities and issuers to monitor. Format should be newline separated subjects. "+
+	identitiesInput := flag.String("identities", "", "List of identities and issuers to monitor. Format should be newline separated subjects. "+
 		"After each subject, optionally specify whitespace separated OIDC provider. If not specified, it will match any OIDC provider.")
 	identitiesFoundFile := flag.String("identities-file", identitiesFileName,
 		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	flag.Parse()
 
-	ids, err := ParseIdentities(*identitiesFile)
+	ids, err := ParseIdentities(*identitiesInput)
 	if err != nil {
 		log.Fatalf("error parsing identities: %v", err)
+	}
+	for _, id := range ids.Identities {
+		if len(id.Issuers) == 0 {
+			fmt.Printf("Monitoring subject %s\n", id.Subject)
+		} else {
+			fmt.Printf("Monitoring subject %s for issuer(s) %s\n", id.Subject, strings.Join(id.Issuers, ","))
+		}
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL)

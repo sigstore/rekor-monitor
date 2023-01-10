@@ -27,9 +27,6 @@ import (
 // If start == end, returns a single entry for that index
 // Returns error if start > end
 func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, start, end int) ([]models.LogEntry, error) {
-	fmt.Println(start)
-	fmt.Println(end)
-
 	if start > end {
 		return nil, fmt.Errorf("start (%d) must be less than or equal to end (%d)", start, end)
 	}
