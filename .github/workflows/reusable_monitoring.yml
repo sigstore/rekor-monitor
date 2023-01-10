@@ -14,6 +14,8 @@
 
 # NOTE: This GHA should not be run concurrently.
 
+# TODO: Write identities to issues when found
+
 name: Rekor Monitoring Template
 
 on:

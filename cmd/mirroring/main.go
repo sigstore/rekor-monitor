@@ -37,9 +37,9 @@ import (
 
 // Default values for monitoring job parameters
 const (
-	publicRekorServerURL = "https://rekor.sigstore.dev"
-	logInfoFileName      = "logInfo.txt"
-	identitiesFileName   = "identities.txt"
+	publicRekorServerURL     = "https://rekor.sigstore.dev"
+	logInfoFileName          = "logInfo.txt"
+	outputIdentitiesFileName = "identities.txt"
 )
 
 // readLatestCheckpoint reads the most recent signed checkpoint
@@ -142,9 +142,9 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
-	identitiesInput := flag.String("identities", "", "List of identities and issuers to monitor. Format should be newline separated subjects. "+
-		"After each subject, optionally specify whitespace separated OIDC provider. If not specified, it will match any OIDC provider.")
-	identitiesFoundFile := flag.String("identities-file", identitiesFileName,
+	identitiesInput := flag.String("identities", "", "newline-separated list of identities and issuers in the format "+
+		"subject [issuer...]. If no issuers are specified, match any OIDC providers.")
+	outputIdentitiesFile := flag.String("output-identities", outputIdentitiesFileName,
 		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	flag.Parse()
 
@@ -213,7 +213,7 @@ func main() {
 	if !sth.Verify(verifier) {
 		log.Fatalf("verifying checkpoint (size %d, hash %s) failed", sth.Size, hex.EncodeToString(sth.Hash))
 	}
-	log.Printf("Current checkpoint verified - Tree Size: %d Root Hash: %s\n", sth.Size, hex.EncodeToString(sth.Hash))
+	fmt.Fprintf(os.Stderr, "Current checkpoint verified - Tree Size: %d Root Hash: %s\n", sth.Size, hex.EncodeToString(sth.Hash))
 
 	// If this is the very first snapshot within the monitor, save the snapshot
 	if first {
@@ -243,7 +243,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to verify log consistency: %v", err)
 		} else {
-			log.Printf("Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
+			fmt.Fprintf(os.Stderr, "Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
 		}
 
 		// Get log size of inactive shards
@@ -298,10 +298,10 @@ func main() {
 
 			if len(idEntries) > 0 {
 				for _, idEntry := range idEntries {
-					log.Printf("Found subject %s, issuer %s at log index %d, uuid %s\n",
+					fmt.Fprintf(os.Stderr, "Found subject %s, issuer %s at log index %d, uuid %s\n",
 						idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)
 
-					idFile, err := os.OpenFile(*identitiesFoundFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					idFile, err := os.OpenFile(*outputIdentitiesFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 					if err != nil {
 						idFile.Close()
 						log.Fatalf("failed to open identities file: %v", err)
