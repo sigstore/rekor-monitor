@@ -152,6 +152,9 @@ func extractCertificates(e *models.LogEntryAnon) ([]*x509.Certificate, error) {
 }
 
 func verifyIdentities(ids Identities) error {
+	if len(ids.Identities) == 0 {
+		return errors.New("no identities provided")
+	}
 	for _, id := range ids.Identities {
 		if len(id.Subject) == 0 {
 			return errors.New("subject empty")

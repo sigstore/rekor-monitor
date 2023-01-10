@@ -36,7 +36,7 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 
 	// handle case where we initialize log monitor
 	if start == end {
-		start = start - 1
+		start--
 	}
 
 	var logEntries []models.LogEntry
