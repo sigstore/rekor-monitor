@@ -21,7 +21,7 @@ import (
 	"errors"
 
 	"github.com/go-openapi/runtime"
-	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 
@@ -77,10 +77,10 @@ func MatchedIndices(logEntries []models.LogEntry, identities Identities) ([]Iden
 			for _, ids := range identities.Identities {
 				// match any issuer with no issuers specified
 				if len(ids.Issuers) == 0 {
-					checks = append(checks, &cosign.CheckOpts{CertIdentity: ids.Subject})
+					checks = append(checks, &cosign.CheckOpts{Identities: []cosign.Identity{{Subject: ids.Subject}}})
 				} else {
 					for _, iss := range ids.Issuers {
-						checks = append(checks, &cosign.CheckOpts{CertIdentity: ids.Subject, CertOidcIssuer: iss})
+						checks = append(checks, &cosign.CheckOpts{Identities: []cosign.Identity{{Subject: ids.Subject, Issuer: iss}}})
 					}
 				}
 			}
@@ -91,7 +91,7 @@ func MatchedIndices(logEntries []models.LogEntry, identities Identities) ([]Iden
 					exts := cosign.CertExtensions{Cert: certs[0]}
 					matchedIndices = append(matchedIndices,
 						IdentityEntry{
-							Subject: co.CertIdentity,
+							Subject: co.Identities[0].Subject,
 							Issuer:  exts.GetIssuer(),
 							Index:   *entry.LogIndex,
 							UUID:    uuid,
