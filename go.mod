@@ -7,7 +7,7 @@ require (
 	github.com/go-openapi/swag v0.22.3
 	github.com/sigstore/cosign/v2 v2.0.2-0.20230412164744-09d3b9cffb0a
 	github.com/sigstore/rekor v1.1.0
-	github.com/sigstore/sigstore v1.6.2
+	github.com/sigstore/sigstore v1.6.3
 	github.com/spf13/viper v1.15.0
 	github.com/transparency-dev/merkle v0.0.1
 )
@@ -97,7 +97,7 @@ require (
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
-	google.golang.org/genproto v0.0.0-20230331144136-dcfb400f0633 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
