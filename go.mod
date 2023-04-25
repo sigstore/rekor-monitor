@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/swag v0.22.3
-	github.com/sigstore/cosign/v2 v2.0.2-0.20230412164744-09d3b9cffb0a
+	github.com/sigstore/cosign/v2 v2.0.2
 	github.com/sigstore/rekor v1.1.0
 	github.com/sigstore/sigstore v1.6.3
 	github.com/spf13/viper v1.15.0
@@ -43,7 +43,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/certificate-transparency-go v1.1.4 // indirect
-	github.com/google/go-containerregistry v0.14.0 // indirect
+	github.com/google/go-containerregistry v0.14.1-0.20230409045903-ed5c185df419 // indirect
 	github.com/google/rpmpack v0.0.0-20210518075352-dc539ef4f2ea // indirect
 	github.com/google/trillian v1.5.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
