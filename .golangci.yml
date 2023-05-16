@@ -14,14 +14,14 @@
 
 linters:
   enable:
-  - deadcode
   - errcheck
   - gofmt
   - goimports
   - gosec
   - gocritic
-  - golint
   - misspell
+  - revive
+  - unused
 output:
   uniq-by-line: false
 issues:

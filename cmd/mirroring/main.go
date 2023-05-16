@@ -242,9 +242,8 @@ func main() {
 		newSTH, err := verify.VerifyCurrentCheckpoint(context.Background(), rekorClient, verifier, sth)
 		if err != nil {
 			log.Fatalf("failed to verify log consistency: %v", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
 		}
+		fmt.Fprintf(os.Stderr, "Root hash consistency verified - Tree Size: %d Root Hash: %s\n", newSTH.Size, hex.EncodeToString(newSTH.Hash))
 
 		// Get log size of inactive shards
 		totalSize := 0
