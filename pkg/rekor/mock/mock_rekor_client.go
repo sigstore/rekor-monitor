@@ -31,19 +31,19 @@ type EntriesClient struct {
 	Entries []*models.LogEntry
 }
 
-func (m *EntriesClient) CreateLogEntry(params *entries.CreateLogEntryParams, opts ...entries.ClientOption) (*entries.CreateLogEntryCreated, error) {
+func (m *EntriesClient) CreateLogEntry(_ *entries.CreateLogEntryParams, _ ...entries.ClientOption) (*entries.CreateLogEntryCreated, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *EntriesClient) GetLogEntryByIndex(params *entries.GetLogEntryByIndexParams, opts ...entries.ClientOption) (*entries.GetLogEntryByIndexOK, error) {
+func (m *EntriesClient) GetLogEntryByIndex(_ *entries.GetLogEntryByIndexParams, _ ...entries.ClientOption) (*entries.GetLogEntryByIndexOK, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *EntriesClient) GetLogEntryByUUID(params *entries.GetLogEntryByUUIDParams, opts ...entries.ClientOption) (*entries.GetLogEntryByUUIDOK, error) {
+func (m *EntriesClient) GetLogEntryByUUID(_ *entries.GetLogEntryByUUIDParams, _ ...entries.ClientOption) (*entries.GetLogEntryByUUIDOK, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, opts ...entries.ClientOption) (*entries.SearchLogQueryOK, error) {
+func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, _ ...entries.ClientOption) (*entries.SearchLogQueryOK, error) {
 	resp := []models.LogEntry{}
 	if m.Entries != nil {
 		for _, i := range params.Entry.LogIndexes {
@@ -56,5 +56,5 @@ func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, opt
 }
 
 // TODO: Implement mock
-func (m *EntriesClient) SetTransport(transport runtime.ClientTransport) {
+func (m *EntriesClient) SetTransport(_ runtime.ClientTransport) {
 }
