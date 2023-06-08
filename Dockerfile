@@ -25,21 +25,21 @@ RUN go mod download
 ADD ./cmd/ $APP_ROOT/src/cmd/
 ADD ./pkg/ $APP_ROOT/src/pkg/
 
-RUN go build ./cmd/mirroring
-RUN CGO_ENABLED=0 go build -gcflags "all=-N -l"  -o mirroring_debug ./cmd/mirroring
+RUN go build ./cmd/verifier
+RUN CGO_ENABLED=0 go build -gcflags "all=-N -l"  -o verifier_debug ./cmd/verifier
 
 # Multi-Stage build
 FROM golang:1.19.3@sha256:7ffa70183b7596e6bc1b78c132dbba9a6e05a26cd30eaa9832fecad64b83f029 as deploy
 
 # Retrieve the binary from the previous stage
-COPY --from=builder /opt/app-root/src/mirroring /usr/local/bin/mirroring
+COPY --from=builder /opt/app-root/src/verifier /usr/local/bin/verifier
 
 # Set the binary as the entrypoint of the container
-CMD ["mirroring"]
+CMD ["verifier"]
 
 # debug compile options & debugger
 FROM deploy as debug
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.9.1
 
 # overwrite utility and include debugger
-COPY --from=builder /opt/app-root/src/mirroring_debug /usr/local/bin/mirroring
+COPY --from=builder /opt/app-root/src/verifier_debug /usr/local/bin/verifier

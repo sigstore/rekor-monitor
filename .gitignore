@@ -103,6 +103,8 @@ output/*/index.html
 *.tree
 *.vscode
 
-logInfo.txt
 bin/
-identities.txt
+/logInfo.txt
+/identities.txt
+/mirroring
+/verifier

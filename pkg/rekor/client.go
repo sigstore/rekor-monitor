@@ -20,8 +20,30 @@ import (
 
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
+	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 )
+
+// GetPublicKey fetches the current public key from Rekor
+func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error) {
+	p := pubkey.NewGetPublicKeyParamsWithContext(ctx)
+	pubkeyResp, err := rekorClient.Pubkey.GetPublicKey(p)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(pubkeyResp.Payload), nil
+}
+
+// GetLogInfo fetches checkpoints and log information for each log shard
+func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
+	p := tlog.NewGetLogInfoParamsWithContext(ctx)
+	logInfoResp, err := rekorClient.Tlog.GetLogInfo(p)
+	if err != nil {
+		return nil, err
+	}
+	return logInfoResp.GetPayload(), nil
+}
 
 // GetEntriesByIndexRange fetches all entries by log index, from (start, end]
 // If start == end, returns a single entry for that index

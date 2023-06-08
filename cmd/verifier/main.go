@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/pkg/mirroring"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/util"
@@ -137,7 +136,7 @@ func ParseIdentities(identitiesInput string) (rekor.Identities, error) {
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
 func main() {
-	// Command-line flags that are parameters to the mirroring job
+	// Command-line flags that are parameters to the verifier job
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
@@ -166,7 +165,7 @@ func main() {
 	}
 
 	// Fetch log info to get total log size and initial STH if needed
-	logInfo, err := mirroring.GetLogInfo(rekorClient)
+	logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
 	if err != nil {
 		log.Fatalf("Getting log info: %v", err)
 	}
@@ -199,12 +198,7 @@ func main() {
 		log.Fatalf("reading %q: %v", *logInfoFile, err)
 	}
 
-	// TODO: Verify using public key from TUF
-	pemPubKey, err := mirroring.GetPublicKey(rekorClient)
-	if err != nil {
-		log.Fatalf("getting public key: %v", err)
-	}
-	verifier, err := mirroring.LoadVerifier(pemPubKey)
+	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
 	if err != nil {
 		log.Fatal(err)
 	}
