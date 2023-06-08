@@ -26,7 +26,7 @@ import (
 // GetLogVerifier creates a verifier from the log's public key
 // TODO: Fetch the public key from TUF
 func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor) (signature.Verifier, error) {
-	pemPubKey, err := GetPublicKey(context.Background(), rekorClient)
+	pemPubKey, err := GetPublicKey(ctx, rekorClient)
 	if err != nil {
 		return nil, err
 	}
