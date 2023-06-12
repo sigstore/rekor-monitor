@@ -19,7 +19,7 @@ services:
       context: .
       target: "deploy"
     command: [
-      "mirroring",
+      "verifier",
       "--file=/etc/rekor-monitor/logInfo.txt"
       # uncomment for more frequent polling
       # "--interval=1m",

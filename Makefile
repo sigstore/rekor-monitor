@@ -13,11 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-defaut:
-	mkdir -p build
-	go build -o build/ ./...
+build:
+	go build ./cmd/verifier
 
-mirroring:
-	$(MAKE) -C mirroring
+test:
+	go test ./...
 
-.PHONY: mirroring build default
+clean:
+	rm -f ./verifier
+
+.PHONY: build test clean

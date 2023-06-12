@@ -23,10 +23,6 @@ updates:
     schedule:
       interval: "daily"
   - package-ecosystem: "docker"
-    directory: "./mirroring"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "docker"
-    directory: "./cmd/mirroring"
+    directory: "/"
     schedule:
       interval: "daily"

@@ -20,13 +20,15 @@ import (
 	"github.com/go-openapi/runtime"
 
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
+	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 )
 
 // EntriesClient is a client that implements entries.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
-// mClient.Entries = &logEntry
+// mClient.Entries = &mock.EntriesClient{Entries: <logEntries>}
 type EntriesClient struct {
 	Entries []*models.LogEntry
 }
@@ -55,6 +57,40 @@ func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, _ .
 	}, nil
 }
 
-// TODO: Implement mock
-func (m *EntriesClient) SetTransport(_ runtime.ClientTransport) {
+func (m *EntriesClient) SetTransport(_ runtime.ClientTransport) {}
+
+// TlogClient is a client that implements tlog.ClientService for Rekor
+// To use:
+// var mClient client.Rekor
+// mClient.Entries = &mock.TlogClient{LogInfo: <loginfo>}
+type TlogClient struct {
+	LogInfo *models.LogInfo
 }
+
+func (m *TlogClient) GetLogInfo(_ *tlog.GetLogInfoParams, _ ...tlog.ClientOption) (*tlog.GetLogInfoOK, error) {
+	return &tlog.GetLogInfoOK{
+		Payload: m.LogInfo,
+	}, nil
+}
+
+func (m *TlogClient) GetLogProof(_ *tlog.GetLogProofParams, _ ...tlog.ClientOption) (*tlog.GetLogProofOK, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *TlogClient) SetTransport(_ runtime.ClientTransport) {}
+
+// PubkeyClient is a client that implements pubkey.ClientService for Rekor
+// To use:
+// var mClient client.Rekor
+// mClient.Entries = &mock.PubkeyClient{PEMPubKey: <string>}
+type PubkeyClient struct {
+	PEMPubKey string
+}
+
+func (m *PubkeyClient) GetPublicKey(_ *pubkey.GetPublicKeyParams, _ ...pubkey.ClientOption) (*pubkey.GetPublicKeyOK, error) {
+	return &pubkey.GetPublicKeyOK{
+		Payload: m.PEMPubKey,
+	}, nil
+}
+
+func (m *PubkeyClient) SetTransport(_ runtime.ClientTransport) {}
