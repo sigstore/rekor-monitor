@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/go-openapi/runtime v0.26.0
-	github.com/go-openapi/swag v0.22.3
+	github.com/go-openapi/swag v0.22.4
 	github.com/sigstore/cosign/v2 v2.0.2
 	github.com/sigstore/rekor v1.2.1
 	github.com/sigstore/sigstore v1.6.4
