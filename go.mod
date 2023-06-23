@@ -7,7 +7,7 @@ require (
 	github.com/go-openapi/swag v0.22.4
 	github.com/sigstore/cosign/v2 v2.0.3-0.20230608175549-2742dceac0d2
 	github.com/sigstore/rekor v1.2.1
-	github.com/sigstore/sigstore v1.7.0
+	github.com/sigstore/sigstore v1.7.1
 )
 
 require (
