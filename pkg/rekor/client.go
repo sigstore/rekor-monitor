@@ -35,9 +35,12 @@ func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error
 	return []byte(pubkeyResp.Payload), nil
 }
 
-// GetLogInfo fetches checkpoints and log information for each log shard
+// GetLogInfo fetches a stable checkpoint for each log shard
 func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
 	p := tlog.NewGetLogInfoParamsWithContext(ctx)
+	stable := true
+	p.Stable = &stable
+
 	logInfoResp, err := rekorClient.Tlog.GetLogInfo(p)
 	if err != nil {
 		return nil, err
