@@ -29,8 +29,10 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	file "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/client"
+	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 // Default values for monitoring job parameters
@@ -58,6 +60,104 @@ func parseIdentities(identitiesInput string) (rekor.Identities, error) {
 		return ids, err
 	}
 	return ids, nil
+}
+
+// runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
+func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, ids rekor.Identities, outputIdentitiesFile *string, once *bool) error {
+	ticker := time.NewTicker(*interval)
+	defer ticker.Stop()
+
+	// Loop will:
+	// 1. Fetch latest checkpoint and verify
+	// 2. If old checkpoint is present, verify consistency proof
+	// 3. Write latest checkpoint to file
+
+	// To get an immediate first tick
+	for ; ; <-ticker.C {
+		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
+		if err != nil {
+			return fmt.Errorf("getting log info: %v", err)
+		}
+		checkpoint := &util.SignedCheckpoint{}
+		if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+			return fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
+		}
+		if !checkpoint.Verify(verifier) {
+			return fmt.Errorf("verifying checkpoint (size %d, hash %s) failed", checkpoint.Size, hex.EncodeToString(checkpoint.Hash))
+		}
+
+		fi, err := os.Stat(*logInfoFile)
+		var prevCheckpoint *util.SignedCheckpoint
+		if err == nil && fi.Size() != 0 {
+			// File containing previous checkpoints exists
+			prevCheckpoint, err = file.ReadLatestCheckpoint(*logInfoFile)
+			if err != nil {
+				return fmt.Errorf("reading checkpoint log: %v", err)
+			}
+			if !prevCheckpoint.Verify(verifier) {
+				return fmt.Errorf("verifying checkpoint (size %d, hash %s) failed", checkpoint.Size, hex.EncodeToString(checkpoint.Hash))
+			}
+		}
+		if prevCheckpoint != nil {
+			if err := verify.ProveConsistency(context.Background(), rekorClient, prevCheckpoint, checkpoint, *logInfo.TreeID); err != nil {
+				return fmt.Errorf("failed to verify log consistency: %v", err)
+			}
+			fmt.Fprintf(os.Stderr, "Root hash consistency verified - Current Size: %d Root Hash: %s - Previous Size: %d Root Hash %s\n",
+				checkpoint.Size, hex.EncodeToString(checkpoint.Hash), prevCheckpoint.Size, hex.EncodeToString(prevCheckpoint.Hash))
+		}
+
+		// Write if there was no stored checkpoint or the sizes differ
+		if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
+			if err := file.WriteCheckpoint(checkpoint, *logInfoFile); err != nil {
+				return fmt.Errorf("failed to write checkpoint: %v", err)
+			}
+		}
+
+		// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
+		// to persist the last checkpoint.
+		// Delete old checkpoints to avoid the log growing indefinitely
+		if err := file.DeleteOldCheckpoints(*logInfoFile); err != nil {
+			return fmt.Errorf("failed to delete old checkpoints: %v", err)
+		}
+
+		// Look for identities if there was a previous, different checkpoint
+		if prevCheckpoint != nil && prevCheckpoint.Size != checkpoint.Size {
+			// Get log size of inactive shards
+			totalSize := 0
+			for _, s := range logInfo.InactiveShards {
+				totalSize += int(*s.TreeSize)
+			}
+			startIndex := int(prevCheckpoint.Size) + totalSize - 1
+			endIndex := int(checkpoint.Size) + totalSize - 1
+
+			// Search for identities in the log range
+			if len(ids.Identities) > 0 {
+				entries, err := rekor.GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+				if err != nil {
+					return fmt.Errorf("error getting entries by index range: %v", err)
+				}
+				idEntries, err := rekor.MatchedIndices(entries, ids)
+				if err != nil {
+					return fmt.Errorf("error finding log indices: %v", err)
+				}
+
+				if len(idEntries) > 0 {
+					for _, idEntry := range idEntries {
+						fmt.Fprintf(os.Stderr, "Found subject %s, issuer %s at log index %d, uuid %s\n",
+							idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)
+
+						if err := file.WriteIdentity(*outputIdentitiesFile, idEntry); err != nil {
+							return fmt.Errorf("failed to write identity: %v", err)
+						}
+					}
+				}
+			}
+		}
+
+		if *once {
+			return nil
+		}
+	}
 }
 
 // This main function performs a periodic root hash consistency check.
@@ -97,94 +197,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Loop will:
-	// 1. Fetch latest checkpoint and verify
-	// 2. If old checkpoint is present, verify consistency proof
-	// 3. Write latest checkpoint to file
-	for {
-		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
-		if err != nil {
-			log.Fatalf("Getting log info: %v", err)
-		}
-		checkpoint := &util.SignedCheckpoint{}
-		if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-			log.Fatalf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
-		}
-		if !checkpoint.Verify(verifier) {
-			log.Fatalf("verifying checkpoint (size %d, hash %s) failed", checkpoint.Size, hex.EncodeToString(checkpoint.Hash))
-		}
-
-		fi, err := os.Stat(*logInfoFile)
-		var prevCheckpoint *util.SignedCheckpoint
-		if err == nil && fi.Size() != 0 {
-			// File containing previous checkpoints exists
-			prevCheckpoint, err = file.ReadLatestCheckpoint(*logInfoFile)
-			if err != nil {
-				log.Fatalf("reading checkpoint log: %v", err)
-			}
-			if !prevCheckpoint.Verify(verifier) {
-				log.Fatalf("verifying checkpoint (size %d, hash %s) failed", checkpoint.Size, hex.EncodeToString(checkpoint.Hash))
-			}
-		}
-		if prevCheckpoint != nil {
-			if err := verify.ProveConsistency(context.Background(), rekorClient, prevCheckpoint, checkpoint, *logInfo.TreeID); err != nil {
-				log.Fatalf("failed to verify log consistency: %v", err)
-			}
-			fmt.Fprintf(os.Stderr, "Root hash consistency verified - Current Size: %d Root Hash: %s - Previous Size: %d Root Hash %s\n",
-				checkpoint.Size, hex.EncodeToString(checkpoint.Hash), prevCheckpoint.Size, hex.EncodeToString(prevCheckpoint.Hash))
-		}
-
-		// Write if there was no stored checkpoint or the sizes differ
-		if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
-			if err := file.WriteCheckpoint(checkpoint, *logInfoFile); err != nil {
-				log.Fatalf("failed to write checkpoint: %v", err)
-			}
-		}
-
-		// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
-		// to persist the last checkpoint.
-		// Delete old checkpoints to avoid the log growing indefinitely
-		if err := file.DeleteOldCheckpoints(*logInfoFile); err != nil {
-			log.Fatalf("failed to delete old checkpoints: %v", err)
-		}
-
-		// Look for identities if there was a previous, different checkpoint
-		if prevCheckpoint != nil && prevCheckpoint.Size != checkpoint.Size {
-			// Get log size of inactive shards
-			totalSize := 0
-			for _, s := range logInfo.InactiveShards {
-				totalSize += int(*s.TreeSize)
-			}
-			startIndex := int(prevCheckpoint.Size) + totalSize - 1
-			endIndex := int(checkpoint.Size) + totalSize - 1
-
-			// Search for identities in the log range
-			if len(ids.Identities) > 0 {
-				entries, err := rekor.GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
-				if err != nil {
-					log.Fatalf("error getting entries by index range: %v", err)
-				}
-				idEntries, err := rekor.MatchedIndices(entries, ids)
-				if err != nil {
-					log.Fatalf("error finding log indices: %v", err)
-				}
-
-				if len(idEntries) > 0 {
-					for _, idEntry := range idEntries {
-						fmt.Fprintf(os.Stderr, "Found subject %s, issuer %s at log index %d, uuid %s\n",
-							idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)
-
-						if err := file.WriteIdentity(*outputIdentitiesFile, idEntry); err != nil {
-							log.Fatalf("failed to write identity: %v", err)
-						}
-					}
-				}
-			}
-		}
-
-		if *once {
-			return
-		}
-		time.Sleep(*interval)
+	err = runConsistencyCheck(interval, rekorClient, verifier, logInfoFile, ids, outputIdentitiesFile, once)
+	if err != nil {
+		log.Fatalf("%v", err)
 	}
 }
