@@ -8,7 +8,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.1.1
 	github.com/sigstore/rekor v1.2.2
 	github.com/sigstore/sigstore v1.7.2
-	golang.org/x/mod v0.11.0
+	golang.org/x/mod v0.12.0
 )
 
 require (
