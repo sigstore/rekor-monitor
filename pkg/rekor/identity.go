@@ -30,6 +30,20 @@ import (
 	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+
+	// required imports to call init methods
+	_ "github.com/sigstore/rekor/pkg/types/alpine/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/cose/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/dsse/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/helm/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/intoto/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/intoto/v0.0.2"
+	_ "github.com/sigstore/rekor/pkg/types/jar/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/rfc3161/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/rpm/v0.0.1"
+	_ "github.com/sigstore/rekor/pkg/types/tuf/v0.0.1"
 )
 
 var (
