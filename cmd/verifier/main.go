@@ -160,9 +160,9 @@ func main() {
 	}
 	for _, certID := range monitoredVals.CertificateIdentities {
 		if len(certID.Issuers) == 0 {
-			fmt.Printf("Monitoring subject %s\n", certID.CertSubject)
+			fmt.Printf("Monitoring certificate subject %s\n", certID.CertSubject)
 		} else {
-			fmt.Printf("Monitoring subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
+			fmt.Printf("Monitoring certificate subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
 		}
 	}
 	for _, fp := range monitoredVals.Fingerprints {
