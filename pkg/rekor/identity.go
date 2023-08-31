@@ -70,7 +70,7 @@ type MonitoredValues struct {
 	Fingerprints []string `yaml:"fingerprints"`
 	// Subjects contains a list of subjects that are not specified in a
 	// certificate, such as a SSH key or PGP key email address
-	Subjects []string `yaml:"subject"`
+	Subjects []string `yaml:"subjects"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, and log entry metadata
