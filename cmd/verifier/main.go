@@ -16,7 +16,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/hex"
 	"flag"
@@ -33,6 +32,7 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"gopkg.in/yaml.v3"
 )
 
 // Default values for monitoring job parameters
@@ -42,28 +42,8 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 )
 
-func parseIdentities(identitiesInput string) (rekor.Identities, error) {
-	ids := rekor.Identities{}
-	scanner := bufio.NewScanner(strings.NewReader(identitiesInput))
-	for scanner.Scan() {
-		l := strings.Fields(scanner.Text())
-		switch len(l) {
-		case 0:
-			continue
-		case 1:
-			ids.Identities = append(ids.Identities, rekor.Identity{Subject: l[0]})
-		default:
-			ids.Identities = append(ids.Identities, rekor.Identity{Subject: l[0], Issuers: l[1:]})
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return ids, err
-	}
-	return ids, nil
-}
-
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, ids rekor.Identities, outputIdentitiesFile *string, once *bool) error {
+func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs rekor.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
@@ -131,23 +111,22 @@ func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, ve
 			endIndex := int(checkpoint.Size) + totalSize - 1
 
 			// Search for identities in the log range
-			if len(ids.Identities) > 0 {
+			if len(mvs.CertificateIdentities) > 0 || len(mvs.Fingerprints) > 0 || len(mvs.Subjects) > 0 {
 				entries, err := rekor.GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 				if err != nil {
 					return fmt.Errorf("error getting entries by index range: %v", err)
 				}
-				idEntries, err := rekor.MatchedIndices(entries, ids)
+				idEntries, err := rekor.MatchedIndices(entries, mvs)
 				if err != nil {
 					return fmt.Errorf("error finding log indices: %v", err)
 				}
 
 				if len(idEntries) > 0 {
 					for _, idEntry := range idEntries {
-						fmt.Fprintf(os.Stderr, "Found subject %s, issuer %s at log index %d, uuid %s\n",
-							idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)
+						fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
 						if err := file.WriteIdentity(*outputIdentitiesFile, idEntry); err != nil {
-							return fmt.Errorf("failed to write identity: %v", err)
+							return fmt.Errorf("failed to write entry: %v", err)
 						}
 					}
 				}
@@ -169,22 +148,28 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
-	identitiesInput := flag.String("identities", "", "newline-separated list of identities and issuers in the format "+
-		"subject [issuer...]. If no issuers are specified, match any OIDC providers.")
+	monitoredValsInput := flag.String("monitored-values", "", "yaml of certificate subjects and issuers, key subjects, "+
+		"and fingerprints. For certificates, if no issuers are specified, match any OIDC provider.")
 	outputIdentitiesFile := flag.String("output-identities", outputIdentitiesFileName,
 		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	flag.Parse()
 
-	ids, err := parseIdentities(*identitiesInput)
-	if err != nil {
+	var monitoredVals rekor.MonitoredValues
+	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
 		log.Fatalf("error parsing identities: %v", err)
 	}
-	for _, id := range ids.Identities {
-		if len(id.Issuers) == 0 {
-			fmt.Printf("Monitoring subject %s\n", id.Subject)
+	for _, certID := range monitoredVals.CertificateIdentities {
+		if len(certID.Issuers) == 0 {
+			fmt.Printf("Monitoring subject %s\n", certID.CertSubject)
 		} else {
-			fmt.Printf("Monitoring subject %s for issuer(s) %s\n", id.Subject, strings.Join(id.Issuers, ","))
+			fmt.Printf("Monitoring subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
 		}
+	}
+	for _, fp := range monitoredVals.Fingerprints {
+		fmt.Printf("Monitoring fingerprint %s\n", fp)
+	}
+	for _, sub := range monitoredVals.Subjects {
+		fmt.Printf("Monitoring subject %s\n", sub)
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL)
@@ -197,7 +182,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = runConsistencyCheck(interval, rekorClient, verifier, logInfoFile, ids, outputIdentitiesFile, once)
+	err = runConsistencyCheck(interval, rekorClient, verifier, logInfoFile, monitoredVals, outputIdentitiesFile, once)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

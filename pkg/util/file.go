@@ -125,7 +125,7 @@ func WriteIdentity(idFile string, idEntry rekor.IdentityEntry) error {
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(fmt.Sprintf("%s %s %d %s\n", idEntry.Subject, idEntry.Issuer, idEntry.Index, idEntry.UUID)); err != nil {
+	if _, err := file.WriteString(fmt.Sprintf("%s\n", idEntry.String())); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
