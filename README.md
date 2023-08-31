@@ -64,24 +64,37 @@ jobs:
       file_issue: true # Strongly recommended: Files an issue on monitoring failure
       artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
       identities: |
-        user@domain.com
-        otheruser@domain.com https://accounts.google.com https://github.com/login
+        certIdentities:
+          - certSubject: user@domain.com
+          - certSubject: otheruser@domain.com
+            issuers:
+              - https://accounts.google.com
+              - https://github.com/login
+        subjects:
+          - subject@domain.com
+        fingerprints:
+          - A0B1C2D3E4F5
 ```
 
-In this example, the monitor will log any entries that contain a certificate whose SAN
-is `user@domain.com`. It will also log any entries whose SAN is `otheruser@domain.com`
-and the OIDC provider specified in a
-[custom extension](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726411--issuer)
-matches one of the specified issuers (Google or GitHub in this example).
+In this example, the monitor will log:
+
+* Entries that contain a certificate whose SAN is `user@domain.com`
+* Entries whose SAN is `otheruser@domain.com` and the OIDC provider specified in a [custom extension](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726418--issuer-v2) matches one of the specified issuers (Google or GitHub in this example)
+* Non-certificate entries, such as PGP or SSH keys, whose subject matches `subject@domain.com`
+* Entries whose key or certificate fingerprint matches `A0B1C2D3E4F5`
+
+Fingerprint values are as follows:
+
+* For keys, certificates, and minisign, hex-encoded SHA-256 digest of the DER-encoded PKIX public key or certificate
+* For SSH and PGP, the standard for each ecosystem:
+   * For SSH, unpadded base-64 encoded SHA-256 digest of the key
+	 * For PGP, hex-encoded SHA-1 digest of a key, which can be either a primary key or subkey
 
 Upcoming features:
 
 * Creating issues when identities are found
-* Support for all Rekor types
 * Support for other identities
-   * Key/certificate fingerprints
    * CI identity values in Fulcio certificates
-   * Regular expressions
 
 ## Security
 

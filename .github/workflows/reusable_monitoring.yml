@@ -31,7 +31,7 @@ on:
         type: number
         default: 14
       identities:
-        description: 'New-line separated list of identities, where each line can either be a subject or a subject followed by OIDC providers, whitespace-separated'
+        description: 'multiline yaml of certificate subjects and issuers, key subjects, and fingerprints. For certificates, if no issuers are specified, match any OIDC provider'
         required: false
         type: string
 
@@ -76,7 +76,7 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/verifier --file ${{ env.LOG_FILE }} --once --identities "${{ inputs.identities }}"
+      - run: go run ./cmd/verifier --file ${{ env.LOG_FILE }} --once --monitored-values "${{ inputs.identities }}"
       - name: Upload checkpoint
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:

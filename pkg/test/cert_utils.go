@@ -86,11 +86,15 @@ func GenerateRootCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 }
 
 func GenerateLeafCert(subject string, oidcIssuer string, parentTemplate *x509.Certificate, parentPriv crypto.Signer, exts ...pkix.Extension) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+	val, err := asn1.MarshalWithParams(oidcIssuer, "utf8")
+	if err != nil {
+		return nil, nil, err
+	}
 	exts = append(exts, pkix.Extension{
-		// OID for OIDC Issuer extension
-		Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+		// OID for OIDC Issuer V2 extension
+		Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8},
 		Critical: false,
-		Value:    []byte(oidcIssuer),
+		Value:    val,
 	})
 	certTemplate := &x509.Certificate{
 		SerialNumber:    big.NewInt(1),

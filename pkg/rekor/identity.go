@@ -17,95 +17,170 @@ package rekor
 import (
 	"bytes"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/go-openapi/runtime"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
-
-	hashedrekord_v001 "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
+var (
+	CertExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
+)
+
+// CertificateIdentity holds a certificate subject and an optional list of identity issuers
+type CertificateIdentity struct {
+	CertSubject string   `yaml:"certSubject"`
+	Issuers     []string `yaml:"issuers"`
+}
+
+// MonitoredValues holds a set of values to compare against a given entry
+type MonitoredValues struct {
+	// CertificateIdentities contains a list of subjects and issuers
+	CertificateIdentities []CertificateIdentity `yaml:"certIdentities"`
+	// Fingerprints contains a list of key fingerprints. Values are as follows:
+	// For keys, certificates, and minisign, hex-encoded SHA-256 digest
+	// of the DER-encoded PKIX public key or certificate
+	// For SSH and PGP, the standard for each ecosystem:
+	// For SSH, unpadded base-64 encoded SHA-256 digest of the key
+	// For PGP, hex-encoded SHA-1 digest of a key, which can be either
+	// a primary key or subkey
+	Fingerprints []string `yaml:"fingerprints"`
+	// Subjects contains a list of subjects that are not specified in a
+	// certificate, such as a SSH key or PGP key email address
+	Subjects []string `yaml:"subject"`
+}
+
 // IdentityEntry holds a certificate subject, issuer, and log entry metadata
 type IdentityEntry struct {
-	Subject string
-	Issuer  string
-	Index   int64
-	UUID    string
+	CertSubject string
+	Issuer      string
+	Fingerprint string
+	Subject     string
+	Index       int64
+	UUID        string
 }
 
-// Identities are the subjects/issuers to search
-type Identities struct {
-	Identities []Identity `json:"identities,omitempty"`
-}
-
-type Identity struct {
-	Subject string   `json:"subject"`
-	Issuers []string `json:"issuers,omitempty"`
+func (e *IdentityEntry) String() string {
+	var parts []string
+	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID} {
+		if strings.TrimSpace(s) != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, identities Identities) ([]IdentityEntry, error) {
-	if err := verifyIdentities(identities); err != nil {
+func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]IdentityEntry, error) {
+	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}
 
-	var matchedIndices []IdentityEntry
+	var matchedEntries []IdentityEntry
 
 	for _, entries := range logEntries {
 		for uuid, entry := range entries {
 			entry := entry
 
-			certs, err := extractCertificates(&entry)
+			verifiers, err := extractVerifiers(&entry)
 			if err != nil {
-				// TODO: Add support for handling public keys in x509 struct
-				// TODO: Add support for minisign
-				// TODO: Add support for SSH
-				// TODO: Add support for PKCS7
-				// TODO: Add support for PGP
-				// TODO: Add support for TUF
-				continue
+				return nil, err
+			}
+			subjects, certs, fps, err := extractAllIdentities(verifiers)
+			if err != nil {
+				return nil, err
 			}
 
-			// TODO: Support regular expressions using co.Identities
-			// TODO: Support GitHub CI claims
-
-			var checks []*cosign.CheckOpts
-			for _, ids := range identities.Identities {
-				// match any issuer with no issuers specified
-				if len(ids.Issuers) == 0 {
-					checks = append(checks, &cosign.CheckOpts{Identities: []cosign.Identity{{Subject: ids.Subject}}})
-				} else {
-					for _, iss := range ids.Issuers {
-						checks = append(checks, &cosign.CheckOpts{Identities: []cosign.Identity{{Subject: ids.Subject, Issuer: iss}}})
+			for _, monitoredFp := range mvs.Fingerprints {
+				for _, fp := range fps {
+					if fp == monitoredFp {
+						matchedEntries = append(matchedEntries, IdentityEntry{
+							Fingerprint: fp,
+							Index:       *entry.LogIndex,
+							UUID:        uuid,
+						})
 					}
 				}
 			}
 
-			for _, co := range checks {
-				if err := cosign.CheckCertificatePolicy(certs[0], co); err == nil {
-					// certificate matched policy
-					exts := cosign.CertExtensions{Cert: certs[0]}
-					matchedIndices = append(matchedIndices,
-						IdentityEntry{
-							Subject: co.Identities[0].Subject,
-							Issuer:  exts.GetIssuer(),
+			for _, monitoredCertID := range mvs.CertificateIdentities {
+				for _, cert := range certs {
+					match, sub, iss, err := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
+					if err != nil {
+						return nil, err
+					} else if match {
+						matchedEntries = append(matchedEntries, IdentityEntry{
+							CertSubject: sub,
+							Issuer:      iss,
+							Index:       *entry.LogIndex,
+							UUID:        uuid,
+						})
+					}
+				}
+			}
+
+			for _, monitoredSub := range mvs.Subjects {
+				regex, err := regexp.Compile(monitoredSub)
+				if err != nil {
+					return nil, err
+				}
+				for _, sub := range subjects {
+					if regex.MatchString(sub) {
+						matchedEntries = append(matchedEntries, IdentityEntry{
+							Subject: sub,
 							Index:   *entry.LogIndex,
 							UUID:    uuid,
 						})
+					}
 				}
 			}
 		}
 	}
 
-	return matchedIndices, nil
+	return matchedEntries, nil
 }
 
-// TODO: Change once https://github.com/sigstore/rekor/pull/1210 is merged
-func extractCertificates(e *models.LogEntryAnon) ([]*x509.Certificate, error) {
+// verifyMonitoredValues checks that monitored values are valid
+func verifyMonitoredValues(mvs MonitoredValues) error {
+	if len(mvs.CertificateIdentities) == 0 && len(mvs.Fingerprints) == 0 && len(mvs.Subjects) == 0 {
+		return errors.New("no identities provided to monitor")
+	}
+	for _, certID := range mvs.CertificateIdentities {
+		if len(certID.CertSubject) == 0 {
+			return errors.New("certificate subject empty")
+		}
+		// issuers can be empty
+		for _, iss := range certID.Issuers {
+			if len(iss) == 0 {
+				return errors.New("issuer empty")
+			}
+		}
+	}
+	for _, fp := range mvs.Fingerprints {
+		if len(fp) == 0 {
+			return errors.New("fingerprint empty")
+		}
+	}
+	for _, sub := range mvs.Subjects {
+		if len(sub) == 0 {
+			return errors.New("subject empty")
+		}
+	}
+	return nil
+}
+
+// extractVerifiers extracts a set of keys or certificates that can verify an
+// artifact signature from a Rekor entry
+func extractVerifiers(e *models.LogEntryAnon) ([]pki.PublicKey, error) {
 	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
 	if err != nil {
 		return nil, err
@@ -116,49 +191,93 @@ func extractCertificates(e *models.LogEntryAnon) ([]*x509.Certificate, error) {
 		return nil, err
 	}
 
-	eimpl, err := types.CreateVersionedEntry(pe)
+	eimpl, err := types.UnmarshalEntry(pe)
 	if err != nil {
 		return nil, err
 	}
 
-	var publicKeyB64 []byte
-	switch e := eimpl.(type) {
-	case *hashedrekord_v001.V001Entry:
-		publicKeyB64, err = e.HashedRekordObj.Signature.PublicKey.Content.MarshalText()
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.New("tlog entry type not supported")
-	}
-
-	publicKey, err := base64.StdEncoding.DecodeString(string(publicKeyB64))
-	if err != nil {
-		return nil, err
-	}
-
-	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(publicKey)
-	if err != nil {
-		// This returns an error if the publicKey field does not contain certificates.
-		// This is expected for this case.
-		return nil, err
-	}
-
-	if len(certs) == 0 {
-		return nil, errors.New("no certficates found in entry")
-	}
-
-	return certs, err
+	return eimpl.Verifiers()
 }
 
-func verifyIdentities(ids Identities) error {
-	if len(ids.Identities) == 0 {
-		return errors.New("no identities provided")
-	}
-	for _, id := range ids.Identities {
-		if len(id.Subject) == 0 {
-			return errors.New("subject empty")
+// extractAllIdentities gets all certificates, email addresses, and key fingerprints
+// from a list of verifiers
+func extractAllIdentities(verifiers []pki.PublicKey) ([]string, []*x509.Certificate, []string, error) {
+	var subjects []string
+	var certificates []*x509.Certificate
+	var fps []string
+
+	for _, v := range verifiers {
+		// append all verifier subjects (email or SAN)
+		subjects = append(subjects, v.Subjects()...)
+		ids, err := v.Identities()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		// append all certificate and key fingerprints
+		for _, i := range ids {
+			fps = append(fps, i.Fingerprint)
+			if cert, ok := i.Crypto.(*x509.Certificate); ok {
+				certificates = append(certificates, cert)
+			}
 		}
 	}
-	return nil
+	return subjects, certificates, fps, nil
+}
+
+// getExtension gets a certificate extension by OID
+func getExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	for _, ext := range cert.Extensions {
+		if !ext.Id.Equal(oid) {
+			continue
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
+		if len(rest) != 0 {
+			return "", fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+		}
+		return extValue, nil
+	}
+	return "", nil
+}
+
+// certMatchesPolicy returns true if a certificate contains a given subject and optionally a given issuer
+// expectedSub and expectedIssuers can be regular expressions
+// certMatchesPolicy also returns the matched subject and issuer on success
+func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssuers []string) (bool, string, string, error) {
+	sans := cryptoutils.GetSubjectAlternateNames(cert)
+	issuer, err := getExtension(cert, CertExtensionOIDCIssuerV2)
+	if err != nil {
+		return false, "", "", err
+	}
+	subjectMatches := false
+	regex, err := regexp.Compile(expectedSub)
+	if err != nil {
+		return false, "", "", fmt.Errorf("malformed subject regex: %w", err)
+	}
+	matchedSub := ""
+	for _, sub := range sans {
+		if regex.MatchString(sub) {
+			subjectMatches = true
+			matchedSub = sub
+		}
+	}
+	// allow any issuer
+	if len(expectedIssuers) == 0 {
+		return subjectMatches, matchedSub, issuer, nil
+	}
+
+	issuerMatches := false
+	for _, expectedIss := range expectedIssuers {
+		regex, err := regexp.Compile(expectedIss)
+		if err != nil {
+			return false, "", "", fmt.Errorf("malformed issuer regex: %w", err)
+		}
+		if regex.MatchString(issuer) {
+			issuerMatches = true
+		}
+	}
+	return subjectMatches && issuerMatches, matchedSub, issuer, nil
 }
