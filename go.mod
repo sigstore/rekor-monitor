@@ -6,7 +6,7 @@ require (
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/swag v0.22.4
 	github.com/sigstore/rekor v1.2.3-0.20230815151852-3e1715a2b7b7
-	github.com/sigstore/sigstore v1.7.2
+	github.com/sigstore/sigstore v1.7.3
 	golang.org/x/mod v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -38,7 +38,7 @@ require (
 	github.com/go-playground/validator/v10 v10.15.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-containerregistry v0.15.2 // indirect
+	github.com/google/go-containerregistry v0.16.1 // indirect
 	github.com/google/rpmpack v0.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
