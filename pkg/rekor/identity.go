@@ -107,11 +107,11 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 
 			verifiers, err := extractVerifiers(&entry)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error extracting verifiers for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
 			subjects, certs, fps, err := extractAllIdentities(verifiers)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error extracting identities for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
 
 			for _, monitoredFp := range mvs.Fingerprints {
@@ -130,7 +130,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 				for _, cert := range certs {
 					match, sub, iss, err := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 					if err != nil {
-						return nil, err
+						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					} else if match {
 						matchedEntries = append(matchedEntries, IdentityEntry{
 							CertSubject: sub,
@@ -145,7 +145,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 			for _, monitoredSub := range mvs.Subjects {
 				regex, err := regexp.Compile(monitoredSub)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("error compiling regex for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 				}
 				for _, sub := range subjects {
 					if regex.MatchString(sub) {
