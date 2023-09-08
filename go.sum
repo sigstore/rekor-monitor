@@ -375,8 +375,8 @@ github.com/secure-systems-lab/go-securesystemslib v0.7.0 h1:OwvJ5jQf9LnIAS83waAj
 github.com/secure-systems-lab/go-securesystemslib v0.7.0/go.mod h1:/2gYnlnHVQ6xeGtfIqFy7Do03K4cdCY0A/GlJLDKLHI=
 github.com/shibumi/go-pathspec v1.3.0 h1:QUyMZhFo0Md5B8zV8x2tesohbb5kfbpTi9rBnKh5dkI=
 github.com/shibumi/go-pathspec v1.3.0/go.mod h1:Xutfslp817l2I1cZvgcfeMQJG5QnU2lh5tVaaMCl3jE=
-github.com/sigstore/rekor v1.3.0 h1:meiQhvzb7B4CwmRgGAHnsExoyf2fiGnXUNgm7rOHPIg=
-github.com/sigstore/rekor v1.3.0/go.mod h1:aZH9c2g4nZS/+IfVm6WWhwRIY7In5TdUX7jfG4moI+E=
+github.com/sigstore/rekor v1.3.1-0.20230908115055-fd1220a65902 h1:NW33lH3ZRL7CzsW/RVD0PeqoVMzb4r1GVmMWNB1o6uA=
+github.com/sigstore/rekor v1.3.1-0.20230908115055-fd1220a65902/go.mod h1:aZH9c2g4nZS/+IfVm6WWhwRIY7In5TdUX7jfG4moI+E=
 github.com/sigstore/sigstore v1.7.3 h1:HVVTfrMezJeLyl2xhJ8edzkrEGBa4KxjQZB4FlQ4JLU=
 github.com/sigstore/sigstore v1.7.3/go.mod h1:cl0c7Dtg3MM3c13L8pqqrfrmBa0eM3POcdtBepjylmw=
 github.com/sirupsen/logrus v1.4.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
