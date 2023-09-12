@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/swag v0.22.4
-	github.com/sigstore/rekor v1.3.1-0.20230908115055-fd1220a65902
+	github.com/sigstore/rekor v1.3.1-0.20230912220232-ceef5a562026
 	github.com/sigstore/sigstore v1.7.3
 	golang.org/x/mod v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
