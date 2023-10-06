@@ -7,7 +7,7 @@ require (
 	github.com/go-openapi/swag v0.22.4
 	github.com/sigstore/rekor v1.3.1-0.20230926122957-21102e65cd22
 	github.com/sigstore/sigstore v1.7.3
-	golang.org/x/mod v0.12.0
+	golang.org/x/mod v0.13.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
