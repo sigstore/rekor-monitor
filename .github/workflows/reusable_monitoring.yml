@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-workflow]
     steps:
-      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3.3.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
@@ -96,7 +96,7 @@ jobs:
       ISSUE_REPOSITORY: ${{ github.repository }}
     if: ${{ needs.monitor.result == 'success' && inputs.file_issue }}
     steps:
-      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3.3.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
@@ -114,7 +114,7 @@ jobs:
       ISSUE_REPOSITORY: ${{ github.repository }}
     if: ${{ always() && needs.monitor.result == 'failure' && inputs.file_issue }}
     steps:
-      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v3.3.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
