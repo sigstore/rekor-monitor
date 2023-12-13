@@ -6,7 +6,7 @@ require (
 	github.com/go-openapi/runtime v0.26.2
 	github.com/go-openapi/swag v0.22.4
 	github.com/sigstore/rekor v1.3.4
-	github.com/sigstore/sigstore v1.7.5
+	github.com/sigstore/sigstore v1.7.6
 	golang.org/x/mod v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 )
