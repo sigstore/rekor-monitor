@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/go-openapi/runtime v0.26.2
-	github.com/go-openapi/swag v0.22.5
+	github.com/go-openapi/swag v0.22.7
 	github.com/sigstore/rekor v1.3.4
 	github.com/sigstore/sigstore v1.8.0
 	golang.org/x/mod v0.14.0
