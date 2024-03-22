@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-workflow]
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
@@ -67,7 +67,7 @@ jobs:
         with:
           go-version: '1.22'
       - name: Download artifact
-        uses: dawidd6/action-download-artifact@71072fbb1229e1317f1a8de6b04206afb461bd67 # v3.1.2
+        uses: dawidd6/action-download-artifact@09f2f74827fd3a8607589e5ad7f9398816f540fe # v3.1.4
         with:
           name: ${{ env.UPLOADED_LOG_NAME }}
         # Skip on first run since there will be no checkpoint
@@ -96,7 +96,7 @@ jobs:
       ISSUE_REPOSITORY: ${{ github.repository }}
     if: ${{ needs.monitor.result == 'success' && inputs.file_issue }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
@@ -114,7 +114,7 @@ jobs:
       ISSUE_REPOSITORY: ${{ github.repository }}
     if: ${{ always() && needs.monitor.result == 'failure' && inputs.file_issue }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v3.3.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v3.3.0
         with:
           repository: ${{ needs.detect-workflow.outputs.repository }}
           ref: "${{ needs.detect-workflow.outputs.ref }}"
