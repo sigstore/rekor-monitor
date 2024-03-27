@@ -38,16 +38,16 @@ jobs:
         language: [ 'go' ]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v3
+      uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.1.26
+      uses: github/codeql-action/init@956f09c2ef1926b580554b9014cfb8a51abf89dd # v2.16.6
       with:
         languages: ${{ matrix.language }}
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.1.26
+      uses: github/codeql-action/autobuild@956f09c2ef1926b580554b9014cfb8a51abf89dd # v2.16.6
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.1.26
+      uses: github/codeql-action/analyze@956f09c2ef1926b580554b9014cfb8a51abf89dd # v2.16.6
