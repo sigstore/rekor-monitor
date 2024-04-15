@@ -53,7 +53,7 @@ jobs:
     steps:
       - name: Detect the repository and ref
         id: detect
-        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow@ad5c0dd4e70e4fab86ad4ee5d424ed6d7b7c7601 # v1.5.0
+        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow@c747fe7769adf3656dc7d588b161cb614d7abfee # v1.5.0
 
   monitor:
     runs-on: ubuntu-latest
