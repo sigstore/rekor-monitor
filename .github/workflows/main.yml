@@ -35,7 +35,7 @@ jobs:
       OS: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v2.4.0
+      - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v2.4.0
       # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
       - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v3.0.3
         with:
