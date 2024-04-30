@@ -47,7 +47,8 @@ import (
 )
 
 var (
-	CertExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
+	certExtensionOIDCIssuer   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
 
 // CertificateIdentity holds a certificate subject and an optional list of identity issuers
@@ -238,7 +239,8 @@ func extractAllIdentities(verifiers []pki.PublicKey) ([]string, []*x509.Certific
 	return subjects, certificates, fps, nil
 }
 
-// getExtension gets a certificate extension by OID
+// getExtension gets a certificate extension by OID where the extension value is an
+// ASN.1-encoded string
 func getExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
 	for _, ext := range cert.Extensions {
 		if !ext.Id.Equal(oid) {
@@ -257,14 +259,30 @@ func getExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, er
 	return "", nil
 }
 
+// getDeprecatedExtension gets a certificate extension by OID where the extension value is a raw string
+func getDeprecatedExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(oid) {
+			return string(ext.Value), nil
+		}
+	}
+	return "", nil
+}
+
 // certMatchesPolicy returns true if a certificate contains a given subject and optionally a given issuer
 // expectedSub and expectedIssuers can be regular expressions
 // certMatchesPolicy also returns the matched subject and issuer on success
 func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssuers []string) (bool, string, string, error) {
 	sans := cryptoutils.GetSubjectAlternateNames(cert)
-	issuer, err := getExtension(cert, CertExtensionOIDCIssuerV2)
-	if err != nil {
-		return false, "", "", err
+	var issuer string
+	var err error
+	issuer, err = getExtension(cert, certExtensionOIDCIssuerV2)
+	if err != nil || issuer == "" {
+		// fallback to deprecated issuer extension
+		issuer, err = getDeprecatedExtension(cert, certExtensionOIDCIssuer)
+		if err != nil || issuer == "" {
+			return false, "", "", err
+		}
 	}
 	subjectMatches := false
 	regex, err := regexp.Compile(expectedSub)

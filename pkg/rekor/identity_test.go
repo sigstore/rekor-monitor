@@ -217,6 +217,78 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 }
 
+// Test verifies that certificates containing only the deprecated
+// extensions can still be monitored
+func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
+	subject := "subject"
+	issuer := "oidc-issuer@domain.com"
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateDeprecatedLeafCert(subject, issuer, rootCert, rootKey)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	h := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(h[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	integratedTime := time.Now()
+	logIndex := 1234
+	uuid := "123-456-123"
+	e := models.LogEntryAnon{
+		Body:           base64.StdEncoding.EncodeToString(leaf),
+		IntegratedTime: swag.Int64(integratedTime.Unix()),
+		LogIndex:       swag.Int64(int64(logIndex)),
+	}
+	logEntry := models.LogEntry{uuid: e}
+
+	//  match to subject with certificate in hashedrekord
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		CertificateIdentities: []CertificateIdentity{
+			{
+				CertSubject: subject,
+				Issuers:     []string{issuer},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected error matching IDs, got %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].CertSubject != subject {
+		t.Fatalf("mismatched subjects: %s %s", matches[0].CertSubject, subject)
+	}
+	if matches[0].Issuer != issuer {
+		t.Fatalf("mismatched issuers: %s %s", matches[0].Issuer, issuer)
+	}
+}
+
 func TestMatchedIndicesForFingerprints(t *testing.T) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

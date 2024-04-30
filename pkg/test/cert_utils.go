@@ -119,3 +119,37 @@ func GenerateLeafCert(subject string, oidcIssuer string, parentTemplate *x509.Ce
 
 	return cert, priv, nil
 }
+
+// GenerateDeprecatedLeafCert generates a certificate using the deprecated raw string extensions (1.1 - 1.6)
+func GenerateDeprecatedLeafCert(subject string, oidcIssuer string, parentTemplate *x509.Certificate, parentPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+	exts := []pkix.Extension{
+		{
+			// OID for OIDC Issuer extension
+			Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+			Critical: false,
+			Value:    []byte(oidcIssuer),
+		},
+	}
+	certTemplate := &x509.Certificate{
+		SerialNumber:    big.NewInt(1),
+		EmailAddresses:  []string{subject},
+		NotBefore:       time.Now().Add(-1 * time.Minute),
+		NotAfter:        time.Now().Add(time.Hour),
+		KeyUsage:        x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		IsCA:            false,
+		ExtraExtensions: exts,
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := createCertificate(certTemplate, parentTemplate, &priv.PublicKey, parentPriv)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cert, priv, nil
+}
