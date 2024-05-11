@@ -57,6 +57,11 @@ type CertificateIdentity struct {
 	Issuers     []string `yaml:"issuers"`
 }
 
+type OIDconstraint struct {
+	OID        []int  `yaml:"oid"`
+	Constraint []byte `yaml:"constraint"`
+}
+
 // MonitoredValues holds a set of values to compare against a given entry
 type MonitoredValues struct {
 	// CertificateIdentities contains a list of subjects and issuers
@@ -72,6 +77,8 @@ type MonitoredValues struct {
 	// Subjects contains a list of subjects that are not specified in a
 	// certificate, such as a SSH key or PGP key email address
 	Subjects []string `yaml:"subjects"`
+	// OIDConstraints contains a list of OIDs and constraints to be checked
+	OIDConstraints []OIDconstraint `yaml:"oidConstraints"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, and log entry metadata
@@ -127,22 +134,6 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 				}
 			}
 
-			for _, monitoredCertID := range mvs.CertificateIdentities {
-				for _, cert := range certs {
-					match, sub, iss, err := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
-					if err != nil {
-						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
-					} else if match {
-						matchedEntries = append(matchedEntries, IdentityEntry{
-							CertSubject: sub,
-							Issuer:      iss,
-							Index:       *entry.LogIndex,
-							UUID:        uuid,
-						})
-					}
-				}
-			}
-
 			for _, monitoredSub := range mvs.Subjects {
 				regex, err := regexp.Compile(monitoredSub)
 				if err != nil {
@@ -157,6 +148,40 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 						})
 					}
 				}
+			}
+
+			oidConstraintSet := make(map[IdentityEntry]struct{})
+			for _, cert := range certs {
+				for _, monitoredCertID := range mvs.CertificateIdentities {
+					certIDMatch, certIDSub, certIDIss, certIDErr := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
+					if certIDErr != nil {
+						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, certIDErr)
+					} else if certIDMatch {
+						matchedEntries = append(matchedEntries, IdentityEntry{
+							CertSubject: certIDSub,
+							Issuer:      certIDIss,
+							Index:       *entry.LogIndex,
+							UUID:        uuid,
+						})
+					}
+				}
+
+				for _, OIDConstraint := range mvs.OIDConstraints {
+					oidMatch, oidErr := oidMatchesPolicy(cert, asn1.ObjectIdentifier(OIDConstraint.OID), OIDConstraint.Constraint)
+					if oidErr != nil {
+						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, oidErr)
+					} else if oidMatch {
+						oidConstraintSet[IdentityEntry{
+							Index: *entry.LogIndex,
+							UUID:  uuid,
+						}] = struct{}{}
+					}
+				}
+			}
+
+			// If any oidConstraints were set, ensure only matched entries that meet all the constraints are returned
+			if len(oidConstraintSet) != 0 {
+				matchedEntries = FilterEntries(matchedEntries, oidConstraintSet)
 			}
 		}
 	}
@@ -177,6 +202,17 @@ func verifyMonitoredValues(mvs MonitoredValues) error {
 		for _, iss := range certID.Issuers {
 			if len(iss) == 0 {
 				return errors.New("issuer empty")
+			}
+		}
+	}
+	for _, oids := range mvs.OIDConstraints {
+		if len(oids.OID) == 0 {
+			return errors.New("oid empty")
+		}
+		// constraint must be set
+		for _, constraint := range oids.Constraint {
+			if constraint == 0 {
+				return errors.New("oid constraint not set")
 			}
 		}
 	}
@@ -312,4 +348,57 @@ func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssue
 		}
 	}
 	return subjectMatches && issuerMatches, matchedSub, issuer, nil
+}
+
+// oidMatchesPolicy returns true if the OID value matches one of the provided constraints
+func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, oidConstraint []byte) (bool, error) {
+	value, err := getExtension(cert, oid)
+	if err != nil {
+		return false, fmt.Errorf("error getting extension value: %w", err)
+	}
+	if value == "" {
+		return false, fmt.Errorf("OID %s not present in the certificate", oid)
+	}
+
+	var extValue []byte
+	rest, err := asn1.Unmarshal([]byte(value), &extValue)
+	if err != nil {
+		return false, fmt.Errorf("error unmarshalling extension value: %w", err)
+	}
+	if len(rest) > 0 {
+		return false, fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+	}
+	//compare the value with the constraint
+	if !compareValue(extValue, oidConstraint) {
+		return false, fmt.Errorf("OID %s exists but does not match the expected value", oid)
+	}
+
+	return true, nil
+}
+
+// Helper functions
+
+// compareValue compares two byte arrays for equality
+func compareValue(value []byte, target []byte) bool {
+	if len(value) != len(target) {
+		return false
+	}
+	for i := range value {
+		if value[i] != target[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// FilterEntries removes entries from matchedEntries that are not present in filterSet
+func FilterEntries(matchedEntries []IdentityEntry, filterSet map[IdentityEntry]struct{}) []IdentityEntry {
+	// Iterate through matchedEntries and keep only the ones present in filterSet
+	result := make([]IdentityEntry, 0)
+	for _, entry := range matchedEntries {
+		if _, ok := filterSet[entry]; ok {
+			result = append(result, entry)
+		}
+	}
+	return result
 }

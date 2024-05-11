@@ -36,6 +36,9 @@ import (
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"crypto/x509"
+    "crypto/x509/pkix"
+    "encoding/asn1"
 )
 
 func TestMatchedIndicesForCertificates(t *testing.T) {
@@ -500,4 +503,43 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
 		t.Fatalf("expected error with empty fingerprint, got %v", err)
 	}
+}
+
+func createMockCertificate(oid asn1.ObjectIdentifier, value []byte) *x509.Certificate {
+    extValue, _ := asn1.Marshal(value)
+    cert := &x509.Certificate{
+        Extensions: []pkix.Extension{
+            {
+                Id:       oid,
+                Critical: false,
+                Value:    extValue,
+            },
+        },
+    }
+    return cert
+}
+
+
+// Test when OID is present but the value does not match
+func TestOIDDoesNotMatch(t *testing.T) {
+    cert := createMockCertificate(asn1.ObjectIdentifier{2,5,29,17}, []byte{1,2,3,4,5})
+    oid := asn1.ObjectIdentifier{2,5,29,17}
+    oidConstraint := []byte{6,7,8,9,10}
+
+    matches, err := oidMatchesPolicy(cert, oid, oidConstraint)
+    if matches || err == nil {
+        t.Errorf("Expected false with error, got %v, error %v", matches, err)
+    }
+}
+
+// Test when OID is not present in the certificate
+func TestOIDNotPresent(t *testing.T) {
+    cert := &x509.Certificate{} // No extensions
+    oid := asn1.ObjectIdentifier{2,5,29,17}
+    oidConstraint := []byte{1,2,3,4,5}
+
+    matches, err := oidMatchesPolicy(cert, oid, oidConstraint)
+    if matches || err == nil {
+        t.Errorf("Expected false with error, got %v, error %v", matches, err)
+    }
 }
