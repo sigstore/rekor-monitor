@@ -1,12 +1,11 @@
 module github.com/sigstore/rekor-monitor
 
-go 1.22.2
-
+go 1.22.5
 require (
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-openapi/swag v0.23.0
 	github.com/sigstore/rekor v1.3.6
-	github.com/sigstore/sigstore v1.8.7
+	github.com/sigstore/sigstore v1.8.8
 	golang.org/x/mod v0.20.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -34,7 +33,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/go-containerregistry v0.20.0 // indirect
+	github.com/google/go-containerregistry v0.20.1 // indirect
 	github.com/google/rpmpack v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -87,7 +86,7 @@ require (
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
