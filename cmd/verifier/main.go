@@ -45,8 +45,6 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 )
 
-var versionInfo version.Info
-
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
 func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs rekor.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
 	ticker := time.NewTicker(*interval)
@@ -159,8 +157,6 @@ func main() {
 		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
-
-	versionInfo = version.GetVersionInfo()
 
 	var monitoredVals rekor.MonitoredValues
 	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
