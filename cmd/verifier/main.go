@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -33,6 +34,8 @@ import (
 	"github.com/sigstore/rekor/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"gopkg.in/yaml.v3"
+
+	"sigs.k8s.io/release-utils/version"
 )
 
 // Default values for monitoring job parameters
@@ -41,6 +44,8 @@ const (
 	logInfoFileName          = "logInfo.txt"
 	outputIdentitiesFileName = "identities.txt"
 )
+
+var versionInfo version.Info
 
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
 func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs rekor.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
@@ -152,7 +157,10 @@ func main() {
 		"and fingerprints. For certificates, if no issuers are specified, match any OIDC provider.")
 	outputIdentitiesFile := flag.String("output-identities", outputIdentitiesFileName,
 		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
+	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
+
+	versionInfo = version.GetVersionInfo()
 
 	var monitoredVals rekor.MonitoredValues
 	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
@@ -172,7 +180,7 @@ func main() {
 		fmt.Printf("Monitoring subject %s\n", sub)
 	}
 
-	rekorClient, err := client.GetRekorClient(*serverURL)
+	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
 	if err != nil {
 		log.Fatalf("getting Rekor client: %v", err)
 	}
