@@ -57,6 +57,12 @@ type CertificateIdentity struct {
 	Issuers     []string `yaml:"issuers"`
 }
 
+// OIDMatcher holds an OID field and a list of values to match on
+type OIDMatcher struct {
+	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
+	ExtensionValues  []string              `yaml:"extensionValues"`
+}
+
 // MonitoredValues holds a set of values to compare against a given entry
 type MonitoredValues struct {
 	// CertificateIdentities contains a list of subjects and issuers
@@ -72,6 +78,9 @@ type MonitoredValues struct {
 	// Subjects contains a list of subjects that are not specified in a
 	// certificate, such as a SSH key or PGP key email address
 	Subjects []string `yaml:"subjects"`
+	// OIDMatchers contains a list of OID extension fields and associated values
+	// ex. Build Signer URI, associated with specific workflow URIs
+	OIDMatchers []OIDMatcher `yaml:"oidMatchers"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, and log entry metadata
@@ -158,6 +167,21 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 					}
 				}
 			}
+
+			for _, monitoredOID := range mvs.OIDMatchers {
+				for _, cert := range certs {
+					match, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
+					if err != nil {
+						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+					}
+					if match {
+						matchedEntries = append(matchedEntries, IdentityEntry{
+							Index: *entry.LogIndex,
+							UUID:  uuid,
+						})
+					}
+				}
+			}
 		}
 	}
 
@@ -166,7 +190,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 
 // verifyMonitoredValues checks that monitored values are valid
 func verifyMonitoredValues(mvs MonitoredValues) error {
-	if len(mvs.CertificateIdentities) == 0 && len(mvs.Fingerprints) == 0 && len(mvs.Subjects) == 0 {
+	if len(mvs.CertificateIdentities) == 0 && len(mvs.Fingerprints) == 0 && len(mvs.Subjects) == 0 && len(mvs.OIDMatchers) == 0 {
 		return errors.New("no identities provided to monitor")
 	}
 	for _, certID := range mvs.CertificateIdentities {
@@ -188,6 +212,19 @@ func verifyMonitoredValues(mvs MonitoredValues) error {
 	for _, sub := range mvs.Subjects {
 		if len(sub) == 0 {
 			return errors.New("subject empty")
+		}
+	}
+	for _, oidMatcher := range mvs.OIDMatchers {
+		if len(oidMatcher.ObjectIdentifier) == 0 {
+			return errors.New("oid extension empty")
+		}
+		if len(oidMatcher.ExtensionValues) == 0 {
+			return errors.New("oid matched values empty")
+		}
+		for _, extensionValue := range oidMatcher.ExtensionValues {
+			if len(extensionValue) == 0 {
+				return errors.New("oid matched value empty")
+			}
 		}
 	}
 	return nil
@@ -312,4 +349,24 @@ func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssue
 		}
 	}
 	return subjectMatches && issuerMatches, matchedSub, issuer, nil
+}
+
+// oidMatchesPolicy returns true if a certificate contains both a given OID field
+// and a matching value associated with that field
+func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, error) {
+	extValue, err := getExtension(cert, oid)
+	if err != nil {
+		return false, fmt.Errorf("error getting extension value: %w", err)
+	}
+	if extValue == "" {
+		return false, nil
+	}
+
+	for _, extensionValue := range extensionValues {
+		if extValue == extensionValue {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
