@@ -61,9 +61,9 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
-	h := sha256.Sum256(payload)
+	hash := sha256.Sum256(payload)
 	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(h[:]),
+		ArtifactHash:   hex.EncodeToString(hash[:]),
 		SignatureBytes: sig,
 		PublicKeyBytes: [][]byte{pemCert},
 		PKIFormat:      "x509",
@@ -82,12 +82,12 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	integratedTime := time.Now()
 	logIndex := 1234
 	uuid := "123-456-123"
-	e := models.LogEntryAnon{
+	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
 		IntegratedTime: swag.Int64(integratedTime.Unix()),
 		LogIndex:       swag.Int64(int64(logIndex)),
 	}
-	logEntry := models.LogEntry{uuid: e}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
@@ -168,12 +168,12 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		integratedTime := time.Now()
 		logIndex := 1234
 		uuid := "123-456-123"
-		e := models.LogEntryAnon{
+		logEntryAnon := models.LogEntryAnon{
 			Body:           base64.StdEncoding.EncodeToString(leaf),
 			IntegratedTime: swag.Int64(integratedTime.Unix()),
 			LogIndex:       swag.Int64(int64(logIndex)),
 		}
-		logEntry := models.LogEntry{uuid: e}
+		logEntry := models.LogEntry{uuid: logEntryAnon}
 
 		matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
 			CertificateIdentities: []CertificateIdentity{
@@ -242,9 +242,9 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
-	h := sha256.Sum256(payload)
+	hash := sha256.Sum256(payload)
 	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(h[:]),
+		ArtifactHash:   hex.EncodeToString(hash[:]),
 		SignatureBytes: sig,
 		PublicKeyBytes: [][]byte{pemCert},
 		PKIFormat:      "x509",
@@ -263,12 +263,12 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	integratedTime := time.Now()
 	logIndex := 1234
 	uuid := "123-456-123"
-	e := models.LogEntryAnon{
+	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
 		IntegratedTime: swag.Int64(integratedTime.Unix()),
 		LogIndex:       swag.Int64(int64(logIndex)),
 	}
-	logEntry := models.LogEntry{uuid: e}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
@@ -313,9 +313,9 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
-	h := sha256.Sum256(payload)
+	hash := sha256.Sum256(payload)
 	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(h[:]),
+		ArtifactHash:   hex.EncodeToString(hash[:]),
 		SignatureBytes: sig,
 		PublicKeyBytes: [][]byte{pemKey},
 		PKIFormat:      "x509",
@@ -334,12 +334,12 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	integratedTime := time.Now()
 	logIndex := 1234
 	uuid := "123-456-123"
-	e := models.LogEntryAnon{
+	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
 		IntegratedTime: swag.Int64(integratedTime.Unix()),
 		LogIndex:       swag.Int64(int64(logIndex)),
 	}
-	logEntry := models.LogEntry{uuid: e}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	derKey, err := cryptoutils.MarshalPublicKeyToDER(key.Public())
 	if err != nil {
@@ -402,9 +402,9 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
-	h := sha256.Sum256(payload)
+	hash := sha256.Sum256(payload)
 	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(h[:]),
+		ArtifactHash:   hex.EncodeToString(hash[:]),
 		SignatureBytes: sig,
 		PublicKeyBytes: [][]byte{pemCert},
 		PKIFormat:      "x509",
@@ -423,12 +423,12 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	integratedTime := time.Now()
 	logIndex := 1234
 	uuid := "123-456-123"
-	e := models.LogEntryAnon{
+	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
 		IntegratedTime: swag.Int64(integratedTime.Unix()),
 		LogIndex:       swag.Int64(int64(logIndex)),
 	}
-	logEntry := models.LogEntry{uuid: e}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
@@ -496,9 +496,9 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
-	h := sha256.Sum256(payload)
+	hash := sha256.Sum256(payload)
 	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(h[:]),
+		ArtifactHash:   hex.EncodeToString(hash[:]),
 		SignatureBytes: sig,
 		PublicKeyBytes: [][]byte{pemCert},
 		PKIFormat:      "x509",
@@ -517,19 +517,19 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	integratedTime := time.Now()
 	logIndex := 1234
 	uuid := "123-456-123"
-	e := models.LogEntryAnon{
+	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
 		IntegratedTime: swag.Int64(integratedTime.Unix()),
 		LogIndex:       swag.Int64(int64(logIndex)),
 	}
-	logEntry := models.LogEntry{uuid: e}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	// match to oid with matching extension value
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
 		OIDMatchers: []OIDMatcher{
 			{
-				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
-				ExtensionValues:  []string{"test cert value"},
+				ObjectIdentifier: oid,
+				ExtensionValues:  []string{extValueString},
 			},
 		}})
 	if err != nil {
@@ -577,15 +577,17 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 }
 
-func TestMatchedIndicesFailures(t *testing.T) {
+func TestMatchedIndicesFailuresNoMonitoredValues(t *testing.T) {
 	// failure: no monitored values
 	_, err := MatchedIndices(nil, MonitoredValues{})
 	if err == nil || !strings.Contains(err.Error(), "no identities provided to monitor") {
 		t.Fatalf("expected error with no identities, got %v", err)
 	}
+}
 
+func TestMatchedIndicesFailuresCertSubjectEmpty(t *testing.T) {
 	// failure: certificate subject empty
-	_, err = MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
+	_, err := MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
 		{
 			CertSubject: "",
 		},
@@ -593,9 +595,11 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "certificate subject empty") {
 		t.Fatalf("expected error with empty cert subject, got %v", err)
 	}
+}
 
+func TestMatchedIndicesFailuresIssueEmpty(t *testing.T) {
 	// failure: issuer empty
-	_, err = MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
+	_, err := MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
 		{
 			CertSubject: "s",
 			Issuers:     []string{""},
@@ -604,39 +608,49 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "issuer empty") {
 		t.Fatalf("expected error with empty issuer, got %v", err)
 	}
+}
 
+func TestMatchedIndicesFailuresSubjectEmpty(t *testing.T) {
 	// failure: subject empty
-	_, err = MatchedIndices(nil, MonitoredValues{Subjects: []string{""}})
+	_, err := MatchedIndices(nil, MonitoredValues{Subjects: []string{""}})
 	if err == nil || !strings.Contains(err.Error(), "subject empty") {
 		t.Fatalf("expected error with empty subject, got %v", err)
 	}
+}
 
+func TestMatchedIndicesFailuresFingerprintsEmpty(t *testing.T) {
 	// failure: fingerprint empty
-	_, err = MatchedIndices(nil, MonitoredValues{Fingerprints: []string{""}})
+	_, err := MatchedIndices(nil, MonitoredValues{Fingerprints: []string{""}})
 	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
 		t.Fatalf("expected error with empty fingerprint, got %v", err)
 	}
+}
 
+func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
 	// failure: oid extension empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
 	if err == nil || !strings.Contains(err.Error(), "oid extension empty") {
 		t.Fatalf("expected error with empty oid extension, got %v", err)
 	}
+}
 
-	// failure: oid matched values list empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+func TestMatchedIndicesFailuresOIDExtensionValuesEmpty(t *testing.T) {
+	// failure: oid extension values list empty
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{},
 	}}})
 	if err == nil || !strings.Contains(err.Error(), "oid matched values empty") {
 		t.Fatalf("expected error with empty oid matched values list, got %v", err)
 	}
+}
 
-	// failure: oid matched value string empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+func TestMatchedIndicesFailuresOIDExtensionValueEmpty(t *testing.T) {
+	// failure: oid extension value string empty
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{""},
 	}}})
@@ -684,8 +698,8 @@ func TestOIDNotPresent(t *testing.T) {
 	extensionValues := []string{"wrong value"}
 
 	matches, err := oidMatchesPolicy(cert, oid, extensionValues)
-	if matches || err == nil {
-		t.Errorf("Expected false with error, got %v, error %v", matches, err)
+	if matches || err != nil {
+		t.Errorf("Expected false with nil, got %v, error %v", matches, err)
 	}
 }
 
