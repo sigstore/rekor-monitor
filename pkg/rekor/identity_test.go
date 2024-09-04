@@ -617,6 +617,33 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
 		t.Fatalf("expected error with empty fingerprint, got %v", err)
 	}
+
+	// failure: oid extension empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{},
+		ExtensionValues:  []string{""},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "oid extension empty") {
+		t.Fatalf("expected error with empty oid extension, got %v", err)
+	}
+
+	// failure: oid matched values list empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "oid matched values empty") {
+		t.Fatalf("expected error with empty oid matched values list, got %v", err)
+	}
+
+	// failure: oid matched value string empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{""},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "oid matched value empty") {
+		t.Fatalf("expected error with empty oid matched value string, got %v", err)
+	}
 }
 
 func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
