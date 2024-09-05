@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -76,6 +77,9 @@ type MonitoredValues struct {
 	// OIDMatchers contains a list of OID extension fields and associated values
 	// ex. Build Signer URI, associated with specific workflow URIs
 	OIDMatchers []identity.OIDMatcher `yaml:"oidMatchers"`
+	// FulcioExtensions contains all OID extensions currently supported by Fulcio
+	// each extension has a list of values to match on, ex. `build-signer-uri`
+	FulcioExtensions FulcioExtensions `yaml:"fulcioOIDExtensions"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
@@ -100,8 +104,22 @@ func (e *IdentityEntry) String() string {
 	return strings.Join(parts, " ")
 }
 
+// ConcatOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice
+func ConcatOIDMatchers(mvs MonitoredValues) ([]identity.OIDMatcher, error) {
+	FulcioOIDMatchers, err := RenderOIDMatchers(mvs.FulcioExtensions)
+	if err != nil {
+		return nil, fmt.Errorf("error rendering OID Matchers from Fulcio OID extensions: %w", err)
+	}
+	return slices.Concat(mvs.OIDMatchers, FulcioOIDMatchers), nil
+}
+
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]IdentityEntry, error) {
+	allOIDMatchers, err := ConcatOIDMatchers(mvs)
+	if err != nil {
+		return nil, err
+	}
+	mvs.OIDMatchers = allOIDMatchers
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}

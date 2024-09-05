@@ -575,7 +575,112 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("expected no matches, got %d", len(matches))
 	}
+}
 
+func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
+	subject := "subject"
+	issuer := "oidc-issuer@domain.com"
+
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
+	extValueString := "test cert value"
+	extValue, err := asn1.Marshal(extValueString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extension := pkix.Extension{
+		Id:       oid,
+		Critical: false,
+		Value:    extValue,
+	}
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey, extension)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	hash := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(hash[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	integratedTime := time.Now()
+	logIndex := 1234
+	uuid := "123-456-123"
+	logEntryAnon := models.LogEntryAnon{
+		Body:           base64.StdEncoding.EncodeToString(leaf),
+		IntegratedTime: swag.Int64(integratedTime.Unix()),
+		LogIndex:       swag.Int64(int64(logIndex)),
+	}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
+
+	// match to oid with matching extension value
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		FulcioExtensions: FulcioExtensions{
+			BuildSignerURI: []string{extValueString},
+		}})
+	if err != nil {
+		t.Fatalf("expected error matching IDs, got %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	}
+	if matches[0].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	}
+
+	// no match to oid with different extension value
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		OIDMatchers: []identity.OIDMatcher{
+			{
+				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
+				ExtensionValues:  []string{"wrong"},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+
+	// no match to oid with different oid extension field
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		FulcioExtensions: FulcioExtensions{
+			BuildSignerDigest: []string{extValueString},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
 }
 
 func TestMatchedIndicesFailures(t *testing.T) {
@@ -619,7 +724,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	}
 
 	// failure: oid extension empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
@@ -628,7 +733,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	}
 
 	// failure: oid matched values list empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{},
 	}}})
@@ -637,7 +742,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	}
 
 	// failure: oid matched value string empty
-	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{""},
 	}}})
