@@ -684,6 +684,118 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 }
 
+func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
+	subject := "subject"
+	issuer := "oidc-issuer@domain.com"
+
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
+	extValueString := "test cert value"
+	extValue, err := asn1.Marshal(extValueString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extension := pkix.Extension{
+		Id:       oid,
+		Critical: false,
+		Value:    extValue,
+	}
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey, extension)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	hash := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(hash[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	integratedTime := time.Now()
+	logIndex := 1234
+	uuid := "123-456-123"
+	logEntryAnon := models.LogEntryAnon{
+		Body:           base64.StdEncoding.EncodeToString(leaf),
+		IntegratedTime: swag.Int64(integratedTime.Unix()),
+		LogIndex:       swag.Int64(int64(logIndex)),
+	}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
+
+	// match to oid with matching extension value
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		CustomExtensions: []identity.CustomExtension{
+			{
+				ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
+				ExtensionValues:  []string{extValueString},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected error matching IDs, got %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	}
+	if matches[0].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	}
+
+	// no match to oid with different extension value
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		CustomExtensions: []identity.CustomExtension{
+			{
+				ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
+				ExtensionValues:  []string{"wrong"},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+
+	// no match to oid with different oid extension field
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		CustomExtensions: []identity.CustomExtension{
+			{
+				ObjectIdentifier: "1.3.6.1.4.1.57264.1.16",
+				ExtensionValues:  []string{extValueString},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+}
+
 func TestMatchedIndicesFailures(t *testing.T) {
 	// failure: no monitored values
 	_, err := MatchedIndices(nil, MonitoredValues{})
@@ -917,52 +1029,52 @@ func TestMergeOIDMatchers(t *testing.T) {
 
 // test parseObjectIdentifier
 func TestParseObjectIdentifier(t *testing.T) {
-	oid, err := parseObjectIdentifier("")
+	oid, err := identity.ParseObjectIdentifier("")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier(".")
+	oid, err = identity.ParseObjectIdentifier(".")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier("....")
+	oid, err = identity.ParseObjectIdentifier("....")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier("a.a")
+	oid, err = identity.ParseObjectIdentifier("a.a")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier("1.")
+	oid, err = identity.ParseObjectIdentifier("1.")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier("1.1.5.6.7.8..")
+	oid, err = identity.ParseObjectIdentifier("1.1.5.6.7.8..")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	oid, err = parseObjectIdentifier(".1.1.5.67.8")
+	oid, err = identity.ParseObjectIdentifier(".1.1.5.67.8")
 	if err == nil {
 		t.Errorf("Expected error, got nil and oid %s", oid)
 	}
 
-	_, err = parseObjectIdentifier("1")
+	_, err = identity.ParseObjectIdentifier("1")
 	if err != nil {
 		t.Errorf("Expected nil, got error %v", err)
 	}
 
-	_, err = parseObjectIdentifier("1.4.1.5")
+	_, err = identity.ParseObjectIdentifier("1.4.1.5")
 	if err != nil {
 		t.Errorf("Expected nil, got error %v", err)
 	}
 
-	_, err = parseObjectIdentifier("11254215212.4.123.54.1.622")
+	_, err = identity.ParseObjectIdentifier("11254215212.4.123.54.1.622")
 	if err != nil {
 		t.Errorf("Expected nil, got error %v", err)
 	}
