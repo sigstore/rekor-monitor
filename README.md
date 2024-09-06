@@ -40,6 +40,9 @@ Caveats:
 You can also specify a list of identities to monitor. Currently, only identities from the certificate's
 Subject Alternative Name (SAN) field will be matched, and only for the hashedrekord Rekor entry type.
 
+Note: `certIdentities.certSubject`, `certIdentities.issuers` and `subjects` are expecting regular expression.
+Please read [this](https://github.com/google/re2/wiki/Syntax) for syntax reference.
+
 Note: The log monitor only starts monitoring from the latest checkpoint. If you want to search previous
 entries, you will need to query the log.
 
@@ -65,13 +68,16 @@ jobs:
       artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
       identities: |
         certIdentities:
-          - certSubject: user@domain.com
-          - certSubject: otheruser@domain.com
+          - certSubject: user@domain\.com
+          - certSubject: otheruser@domain\.com
             issuers:
-              - https://accounts.google.com
-              - https://github.com/login
+              - https://accounts\.google\.com
+              - https://github\.com/login
+          - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+            issuers:
+              - https://token\.actions\.githubusercontent\.com
         subjects:
-          - subject@domain.com
+          - subject@domain\.com
         fingerprints:
           - A0B1C2D3E4F5
 ```
@@ -80,6 +86,7 @@ In this example, the monitor will log:
 
 * Entries that contain a certificate whose SAN is `user@domain.com`
 * Entries whose SAN is `otheruser@domain.com` and the OIDC provider specified in a [custom extension](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726418--issuer-v2) matches one of the specified issuers (Google or GitHub in this example)
+* Entries whose SAN start by `https://github.com/actions/starter-workflows/blob/main/.github/workflows/lint.yaml@` and the OIDC provider matches `https://token.actions.githubusercontent.com`
 * Non-certificate entries, such as PGP or SSH keys, whose subject matches `subject@domain.com`
 * Entries whose key or certificate fingerprint matches `A0B1C2D3E4F5`
 
