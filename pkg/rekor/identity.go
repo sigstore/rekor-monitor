@@ -83,7 +83,7 @@ type MonitoredValues struct {
 	OIDMatchers []OIDMatcher `yaml:"oidMatchers"`
 }
 
-// IdentityEntry holds a certificate subject, issuer, and log entry metadata
+// IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
 type IdentityEntry struct {
 	CertSubject    string
 	Issuer         string
@@ -97,7 +97,7 @@ type IdentityEntry struct {
 
 func (e *IdentityEntry) String() string {
 	var parts []string
-	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID} {
+	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID, e.OIDExtension.String(), e.ExtensionValue} {
 		if strings.TrimSpace(s) != "" {
 			parts = append(parts, s)
 		}
