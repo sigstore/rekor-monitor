@@ -577,17 +577,15 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 }
 
-func TestMatchedIndicesFailuresNoMonitoredValues(t *testing.T) {
+func TestMatchedIndicesFailures(t *testing.T) {
 	// failure: no monitored values
 	_, err := MatchedIndices(nil, MonitoredValues{})
 	if err == nil || !strings.Contains(err.Error(), "no identities provided to monitor") {
 		t.Fatalf("expected error with no identities, got %v", err)
 	}
-}
 
-func TestMatchedIndicesFailuresCertSubjectEmpty(t *testing.T) {
 	// failure: certificate subject empty
-	_, err := MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
+	_, err = MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
 		{
 			CertSubject: "",
 		},
@@ -595,11 +593,9 @@ func TestMatchedIndicesFailuresCertSubjectEmpty(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "certificate subject empty") {
 		t.Fatalf("expected error with empty cert subject, got %v", err)
 	}
-}
 
-func TestMatchedIndicesFailuresIssueEmpty(t *testing.T) {
 	// failure: issuer empty
-	_, err := MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
+	_, err = MatchedIndices(nil, MonitoredValues{CertificateIdentities: []CertificateIdentity{
 		{
 			CertSubject: "s",
 			Issuers:     []string{""},
@@ -608,19 +604,15 @@ func TestMatchedIndicesFailuresIssueEmpty(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "issuer empty") {
 		t.Fatalf("expected error with empty issuer, got %v", err)
 	}
-}
 
-func TestMatchedIndicesFailuresSubjectEmpty(t *testing.T) {
 	// failure: subject empty
-	_, err := MatchedIndices(nil, MonitoredValues{Subjects: []string{""}})
+	_, err = MatchedIndices(nil, MonitoredValues{Subjects: []string{""}})
 	if err == nil || !strings.Contains(err.Error(), "subject empty") {
 		t.Fatalf("expected error with empty subject, got %v", err)
 	}
-}
 
-func TestMatchedIndicesFailuresFingerprintsEmpty(t *testing.T) {
 	// failure: fingerprint empty
-	_, err := MatchedIndices(nil, MonitoredValues{Fingerprints: []string{""}})
+	_, err = MatchedIndices(nil, MonitoredValues{Fingerprints: []string{""}})
 	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
 		t.Fatalf("expected error with empty fingerprint, got %v", err)
 	}
@@ -685,7 +677,7 @@ func TestOIDDoesNotMatch(t *testing.T) {
 	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
 	extensionValues := []string{"wrong value"}
 
-	matches, err := oidMatchesPolicy(cert, oid, extensionValues)
+	matches, _, _, err := oidMatchesPolicy(cert, oid, extensionValues)
 	if matches || err != nil {
 		t.Errorf("Expected false without error, got %v, error %v", matches, err)
 	}
@@ -697,7 +689,7 @@ func TestOIDNotPresent(t *testing.T) {
 	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
 	extensionValues := []string{"wrong value"}
 
-	matches, err := oidMatchesPolicy(cert, oid, extensionValues)
+	matches, _, _, err := oidMatchesPolicy(cert, oid, extensionValues)
 	if matches || err != nil {
 		t.Errorf("Expected false with nil, got %v, error %v", matches, err)
 	}
@@ -710,10 +702,17 @@ func TestOIDMatchesValue(t *testing.T) {
 		t.Errorf("Expected nil got %v", err)
 	}
 	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
-	extensionValues := []string{"test cert value"}
+	extValueString := "test cert value"
+	extensionValues := []string{extValueString}
 
-	matches, err := oidMatchesPolicy(cert, oid, extensionValues)
+	matches, matchedOID, extValue, err := oidMatchesPolicy(cert, oid, extensionValues)
 	if !matches || err != nil {
 		t.Errorf("Expected true, got %v, error %v", matches, err)
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected oid to equal 2.5.29.17, got %s", matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
 	}
 }

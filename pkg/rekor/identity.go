@@ -85,12 +85,14 @@ type MonitoredValues struct {
 
 // IdentityEntry holds a certificate subject, issuer, and log entry metadata
 type IdentityEntry struct {
-	CertSubject string
-	Issuer      string
-	Fingerprint string
-	Subject     string
-	Index       int64
-	UUID        string
+	CertSubject    string
+	Issuer         string
+	Fingerprint    string
+	Subject        string
+	Index          int64
+	UUID           string
+	OIDExtension   asn1.ObjectIdentifier
+	ExtensionValue string
 }
 
 func (e *IdentityEntry) String() string {
@@ -170,14 +172,16 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 
 			for _, monitoredOID := range mvs.OIDMatchers {
 				for _, cert := range certs {
-					match, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
+					match, oid, extValue, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 					if err != nil {
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					}
 					if match {
 						matchedEntries = append(matchedEntries, IdentityEntry{
-							Index: *entry.LogIndex,
-							UUID:  uuid,
+							Index:          *entry.LogIndex,
+							UUID:           uuid,
+							OIDExtension:   oid,
+							ExtensionValue: extValue,
 						})
 					}
 				}
@@ -351,22 +355,22 @@ func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssue
 	return subjectMatches && issuerMatches, matchedSub, issuer, nil
 }
 
-// oidMatchesPolicy returns true if a certificate contains both a given OID field
-// and a matching value associated with that field
-func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, error) {
+// oidMatchesPolicy returns if a certificate contains both a given OID field and a matching value associated with that field
+// if true, it returns the OID extension and extension value that were matched on
+func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, asn1.ObjectIdentifier, string, error) {
 	extValue, err := getExtension(cert, oid)
 	if err != nil {
-		return false, fmt.Errorf("error getting extension value: %w", err)
+		return false, nil, "", fmt.Errorf("error getting extension value: %w", err)
 	}
 	if extValue == "" {
-		return false, nil
+		return false, nil, "", nil
 	}
 
 	for _, extensionValue := range extensionValues {
 		if extValue == extensionValue {
-			return true, nil
+			return true, oid, extValue, nil
 		}
 	}
 
-	return false, nil
+	return false, nil, "", nil
 }
