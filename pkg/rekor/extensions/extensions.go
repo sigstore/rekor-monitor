@@ -1,4 +1,4 @@
-// Copyright 2022 The Sigstore Authors.
+// Copyright 2024 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rekor
+// This file details the named fields of OID extensions supported by Fulcio.
+// A list of OID extensions supported by Fulcio can be found here:
+// https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md
+// Named fields in this file have been imported from this file in the Fulcio repository:
+// https://github.com/sigstore/fulcio/blob/main/pkg/certificate/extensions.go
+// Updates to the Fulcio repository extensions file should be matched here accordingly and vice-versa.
+
+package extensions
 
 import (
 	"encoding/asn1"
 	"slices"
-
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 var fulcioOIDPrefix = []int{1, 3, 6, 1, 4, 1, 57264}
@@ -30,6 +35,34 @@ func createFulcioOID(ext []int) asn1.ObjectIdentifier {
 }
 
 var (
+	OIDIssuer                   asn1.ObjectIdentifier
+	OIDGitHubWorkflowTrigger    asn1.ObjectIdentifier
+	OIDGitHubWorkflowSHA        asn1.ObjectIdentifier
+	OIDGitHubWorkflowName       asn1.ObjectIdentifier
+	OIDGitHubWorkflowRepository asn1.ObjectIdentifier
+	OIDGitHubWorkflowRef        asn1.ObjectIdentifier
+
+	OIDOtherName asn1.ObjectIdentifier
+	OIDIssuerV2  asn1.ObjectIdentifier
+
+	// CI extensions
+	OIDBuildSignerURI                      asn1.ObjectIdentifier
+	OIDBuildSignerDigest                   asn1.ObjectIdentifier
+	OIDRunnerEnvironment                   asn1.ObjectIdentifier
+	OIDSourceRepositoryURI                 asn1.ObjectIdentifier
+	OIDSourceRepositoryDigest              asn1.ObjectIdentifier
+	OIDSourceRepositoryRef                 asn1.ObjectIdentifier
+	OIDSourceRepositoryIdentifier          asn1.ObjectIdentifier
+	OIDSourceRepositoryOwnerURI            asn1.ObjectIdentifier
+	OIDSourceRepositoryOwnerIdentifier     asn1.ObjectIdentifier
+	OIDBuildConfigURI                      asn1.ObjectIdentifier
+	OIDBuildConfigDigest                   asn1.ObjectIdentifier
+	OIDBuildTrigger                        asn1.ObjectIdentifier
+	OIDRunInvocationURI                    asn1.ObjectIdentifier
+	OIDSourceRepositoryVisibilityAtSigning asn1.ObjectIdentifier
+)
+
+func init() {
 	// Deprecated: Use OIDIssuerV2
 	OIDIssuer = createFulcioOID([]int{1, 1})
 	// Deprecated: Use OIDBuildTrigger
@@ -42,26 +75,23 @@ var (
 	OIDGitHubWorkflowRepository = createFulcioOID([]int{1, 5})
 	// Deprecated: Use OIDSourceRepositoryRef
 	OIDGitHubWorkflowRef = createFulcioOID([]int{1, 6})
-
 	OIDOtherName = createFulcioOID([]int{1, 7})
-	OIDIssuerV2  = createFulcioOID([]int{1, 8})
-
-	// CI extensions
-	OIDBuildSignerURI                      = createFulcioOID([]int{1, 9})
-	OIDBuildSignerDigest                   = createFulcioOID([]int{1, 10})
-	OIDRunnerEnvironment                   = createFulcioOID([]int{1, 11})
-	OIDSourceRepositoryURI                 = createFulcioOID([]int{1, 12})
-	OIDSourceRepositoryDigest              = createFulcioOID([]int{1, 13})
-	OIDSourceRepositoryRef                 = createFulcioOID([]int{1, 14})
-	OIDSourceRepositoryIdentifier          = createFulcioOID([]int{1, 15})
-	OIDSourceRepositoryOwnerURI            = createFulcioOID([]int{1, 16})
-	OIDSourceRepositoryOwnerIdentifier     = createFulcioOID([]int{1, 17})
-	OIDBuildConfigURI                      = createFulcioOID([]int{1, 18})
-	OIDBuildConfigDigest                   = createFulcioOID([]int{1, 19})
-	OIDBuildTrigger                        = createFulcioOID([]int{1, 20})
-	OIDRunInvocationURI                    = createFulcioOID([]int{1, 21})
+	OIDIssuerV2 = createFulcioOID([]int{1, 8})
+	OIDBuildSignerURI = createFulcioOID([]int{1, 9})
+	OIDBuildSignerDigest = createFulcioOID([]int{1, 10})
+	OIDRunnerEnvironment = createFulcioOID([]int{1, 11})
+	OIDSourceRepositoryURI = createFulcioOID([]int{1, 12})
+	OIDSourceRepositoryDigest = createFulcioOID([]int{1, 13})
+	OIDSourceRepositoryRef = createFulcioOID([]int{1, 14})
+	OIDSourceRepositoryIdentifier = createFulcioOID([]int{1, 15})
+	OIDSourceRepositoryOwnerURI = createFulcioOID([]int{1, 16})
+	OIDSourceRepositoryOwnerIdentifier = createFulcioOID([]int{1, 17})
+	OIDBuildConfigURI = createFulcioOID([]int{1, 18})
+	OIDBuildConfigDigest = createFulcioOID([]int{1, 19})
+	OIDBuildTrigger = createFulcioOID([]int{1, 20})
+	OIDRunInvocationURI = createFulcioOID([]int{1, 21})
 	OIDSourceRepositoryVisibilityAtSigning = createFulcioOID([]int{1, 22})
-)
+}
 
 // Extensions contains all custom x509 extensions defined by Fulcio
 type FulcioExtensions struct {
@@ -137,144 +167,4 @@ type FulcioExtensions struct {
 
 	// Source repository visibility at the time of signing the certificate.
 	SourceRepositoryVisibilityAtSigning []string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
-}
-
-func RenderOIDMatchers(e FulcioExtensions) ([]identity.OIDMatcher, error) {
-	var exts []identity.OIDMatcher
-
-	// BEGIN: Deprecated
-	if len(e.Issuer) != 0 {
-		// deprecated issuer extension due to incorrect encoding
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDIssuer,
-			ExtensionValues:  e.Issuer,
-		})
-	}
-
-	if len(e.GithubWorkflowTrigger) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDGitHubWorkflowTrigger,
-			ExtensionValues:  e.GithubWorkflowTrigger,
-		})
-	}
-	if len(e.GithubWorkflowSHA) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDGitHubWorkflowSHA,
-			ExtensionValues:  e.GithubWorkflowSHA,
-		})
-	}
-	if len(e.GithubWorkflowName) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDGitHubWorkflowName,
-			ExtensionValues:  e.GithubWorkflowName,
-		})
-	}
-	if len(e.GithubWorkflowRepository) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDGitHubWorkflowRepository,
-			ExtensionValues:  e.GithubWorkflowRepository,
-		})
-	}
-	if len(e.GithubWorkflowRef) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDGitHubWorkflowRef,
-			ExtensionValues:  e.GithubWorkflowRef,
-		})
-	}
-	// END: Deprecated
-
-	// duplicate issuer with correct RFC 5280 encoding
-	if len(e.Issuer) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDIssuerV2,
-			ExtensionValues:  e.Issuer,
-		})
-	}
-
-	if len(e.BuildSignerURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDBuildSignerURI,
-			ExtensionValues:  e.BuildSignerURI,
-		})
-	}
-	if len(e.BuildSignerDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDBuildSignerDigest,
-			ExtensionValues:  e.BuildSignerDigest,
-		})
-	}
-	if len(e.RunnerEnvironment) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDRunnerEnvironment,
-			ExtensionValues:  e.RunnerEnvironment,
-		})
-	}
-	if len(e.SourceRepositoryURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryURI,
-			ExtensionValues:  e.SourceRepositoryURI,
-		})
-	}
-	if len(e.SourceRepositoryDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryDigest,
-			ExtensionValues:  e.SourceRepositoryDigest,
-		})
-	}
-	if len(e.SourceRepositoryRef) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryRef,
-			ExtensionValues:  e.SourceRepositoryRef,
-		})
-	}
-	if len(e.SourceRepositoryIdentifier) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryIdentifier,
-			ExtensionValues:  e.SourceRepositoryIdentifier,
-		})
-	}
-	if len(e.SourceRepositoryOwnerURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryOwnerURI,
-			ExtensionValues:  e.SourceRepositoryOwnerURI,
-		})
-	}
-	if len(e.SourceRepositoryOwnerIdentifier) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryOwnerIdentifier,
-			ExtensionValues:  e.SourceRepositoryOwnerIdentifier,
-		})
-	}
-	if len(e.BuildConfigURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDBuildConfigURI,
-			ExtensionValues:  e.BuildConfigURI,
-		})
-	}
-	if len(e.BuildConfigDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDBuildConfigDigest,
-			ExtensionValues:  e.BuildConfigDigest,
-		})
-	}
-	if len(e.BuildTrigger) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDBuildTrigger,
-			ExtensionValues:  e.BuildTrigger,
-		})
-	}
-	if len(e.RunInvocationURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDRunInvocationURI,
-			ExtensionValues:  e.RunInvocationURI,
-		})
-	}
-	if len(e.SourceRepositoryVisibilityAtSigning) != 0 {
-		exts = append(exts, identity.OIDMatcher{
-			ObjectIdentifier: OIDSourceRepositoryVisibilityAtSigning,
-			ExtensionValues:  e.SourceRepositoryVisibilityAtSigning,
-		})
-	}
-
-	return exts, nil
 }

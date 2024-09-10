@@ -33,6 +33,7 @@ import (
 
 	"github.com/go-openapi/swag"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/rekor/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
@@ -639,7 +640,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 
 	// match to oid with matching extension value
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
-		FulcioExtensions: FulcioExtensions{
+		FulcioExtensions: extensions.FulcioExtensions{
 			BuildSignerURI: []string{extValueString},
 		}})
 	if err != nil {
@@ -672,7 +673,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 
 	// no match to oid with different oid extension field
 	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
-		FulcioExtensions: FulcioExtensions{
+		FulcioExtensions: extensions.FulcioExtensions{
 			BuildSignerDigest: []string{extValueString},
 		}})
 	if err != nil {
@@ -728,7 +729,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid extension empty") {
+	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
 		t.Fatalf("expected error with empty oid extension, got %v", err)
 	}
 
@@ -847,5 +848,122 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 	if extValue != extValueString {
 		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test mergeOIDMatchers
+func TestMergeOIDMatchers(t *testing.T) {
+	oidMatchers, err := mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{""},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test", "test2"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test1"},
+	}, {
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test1"},
+	}, {
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 18},
+		ExtensionValues:  []string{"test"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 2 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+}
+
+// test parseObjectIdentifier
+func TestParseObjectIdentifier(t *testing.T) {
+	oid, err := parseObjectIdentifier("")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier(".")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("....")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("a.a")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("1.")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("1.1.5.6.7.8..")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier(".1.1.5.67.8")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	_, err = parseObjectIdentifier("1")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+
+	_, err = parseObjectIdentifier("1.4.1.5")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+
+	_, err = parseObjectIdentifier("11254215212.4.123.54.1.622")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
 	}
 }
