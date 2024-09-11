@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
@@ -526,7 +527,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	// match to oid with matching extension value
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
-		OIDMatchers: []OIDMatcher{
+		OIDMatchers: []identity.OIDMatcher{
 			{
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
@@ -547,7 +548,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	// no match to oid with different extension value
 	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
-		OIDMatchers: []OIDMatcher{
+		OIDMatchers: []identity.OIDMatcher{
 			{
 				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
 				ExtensionValues:  []string{"wrong"},
@@ -562,7 +563,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	// no match to oid with different oid extension field
 	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
-		OIDMatchers: []OIDMatcher{
+		OIDMatchers: []identity.OIDMatcher{
 			{
 				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14},
 				ExtensionValues:  []string{"test cert value"},
@@ -620,7 +621,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 
 func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
 	// failure: oid extension empty
-	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
@@ -631,7 +632,7 @@ func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
 
 func TestMatchedIndicesFailuresOIDExtensionValuesEmpty(t *testing.T) {
 	// failure: oid extension values list empty
-	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{},
 	}}})
@@ -642,7 +643,7 @@ func TestMatchedIndicesFailuresOIDExtensionValuesEmpty(t *testing.T) {
 
 func TestMatchedIndicesFailuresOIDExtensionValueEmpty(t *testing.T) {
 	// failure: oid extension value string empty
-	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []OIDMatcher{{
+	_, err := MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 		ExtensionValues:  []string{""},
 	}}})

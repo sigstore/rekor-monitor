@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
-	file "github.com/sigstore/rekor-monitor/pkg/util"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/util"
