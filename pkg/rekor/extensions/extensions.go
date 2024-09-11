@@ -93,7 +93,7 @@ func init() {
 	OIDSourceRepositoryVisibilityAtSigning = createFulcioOID([]int{1, 22})
 }
 
-// Extensions contains all custom x509 extensions defined by Fulcio
+// FulcioExtensions contains all custom X.509 extensions defined by Fulcio.
 type FulcioExtensions struct {
 	// The OIDC issuer. Should match `iss` claim of ID token or, in the case of
 	// a federated login like Dex it should match the issuer URL of the
