@@ -77,9 +77,9 @@ type MonitoredValues struct {
 	// OIDMatchers contains a list of OID extension fields and associated values
 	// ex. Build Signer URI, associated with specific workflow URIs
 	OIDMatchers []identity.OIDMatcher `yaml:"oidMatchers"`
-	// FulcioExtensions contains all OID extensions currently supported by Fulcio
+	// FulcioExtensions contains all extensions currently supported by Fulcio
 	// each extension has a list of values to match on, ex. `build-signer-uri`
-	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioOIDExtensions"`
+	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioExtensions"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
@@ -275,15 +275,17 @@ func mergeOIDMatchers(mvs MonitoredValues) ([]identity.OIDMatcher, error) {
 	oidMap := make(map[string]map[string]bool)
 	// dedup OID extensions and associated values through one mapping
 	for _, oidMatcher := range mvs.OIDMatchers {
-		oidMap[oidMatcher.ObjectIdentifier.String()] = make(map[string]bool)
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
 		for _, extValue := range oidMatcher.ExtensionValues {
-			oidMap[oidMatcher.ObjectIdentifier.String()][extValue] = true
+			oidMap[oidMatcherString][extValue] = true
 		}
 	}
 	for _, oidMatcher := range fulcioOIDMatchers {
-		oidMap[oidMatcher.ObjectIdentifier.String()] = make(map[string]bool)
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
 		for _, extValue := range oidMatcher.ExtensionValues {
-			oidMap[oidMatcher.ObjectIdentifier.String()][extValue] = true
+			oidMap[oidMatcherString][extValue] = true
 		}
 	}
 	// convert map into list of OIDMatchers

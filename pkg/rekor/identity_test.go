@@ -967,3 +967,64 @@ func TestParseObjectIdentifier(t *testing.T) {
 		t.Errorf("Expected nil, got error %v", err)
 	}
 }
+
+// test renderFulcioOIDMatchers
+func TestRenderFulcioOIDMatchers(t *testing.T) {
+	extValueString := "test cert value"
+	fulcioExtensions := extensions.FulcioExtensions{
+		Issuer:                              []string{},
+		GithubWorkflowTrigger:               []string{},
+		GithubWorkflowSHA:                   []string{},
+		GithubWorkflowName:                  []string{},
+		GithubWorkflowRepository:            []string{},
+		GithubWorkflowRef:                   []string{},
+		BuildSignerURI:                      []string{extValueString},
+		BuildSignerDigest:                   []string{},
+		RunnerEnvironment:                   []string{},
+		SourceRepositoryURI:                 []string{},
+		SourceRepositoryDigest:              []string{},
+		SourceRepositoryRef:                 []string{},
+		SourceRepositoryIdentifier:          []string{},
+		SourceRepositoryOwnerURI:            []string{},
+		SourceRepositoryOwnerIdentifier:     []string{},
+		BuildConfigURI:                      []string{"1", "2", "3", "4", "5", "6"},
+		BuildConfigDigest:                   []string{},
+		BuildTrigger:                        []string{},
+		RunInvocationURI:                    []string{},
+		SourceRepositoryVisibilityAtSigning: []string{},
+	}
+
+	renderedFulcioOIDMatchers, err := renderFulcioOIDMatchers(fulcioExtensions)
+	if err != nil {
+		t.Errorf("expected nil, received error %v", err)
+	}
+
+	if len(renderedFulcioOIDMatchers) != 2 {
+		t.Errorf("expected OIDMatchers to have length 2, received length %d", len(renderedFulcioOIDMatchers))
+	}
+
+	buildSignerURIMatcher := renderedFulcioOIDMatchers[0]
+	buildSignerURIMatcherOID := buildSignerURIMatcher.ObjectIdentifier
+	buildSignerURIMatcherExtValues := buildSignerURIMatcher.ExtensionValues
+	if !buildSignerURIMatcherOID.Equal(extensions.OIDBuildSignerURI) {
+		t.Errorf("expected OIDMatcher to be BuildSignerURI 1.3.6.1.4.1.57264.1.9, received %s", buildSignerURIMatcherOID)
+	}
+	if len(buildSignerURIMatcherExtValues) != 1 {
+		t.Errorf("expected BuildSignerURI extension values to have length 1, received %d", len(buildSignerURIMatcherExtValues))
+	}
+	buildSignerURIMatcherExtValue := buildSignerURIMatcherExtValues[0]
+	if buildSignerURIMatcherExtValue != extValueString {
+		t.Errorf("expected BuildSignerURI extension value to be 'test cert value', received %s", buildSignerURIMatcherExtValue)
+	}
+
+	buildConfigURIMatcher := renderedFulcioOIDMatchers[1]
+	buildConfigURIMatcherOID := buildConfigURIMatcher.ObjectIdentifier
+	buildConfigURIMatcherExtValues := buildConfigURIMatcher.ExtensionValues
+	if !buildConfigURIMatcherOID.Equal(extensions.OIDBuildConfigURI) {
+		t.Errorf("expected OIDMatcher to be BuildConfigURI 1.3.6.1.4.1.57264.1.18, received %s", buildConfigURIMatcherOID)
+	}
+
+	if len(buildConfigURIMatcherExtValues) != 6 {
+		t.Errorf("expected BuildConfigURI extension values to have length 6, received %d", len(buildConfigURIMatcherExtValues))
+	}
+}
