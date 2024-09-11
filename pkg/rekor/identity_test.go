@@ -32,8 +32,8 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	"github.com/sigstore/rekor-monitor/pkg/rekor/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
@@ -758,7 +758,7 @@ func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid extension empty") {
+	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
 		t.Fatalf("expected error with empty oid extension, got %v", err)
 	}
 }
