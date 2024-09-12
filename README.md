@@ -80,6 +80,9 @@ jobs:
           - subject@domain\.com
         fingerprints:
           - A0B1C2D3E4F5
+        fulcioExtensions:
+          build-config-uri:
+            - https://example.com/owner/repository/build-config.yml
 ```
 
 In this example, the monitor will log:
@@ -89,6 +92,7 @@ In this example, the monitor will log:
 * Entries whose SAN start by `https://github.com/actions/starter-workflows/blob/main/.github/workflows/lint.yaml@` and the OIDC provider matches `https://token.actions.githubusercontent.com`
 * Non-certificate entries, such as PGP or SSH keys, whose subject matches `subject@domain.com`
 * Entries whose key or certificate fingerprint matches `A0B1C2D3E4F5`
+* Entries that contain a certificate with a Build Config URI Extension matching `https://example.com/owner/repository/build-config.yml`
 
 Fingerprint values are as follows:
 

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/swag"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -575,7 +576,112 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("expected no matches, got %d", len(matches))
 	}
+}
 
+func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
+	subject := "subject"
+	issuer := "oidc-issuer@domain.com"
+
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
+	extValueString := "test cert value"
+	extValue, err := asn1.Marshal(extValueString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extension := pkix.Extension{
+		Id:       oid,
+		Critical: false,
+		Value:    extValue,
+	}
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey, extension)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	hash := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(hash[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	integratedTime := time.Now()
+	logIndex := 1234
+	uuid := "123-456-123"
+	logEntryAnon := models.LogEntryAnon{
+		Body:           base64.StdEncoding.EncodeToString(leaf),
+		IntegratedTime: swag.Int64(integratedTime.Unix()),
+		LogIndex:       swag.Int64(int64(logIndex)),
+	}
+	logEntry := models.LogEntry{uuid: logEntryAnon}
+
+	// match to oid with matching extension value
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		FulcioExtensions: extensions.FulcioExtensions{
+			BuildSignerURI: []string{extValueString},
+		}})
+	if err != nil {
+		t.Fatalf("expected error matching IDs, got %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	}
+	if matches[0].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	}
+
+	// no match to oid with different extension value
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		OIDMatchers: []identity.OIDMatcher{
+			{
+				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
+				ExtensionValues:  []string{"wrong"},
+			},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+
+	// no match to oid with different oid extension field
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, MonitoredValues{
+		FulcioExtensions: extensions.FulcioExtensions{
+			BuildSignerDigest: []string{extValueString},
+		}})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
+	}
 }
 
 func TestMatchedIndicesFailures(t *testing.T) {
@@ -617,6 +723,33 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
 		t.Fatalf("expected error with empty fingerprint, got %v", err)
 	}
+
+	// failure: oid extension empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{},
+		ExtensionValues:  []string{""},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
+		t.Fatalf("expected error with empty oid extension, got %v", err)
+	}
+
+	// failure: oid matched values list empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "oid matched values empty") {
+		t.Fatalf("expected error with empty oid matched values list, got %v", err)
+	}
+
+	// failure: oid matched value string empty
+	_, err = MatchedIndices(nil, MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{""},
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "oid matched value empty") {
+		t.Fatalf("expected error with empty oid matched value string, got %v", err)
+	}
 }
 
 func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
@@ -625,7 +758,7 @@ func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
 		ObjectIdentifier: asn1.ObjectIdentifier{},
 		ExtensionValues:  []string{""},
 	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid extension empty") {
+	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
 		t.Fatalf("expected error with empty oid extension, got %v", err)
 	}
 }
@@ -715,5 +848,165 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 	if extValue != extValueString {
 		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test mergeOIDMatchers
+func TestMergeOIDMatchers(t *testing.T) {
+	oidMatchers, err := mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{""},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test", "test2"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test1"},
+	}, {
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 1 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+
+	oidMatchers, err = mergeOIDMatchers(MonitoredValues{OIDMatchers: []identity.OIDMatcher{{
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+		ExtensionValues:  []string{"test1"},
+	}, {
+		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 18},
+		ExtensionValues:  []string{"test"},
+	}}})
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	if len(oidMatchers) != 2 {
+		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	}
+}
+
+// test parseObjectIdentifier
+func TestParseObjectIdentifier(t *testing.T) {
+	oid, err := parseObjectIdentifier("")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier(".")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("....")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("a.a")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("1.")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier("1.1.5.6.7.8..")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	oid, err = parseObjectIdentifier(".1.1.5.67.8")
+	if err == nil {
+		t.Errorf("Expected error, got nil and oid %s", oid)
+	}
+
+	_, err = parseObjectIdentifier("1")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+
+	_, err = parseObjectIdentifier("1.4.1.5")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+
+	_, err = parseObjectIdentifier("11254215212.4.123.54.1.622")
+	if err != nil {
+		t.Errorf("Expected nil, got error %v", err)
+	}
+}
+
+// test renderFulcioOIDMatchers
+func TestRenderFulcioOIDMatchers(t *testing.T) {
+	extValueString := "test cert value"
+	fulcioExtensions := extensions.FulcioExtensions{
+		BuildSignerURI: []string{extValueString},
+		BuildConfigURI: []string{"1", "2", "3", "4", "5", "6"},
+	}
+
+	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
+	if err != nil {
+		t.Errorf("expected nil, received error %v", err)
+	}
+
+	if len(renderedFulcioOIDMatchers) != 2 {
+		t.Errorf("expected OIDMatchers to have length 2, received length %d", len(renderedFulcioOIDMatchers))
+	}
+
+	buildSignerURIMatcher := renderedFulcioOIDMatchers[0]
+	buildSignerURIMatcherOID := buildSignerURIMatcher.ObjectIdentifier
+	buildSignerURIMatcherExtValues := buildSignerURIMatcher.ExtensionValues
+	if !buildSignerURIMatcherOID.Equal(extensions.OIDBuildSignerURI) {
+		t.Errorf("expected OIDMatcher to be BuildSignerURI 1.3.6.1.4.1.57264.1.9, received %s", buildSignerURIMatcherOID)
+	}
+	if len(buildSignerURIMatcherExtValues) != 1 {
+		t.Errorf("expected BuildSignerURI extension values to have length 1, received %d", len(buildSignerURIMatcherExtValues))
+	}
+	buildSignerURIMatcherExtValue := buildSignerURIMatcherExtValues[0]
+	if buildSignerURIMatcherExtValue != extValueString {
+		t.Errorf("expected BuildSignerURI extension value to be 'test cert value', received %s", buildSignerURIMatcherExtValue)
+	}
+
+	buildConfigURIMatcher := renderedFulcioOIDMatchers[1]
+	buildConfigURIMatcherOID := buildConfigURIMatcher.ObjectIdentifier
+	buildConfigURIMatcherExtValues := buildConfigURIMatcher.ExtensionValues
+	if !buildConfigURIMatcherOID.Equal(extensions.OIDBuildConfigURI) {
+		t.Errorf("expected OIDMatcher to be BuildConfigURI 1.3.6.1.4.1.57264.1.18, received %s", buildConfigURIMatcherOID)
+	}
+
+	if len(buildConfigURIMatcherExtValues) != 6 {
+		t.Errorf("expected BuildConfigURI extension values to have length 6, received %d", len(buildConfigURIMatcherExtValues))
 	}
 }

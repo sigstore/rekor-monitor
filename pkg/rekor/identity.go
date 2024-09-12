@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/runtime"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
@@ -76,6 +77,9 @@ type MonitoredValues struct {
 	// OIDMatchers contains a list of OID extension fields and associated values
 	// ex. Build Signer URI, associated with specific workflow URIs
 	OIDMatchers []identity.OIDMatcher `yaml:"oidMatchers"`
+	// FulcioExtensions contains all extensions currently supported by Fulcio
+	// each extension has a list of values to match on, ex. `build-signer-uri`
+	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioExtensions"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
@@ -100,8 +104,78 @@ func (e *IdentityEntry) String() string {
 	return strings.Join(parts, " ")
 }
 
+// parseObjectIdentifier parses a string representing an ObjectIdentifier in dot notation
+// and converts it into an asn1.ObjectIdentiifer.
+func parseObjectIdentifier(oid string) (asn1.ObjectIdentifier, error) {
+	if len(oid) == 0 {
+		return nil, errors.New("could not parse object identifier: empty input")
+	}
+	nodes := strings.Split(oid, ".")
+	objectIdentifier := make([]int, len(nodes))
+	for i, node := range nodes {
+		if strings.TrimSpace(node) == "" {
+			return nil, errors.New("could not parse object identifier: no characters between two dots")
+		}
+		intNode, err := strconv.Atoi(node)
+		if err != nil {
+			return nil, err
+		}
+		objectIdentifier[i] = intNode
+	}
+	return asn1.ObjectIdentifier(objectIdentifier), nil
+}
+
+// mergeOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice of OIDMatchers
+func mergeOIDMatchers(mvs MonitoredValues) ([]identity.OIDMatcher, error) {
+	fulcioOIDMatchers, err := mvs.FulcioExtensions.RenderFulcioOIDMatchers()
+	if err != nil {
+		return nil, fmt.Errorf("error rendering OID Matchers from Fulcio OID extensions: %w", err)
+	}
+	// map of all OID extensions to all associated matching extension values
+	oidMap := make(map[string]map[string]bool)
+	// dedup OID extensions and associated values through one mapping
+	for _, oidMatcher := range mvs.OIDMatchers {
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
+		for _, extValue := range oidMatcher.ExtensionValues {
+			oidMap[oidMatcherString][extValue] = true
+		}
+	}
+	for _, oidMatcher := range fulcioOIDMatchers {
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
+		for _, extValue := range oidMatcher.ExtensionValues {
+			oidMap[oidMatcherString][extValue] = true
+		}
+	}
+	// convert map into list of OIDMatchers
+	var allMatchers []identity.OIDMatcher
+	for oidExtension, extValueMap := range oidMap {
+		parsedOID, err := parseObjectIdentifier(oidExtension)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing OID from extension: %w", err)
+		}
+		var extValues []string
+		for extValue := range extValueMap {
+			extValues = append(extValues, extValue)
+		}
+		allMatchers = append(allMatchers, identity.OIDMatcher{
+			ObjectIdentifier: parsedOID,
+			ExtensionValues:  extValues,
+		})
+	}
+
+	return allMatchers, nil
+}
+
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]IdentityEntry, error) {
+	allOIDMatchers, err := mergeOIDMatchers(mvs)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: preprocess OIDMatchers before being passed into MatchedIndices
+	mvs.OIDMatchers = allOIDMatchers
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}
@@ -213,6 +287,15 @@ func verifyMonitoredValues(mvs MonitoredValues) error {
 			return errors.New("subject empty")
 		}
 	}
+	err := verifyMonitoredOIDs(mvs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
+func verifyMonitoredOIDs(mvs MonitoredValues) error {
 	for _, oidMatcher := range mvs.OIDMatchers {
 		if len(oidMatcher.ObjectIdentifier) == 0 {
 			return errors.New("oid extension empty")
