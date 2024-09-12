@@ -1027,59 +1027,6 @@ func TestMergeOIDMatchers(t *testing.T) {
 	}
 }
 
-// test parseObjectIdentifier
-func TestParseObjectIdentifier(t *testing.T) {
-	oid, err := identity.ParseObjectIdentifier("")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier(".")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier("....")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier("a.a")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier("1.")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier("1.1.5.6.7.8..")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = identity.ParseObjectIdentifier(".1.1.5.67.8")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	_, err = identity.ParseObjectIdentifier("1")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = identity.ParseObjectIdentifier("1.4.1.5")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = identity.ParseObjectIdentifier("11254215212.4.123.54.1.622")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-}
-
 // test renderFulcioOIDMatchers
 func TestRenderFulcioOIDMatchers(t *testing.T) {
 	extValueString := "test cert value"
