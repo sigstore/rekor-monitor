@@ -24,6 +24,8 @@ package extensions
 import (
 	"encoding/asn1"
 	"slices"
+
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 var fulcioOIDPrefix = []int{1, 3, 6, 1, 4, 1, 57264}
@@ -167,4 +169,144 @@ type FulcioExtensions struct {
 
 	// Source repository visibility at the time of signing the certificate.
 	SourceRepositoryVisibilityAtSigning []string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
+}
+
+func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]identity.OIDMatcher, error) {
+	var exts []identity.OIDMatcher
+
+	// BEGIN: Deprecated
+	if len(e.Issuer) != 0 {
+		// deprecated issuer extension due to incorrect encoding
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDIssuer,
+			ExtensionValues:  e.Issuer,
+		})
+	}
+
+	if len(e.GithubWorkflowTrigger) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDGitHubWorkflowTrigger,
+			ExtensionValues:  e.GithubWorkflowTrigger,
+		})
+	}
+	if len(e.GithubWorkflowSHA) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDGitHubWorkflowSHA,
+			ExtensionValues:  e.GithubWorkflowSHA,
+		})
+	}
+	if len(e.GithubWorkflowName) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDGitHubWorkflowName,
+			ExtensionValues:  e.GithubWorkflowName,
+		})
+	}
+	if len(e.GithubWorkflowRepository) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDGitHubWorkflowRepository,
+			ExtensionValues:  e.GithubWorkflowRepository,
+		})
+	}
+	if len(e.GithubWorkflowRef) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDGitHubWorkflowRef,
+			ExtensionValues:  e.GithubWorkflowRef,
+		})
+	}
+	// END: Deprecated
+
+	// duplicate issuer with correct RFC 5280 encoding
+	if len(e.Issuer) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDIssuerV2,
+			ExtensionValues:  e.Issuer,
+		})
+	}
+
+	if len(e.BuildSignerURI) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDBuildSignerURI,
+			ExtensionValues:  e.BuildSignerURI,
+		})
+	}
+	if len(e.BuildSignerDigest) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDBuildSignerDigest,
+			ExtensionValues:  e.BuildSignerDigest,
+		})
+	}
+	if len(e.RunnerEnvironment) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDRunnerEnvironment,
+			ExtensionValues:  e.RunnerEnvironment,
+		})
+	}
+	if len(e.SourceRepositoryURI) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryURI,
+			ExtensionValues:  e.SourceRepositoryURI,
+		})
+	}
+	if len(e.SourceRepositoryDigest) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryDigest,
+			ExtensionValues:  e.SourceRepositoryDigest,
+		})
+	}
+	if len(e.SourceRepositoryRef) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryRef,
+			ExtensionValues:  e.SourceRepositoryRef,
+		})
+	}
+	if len(e.SourceRepositoryIdentifier) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryIdentifier,
+			ExtensionValues:  e.SourceRepositoryIdentifier,
+		})
+	}
+	if len(e.SourceRepositoryOwnerURI) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryOwnerURI,
+			ExtensionValues:  e.SourceRepositoryOwnerURI,
+		})
+	}
+	if len(e.SourceRepositoryOwnerIdentifier) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryOwnerIdentifier,
+			ExtensionValues:  e.SourceRepositoryOwnerIdentifier,
+		})
+	}
+	if len(e.BuildConfigURI) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDBuildConfigURI,
+			ExtensionValues:  e.BuildConfigURI,
+		})
+	}
+	if len(e.BuildConfigDigest) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDBuildConfigDigest,
+			ExtensionValues:  e.BuildConfigDigest,
+		})
+	}
+	if len(e.BuildTrigger) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDBuildTrigger,
+			ExtensionValues:  e.BuildTrigger,
+		})
+	}
+	if len(e.RunInvocationURI) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDRunInvocationURI,
+			ExtensionValues:  e.RunInvocationURI,
+		})
+	}
+	if len(e.SourceRepositoryVisibilityAtSigning) != 0 {
+		exts = append(exts, identity.OIDMatcher{
+			ObjectIdentifier: OIDSourceRepositoryVisibilityAtSigning,
+			ExtensionValues:  e.SourceRepositoryVisibilityAtSigning,
+		})
+	}
+
+	return exts, nil
 }

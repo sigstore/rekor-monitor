@@ -994,7 +994,7 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 		SourceRepositoryVisibilityAtSigning: []string{},
 	}
 
-	renderedFulcioOIDMatchers, err := renderFulcioOIDMatchers(fulcioExtensions)
+	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
