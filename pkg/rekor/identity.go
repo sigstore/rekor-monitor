@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/runtime"
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
@@ -57,12 +58,6 @@ type CertificateIdentity struct {
 	Issuers     []string `yaml:"issuers"`
 }
 
-// OIDMatcher holds an OID field and a list of values to match on
-type OIDMatcher struct {
-	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
-	ExtensionValues  []string              `yaml:"extensionValues"`
-}
-
 // MonitoredValues holds a set of values to compare against a given entry
 type MonitoredValues struct {
 	// CertificateIdentities contains a list of subjects and issuers
@@ -80,7 +75,7 @@ type MonitoredValues struct {
 	Subjects []string `yaml:"subjects"`
 	// OIDMatchers contains a list of OID extension fields and associated values
 	// ex. Build Signer URI, associated with specific workflow URIs
-	OIDMatchers []OIDMatcher `yaml:"oidMatchers"`
+	OIDMatchers []identity.OIDMatcher `yaml:"oidMatchers"`
 }
 
 // IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
