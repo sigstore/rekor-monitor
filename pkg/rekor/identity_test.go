@@ -972,26 +972,8 @@ func TestParseObjectIdentifier(t *testing.T) {
 func TestRenderFulcioOIDMatchers(t *testing.T) {
 	extValueString := "test cert value"
 	fulcioExtensions := extensions.FulcioExtensions{
-		Issuer:                              []string{},
-		GithubWorkflowTrigger:               []string{},
-		GithubWorkflowSHA:                   []string{},
-		GithubWorkflowName:                  []string{},
-		GithubWorkflowRepository:            []string{},
-		GithubWorkflowRef:                   []string{},
-		BuildSignerURI:                      []string{extValueString},
-		BuildSignerDigest:                   []string{},
-		RunnerEnvironment:                   []string{},
-		SourceRepositoryURI:                 []string{},
-		SourceRepositoryDigest:              []string{},
-		SourceRepositoryRef:                 []string{},
-		SourceRepositoryIdentifier:          []string{},
-		SourceRepositoryOwnerURI:            []string{},
-		SourceRepositoryOwnerIdentifier:     []string{},
-		BuildConfigURI:                      []string{"1", "2", "3", "4", "5", "6"},
-		BuildConfigDigest:                   []string{},
-		BuildTrigger:                        []string{},
-		RunInvocationURI:                    []string{},
-		SourceRepositoryVisibilityAtSigning: []string{},
+		BuildSignerURI: []string{extValueString},
+		BuildConfigURI: []string{"1", "2", "3", "4", "5", "6"},
 	}
 
 	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()

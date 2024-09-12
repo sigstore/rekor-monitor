@@ -174,6 +174,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 	if err != nil {
 		return nil, err
 	}
+	// TODO: preprocess OIDMatchers before being passed into MatchedIndices
 	mvs.OIDMatchers = allOIDMatchers
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
