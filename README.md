@@ -83,6 +83,9 @@ jobs:
         fulcioExtensions:
           build-config-uri:
             - https://example.com/owner/repository/build-config.yml
+        customExtensions:
+          - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+            extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
 In this example, the monitor will log:
@@ -93,6 +96,7 @@ In this example, the monitor will log:
 * Non-certificate entries, such as PGP or SSH keys, whose subject matches `subject@domain.com`
 * Entries whose key or certificate fingerprint matches `A0B1C2D3E4F5`
 * Entries that contain a certificate with a Build Config URI Extension matching `https://example.com/owner/repository/build-config.yml`
+* Entries that contain a certificate with OID extension `1.3.6.1.4.1.57264.1.9` (Fulcio OID for Build Signer URI) and an extension value matching `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`
 
 Fingerprint values are as follows:
 

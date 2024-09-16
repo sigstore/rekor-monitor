@@ -14,10 +14,42 @@
 
 package identity
 
-import "encoding/asn1"
+import (
+	"encoding/asn1"
+	"errors"
+	"strconv"
+	"strings"
+)
 
 // OIDMatcher holds an OID field and a list of values to match on
 type OIDMatcher struct {
 	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
 	ExtensionValues  []string              `yaml:"extensionValues"`
+}
+
+// CustomOID holds an OID field represented in dot notation and a list of values to match on
+type CustomExtension struct {
+	ObjectIdentifier string   `yaml:"objectIdentifier"`
+	ExtensionValues  []string `yaml:"extensionValues"`
+}
+
+// ParseObjectIdentifier parses a string representing an ObjectIdentifier in dot notation
+// and converts it into an asn1.ObjectIdentiifer.
+func ParseObjectIdentifier(oid string) (asn1.ObjectIdentifier, error) {
+	if len(oid) == 0 {
+		return nil, errors.New("could not parse object identifier: empty input")
+	}
+	nodes := strings.Split(oid, ".")
+	objectIdentifier := make([]int, len(nodes))
+	for i, node := range nodes {
+		if strings.TrimSpace(node) == "" {
+			return nil, errors.New("could not parse object identifier: no characters between two dots")
+		}
+		intNode, err := strconv.Atoi(node)
+		if err != nil {
+			return nil, err
+		}
+		objectIdentifier[i] = intNode
+	}
+	return asn1.ObjectIdentifier(objectIdentifier), nil
 }
