@@ -87,14 +87,26 @@ type MonitoredValues struct {
 
 // IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
 type IdentityEntry struct {
-	CertSubject    string
-	Issuer         string
-	Fingerprint    string
-	Subject        string
-	Index          int64
-	UUID           string
-	OIDExtension   asn1.ObjectIdentifier
-	ExtensionValue string
+	CertSubject    string                `json:"certSubject"`
+	Issuer         string                `json:"issuer"`
+	Fingerprint    string                `json:"fingerprint"`
+	Subject        string                `json:"subject"`
+	Index          int64                 `json:"index"`
+	UUID           string                `json:"uuid"`
+	OIDExtension   asn1.ObjectIdentifier `json:"oidExtension"`
+	ExtensionValue string                `json:"extensionValue"`
+}
+
+// MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
+type MonitoredIdentity struct {
+	Identity             string          `json:"identity"`
+	FoundIdentityEntries []IdentityEntry `json:"foundIdentityEntries"`
+}
+
+// NotificationPlatform provides the Send() method to handle alerting logic
+// for the respective notification platform extending the interface.
+type NotificationPlatform interface {
+	Send([]MonitoredIdentity) error
 }
 
 func (e *IdentityEntry) String() string {
