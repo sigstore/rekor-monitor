@@ -16,6 +16,7 @@ package identity
 
 import (
 	"encoding/asn1"
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -75,4 +76,78 @@ func (e *RekorLogEntry) String() string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
+type MonitoredIdentity struct {
+	Identity             string          `json:"identity"`
+	FoundIdentityEntries []RekorLogEntry `json:"foundIdentityEntries"`
+}
+
+// ParseMonitoredIdentitiesAsJSON formats a list of monitored identities and corresponding log entries
+// using JSON tagging into JSON formatting.
+func ParseMonitoredIdentitiesAsJSON(monitoredIdentities []MonitoredIdentity) ([]byte, error) {
+	jsonBody, err := json.MarshalIndent(monitoredIdentities, "", "\t")
+	if err != nil {
+		return nil, err
+	}
+	return jsonBody, nil
+}
+
+// CreateMonitoredIdentities takes in a list of IdentityEntries and groups them by
+// associated identity based on an input list of identities to monitor.
+// It returns a list of MonitoredIdentities.
+func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredIdentities []string) []MonitoredIdentity {
+	identityMap := make(map[string]bool)
+	for _, id := range monitoredIdentities {
+		identityMap[id] = true
+	}
+
+	monitoredIdentityMap := make(map[string][]RekorLogEntry)
+	for _, idEntry := range inputIdentityEntries {
+		switch {
+		case identityMap[idEntry.CertSubject]:
+			idCertSubject := idEntry.CertSubject
+			_, ok := monitoredIdentityMap[idCertSubject]
+			if ok {
+				monitoredIdentityMap[idCertSubject] = append(monitoredIdentityMap[idCertSubject], idEntry)
+			} else {
+				monitoredIdentityMap[idCertSubject] = []RekorLogEntry{idEntry}
+			}
+		case identityMap[idEntry.ExtensionValue]:
+			idExtValue := idEntry.ExtensionValue
+			_, ok := monitoredIdentityMap[idExtValue]
+			if ok {
+				monitoredIdentityMap[idExtValue] = append(monitoredIdentityMap[idExtValue], idEntry)
+			} else {
+				monitoredIdentityMap[idExtValue] = []RekorLogEntry{idEntry}
+			}
+		case identityMap[idEntry.Fingerprint]:
+			idFingerprint := idEntry.Fingerprint
+			_, ok := monitoredIdentityMap[idFingerprint]
+			if ok {
+				monitoredIdentityMap[idFingerprint] = append(monitoredIdentityMap[idFingerprint], idEntry)
+			} else {
+				monitoredIdentityMap[idFingerprint] = []RekorLogEntry{idEntry}
+			}
+		case identityMap[idEntry.Subject]:
+			idSubject := idEntry.Subject
+			_, ok := monitoredIdentityMap[idSubject]
+			if ok {
+				monitoredIdentityMap[idSubject] = append(monitoredIdentityMap[idSubject], idEntry)
+			} else {
+				monitoredIdentityMap[idSubject] = []RekorLogEntry{idEntry}
+			}
+		}
+	}
+
+	parsedMonitoredIdentities := []MonitoredIdentity{}
+	for id, idEntries := range monitoredIdentityMap {
+		parsedMonitoredIdentities = append(parsedMonitoredIdentities, MonitoredIdentity{
+			Identity:             id,
+			FoundIdentityEntries: idEntries,
+		})
+	}
+
+	return parsedMonitoredIdentities
 }
