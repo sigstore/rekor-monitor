@@ -23,9 +23,11 @@ package extensions
 
 import (
 	"encoding/asn1"
+	"errors"
+	"fmt"
 	"slices"
-
-	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"strconv"
+	"strings"
 )
 
 var fulcioOIDPrefix = []int{1, 3, 6, 1, 4, 1, 57264}
@@ -171,44 +173,56 @@ type FulcioExtensions struct {
 	SourceRepositoryVisibilityAtSigning []string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
-func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]identity.OIDMatcher, error) {
-	var exts []identity.OIDMatcher
+// OIDMatcher holds an OID field and a list of values to match on
+type OIDMatcher struct {
+	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
+	ExtensionValues  []string              `yaml:"extensionValues"`
+}
+
+// CustomOID holds an OID field represented in dot notation and a list of values to match on
+type CustomExtension struct {
+	ObjectIdentifier string   `yaml:"objectIdentifier"`
+	ExtensionValues  []string `yaml:"extensionValues"`
+}
+
+func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]OIDMatcher, error) {
+	var exts []OIDMatcher
 
 	// BEGIN: Deprecated
 	if len(e.Issuer) != 0 {
 		// deprecated issuer extension due to incorrect encoding
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDIssuer,
 			ExtensionValues:  e.Issuer,
 		})
 	}
 
 	if len(e.GithubWorkflowTrigger) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDGitHubWorkflowTrigger,
 			ExtensionValues:  e.GithubWorkflowTrigger,
 		})
 	}
 	if len(e.GithubWorkflowSHA) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDGitHubWorkflowSHA,
 			ExtensionValues:  e.GithubWorkflowSHA,
 		})
 	}
 	if len(e.GithubWorkflowName) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDGitHubWorkflowName,
 			ExtensionValues:  e.GithubWorkflowName,
 		})
 	}
 	if len(e.GithubWorkflowRepository) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDGitHubWorkflowRepository,
 			ExtensionValues:  e.GithubWorkflowRepository,
 		})
 	}
 	if len(e.GithubWorkflowRef) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDGitHubWorkflowRef,
 			ExtensionValues:  e.GithubWorkflowRef,
 		})
@@ -217,96 +231,168 @@ func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]identity.OIDMatcher, erro
 
 	// duplicate issuer with correct RFC 5280 encoding
 	if len(e.Issuer) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDIssuerV2,
 			ExtensionValues:  e.Issuer,
 		})
 	}
 
 	if len(e.BuildSignerURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDBuildSignerURI,
 			ExtensionValues:  e.BuildSignerURI,
 		})
 	}
 	if len(e.BuildSignerDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDBuildSignerDigest,
 			ExtensionValues:  e.BuildSignerDigest,
 		})
 	}
 	if len(e.RunnerEnvironment) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDRunnerEnvironment,
 			ExtensionValues:  e.RunnerEnvironment,
 		})
 	}
 	if len(e.SourceRepositoryURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryURI,
 			ExtensionValues:  e.SourceRepositoryURI,
 		})
 	}
 	if len(e.SourceRepositoryDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryDigest,
 			ExtensionValues:  e.SourceRepositoryDigest,
 		})
 	}
 	if len(e.SourceRepositoryRef) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryRef,
 			ExtensionValues:  e.SourceRepositoryRef,
 		})
 	}
 	if len(e.SourceRepositoryIdentifier) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryIdentifier,
 			ExtensionValues:  e.SourceRepositoryIdentifier,
 		})
 	}
 	if len(e.SourceRepositoryOwnerURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryOwnerURI,
 			ExtensionValues:  e.SourceRepositoryOwnerURI,
 		})
 	}
 	if len(e.SourceRepositoryOwnerIdentifier) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryOwnerIdentifier,
 			ExtensionValues:  e.SourceRepositoryOwnerIdentifier,
 		})
 	}
 	if len(e.BuildConfigURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDBuildConfigURI,
 			ExtensionValues:  e.BuildConfigURI,
 		})
 	}
 	if len(e.BuildConfigDigest) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDBuildConfigDigest,
 			ExtensionValues:  e.BuildConfigDigest,
 		})
 	}
 	if len(e.BuildTrigger) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDBuildTrigger,
 			ExtensionValues:  e.BuildTrigger,
 		})
 	}
 	if len(e.RunInvocationURI) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDRunInvocationURI,
 			ExtensionValues:  e.RunInvocationURI,
 		})
 	}
 	if len(e.SourceRepositoryVisibilityAtSigning) != 0 {
-		exts = append(exts, identity.OIDMatcher{
+		exts = append(exts, OIDMatcher{
 			ObjectIdentifier: OIDSourceRepositoryVisibilityAtSigning,
 			ExtensionValues:  e.SourceRepositoryVisibilityAtSigning,
 		})
 	}
 
 	return exts, nil
+}
+
+// MergeOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice of OIDMatchers
+func MergeOIDMatchers(oidMatchers []OIDMatcher, fulcioExtensions FulcioExtensions, customExtensions []CustomExtension) ([]OIDMatcher, error) {
+	fulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
+	if err != nil {
+		return nil, fmt.Errorf("error rendering OID matchers from Fulcio OID extensions: %w", err)
+	}
+	// map of all OID extensions to all associated matching extension values
+	oidMap := make(map[string]map[string]bool)
+	// dedup OID extensions and associated values through one mapping
+	for _, oidMatcher := range oidMatchers {
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
+		for _, extValue := range oidMatcher.ExtensionValues {
+			oidMap[oidMatcherString][extValue] = true
+		}
+	}
+	for _, oidMatcher := range fulcioOIDMatchers {
+		oidMatcherString := oidMatcher.ObjectIdentifier.String()
+		oidMap[oidMatcherString] = make(map[string]bool)
+		for _, extValue := range oidMatcher.ExtensionValues {
+			oidMap[oidMatcherString][extValue] = true
+		}
+	}
+	for _, customOID := range customExtensions {
+		customOIDString := customOID.ObjectIdentifier
+		oidMap[customOIDString] = make(map[string]bool)
+		for _, extValue := range customOID.ExtensionValues {
+			oidMap[customOIDString][extValue] = true
+		}
+	}
+
+	// convert map into list of OIDMatchers
+	var allMatchers []OIDMatcher
+	for oidExtension, extValueMap := range oidMap {
+		parsedOID, err := ParseObjectIdentifier(oidExtension)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing OID from extension: %w", err)
+		}
+		var extValues []string
+		for extValue := range extValueMap {
+			extValues = append(extValues, extValue)
+		}
+		allMatchers = append(allMatchers, OIDMatcher{
+			ObjectIdentifier: parsedOID,
+			ExtensionValues:  extValues,
+		})
+	}
+
+	return allMatchers, nil
+}
+
+// ParseObjectIdentifier parses a string representing an ObjectIdentifier in dot notation
+// and converts it into an asn1.ObjectIdentiifer.
+func ParseObjectIdentifier(oid string) (asn1.ObjectIdentifier, error) {
+	if len(oid) == 0 {
+		return nil, errors.New("could not parse object identifier: empty input")
+	}
+	nodes := strings.Split(oid, ".")
+	objectIdentifier := make([]int, len(nodes))
+	for i, node := range nodes {
+		if strings.TrimSpace(node) == "" {
+			return nil, errors.New("could not parse object identifier: no characters between two dots")
+		}
+		intNode, err := strconv.Atoi(node)
+		if err != nil {
+			return nil, err
+		}
+		objectIdentifier[i] = intNode
+	}
+	return asn1.ObjectIdentifier(objectIdentifier), nil
 }

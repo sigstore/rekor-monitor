@@ -22,8 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
-	"strings"
 
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
@@ -53,124 +51,19 @@ var (
 	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
 
-// CertificateIdentity holds a certificate subject and an optional list of identity issuers
-type CertificateIdentity struct {
-	CertSubject string   `yaml:"certSubject"`
-	Issuers     []string `yaml:"issuers"`
-}
-
-// MonitoredValues holds a set of values to compare against a given entry
-type MonitoredValues struct {
-	// CertificateIdentities contains a list of subjects and issuers
-	CertificateIdentities []CertificateIdentity `yaml:"certIdentities"`
-	// Fingerprints contains a list of key fingerprints. Values are as follows:
-	// For keys, certificates, and minisign, hex-encoded SHA-256 digest
-	// of the DER-encoded PKIX public key or certificate
-	// For SSH and PGP, the standard for each ecosystem:
-	// For SSH, unpadded base-64 encoded SHA-256 digest of the key
-	// For PGP, hex-encoded SHA-1 digest of a key, which can be either
-	// a primary key or subkey
-	Fingerprints []string `yaml:"fingerprints"`
-	// Subjects contains a list of subjects that are not specified in a
-	// certificate, such as a SSH key or PGP key email address
-	Subjects []string `yaml:"subjects"`
-	// OIDMatchers contains a list of OID extension fields and associated values
-	// ex. Build Signer URI, associated with specific workflow URIs
-	OIDMatchers []identity.OIDMatcher `yaml:"oidMatchers"`
-	// FulcioExtensions contains all extensions currently supported by Fulcio
-	// each extension has a list of values to match on, ex. `build-signer-uri`
-	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioExtensions"`
-	// CustomExtensions contains a list of custom extension fields, represented in dot notation
-	// and associated values to match on.
-	CustomExtensions []identity.CustomExtension `yaml:"customExtensions"`
-}
-
-// IdentityEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
-type IdentityEntry struct {
-	CertSubject    string
-	Issuer         string
-	Fingerprint    string
-	Subject        string
-	Index          int64
-	UUID           string
-	OIDExtension   asn1.ObjectIdentifier
-	ExtensionValue string
-}
-
-func (e *IdentityEntry) String() string {
-	var parts []string
-	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID, e.OIDExtension.String(), e.ExtensionValue} {
-		if strings.TrimSpace(s) != "" {
-			parts = append(parts, s)
-		}
-	}
-	return strings.Join(parts, " ")
-}
-
-// mergeOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice of OIDMatchers
-func mergeOIDMatchers(mvs MonitoredValues) ([]identity.OIDMatcher, error) {
-	fulcioOIDMatchers, err := mvs.FulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		return nil, fmt.Errorf("error rendering OID matchers from Fulcio OID extensions: %w", err)
-	}
-	// map of all OID extensions to all associated matching extension values
-	oidMap := make(map[string]map[string]bool)
-	// dedup OID extensions and associated values through one mapping
-	for _, oidMatcher := range mvs.OIDMatchers {
-		oidMatcherString := oidMatcher.ObjectIdentifier.String()
-		oidMap[oidMatcherString] = make(map[string]bool)
-		for _, extValue := range oidMatcher.ExtensionValues {
-			oidMap[oidMatcherString][extValue] = true
-		}
-	}
-	for _, oidMatcher := range fulcioOIDMatchers {
-		oidMatcherString := oidMatcher.ObjectIdentifier.String()
-		oidMap[oidMatcherString] = make(map[string]bool)
-		for _, extValue := range oidMatcher.ExtensionValues {
-			oidMap[oidMatcherString][extValue] = true
-		}
-	}
-	for _, customOID := range mvs.CustomExtensions {
-		customOIDString := customOID.ObjectIdentifier
-		oidMap[customOIDString] = make(map[string]bool)
-		for _, extValue := range customOID.ExtensionValues {
-			oidMap[customOIDString][extValue] = true
-		}
-	}
-
-	// convert map into list of OIDMatchers
-	var allMatchers []identity.OIDMatcher
-	for oidExtension, extValueMap := range oidMap {
-		parsedOID, err := identity.ParseObjectIdentifier(oidExtension)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing OID from extension: %w", err)
-		}
-		var extValues []string
-		for extValue := range extValueMap {
-			extValues = append(extValues, extValue)
-		}
-		allMatchers = append(allMatchers, identity.OIDMatcher{
-			ObjectIdentifier: parsedOID,
-			ExtensionValues:  extValues,
-		})
-	}
-
-	return allMatchers, nil
-}
-
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]IdentityEntry, error) {
-	allOIDMatchers, err := mergeOIDMatchers(mvs)
+func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.RekorLogEntry, error) {
+	allOIDMatchers, err := extensions.MergeOIDMatchers(mvs.OIDMatchers, mvs.FulcioExtensions, mvs.CustomExtensions)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: preprocess OIDMatchers before being passed into MatchedIndices
+	// TODO: OIDMatchers should be preprocessed and merged before being passed into MatchedIndices
 	mvs.OIDMatchers = allOIDMatchers
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}
 
-	var matchedEntries []IdentityEntry
+	var matchedEntries []identity.RekorLogEntry
 
 	for _, entries := range logEntries {
 		for uuid, entry := range entries {
@@ -188,7 +81,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 			for _, monitoredFp := range mvs.Fingerprints {
 				for _, fp := range fps {
 					if fp == monitoredFp {
-						matchedEntries = append(matchedEntries, IdentityEntry{
+						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
 							Fingerprint: fp,
 							Index:       *entry.LogIndex,
 							UUID:        uuid,
@@ -203,7 +96,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 					if err != nil {
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					} else if match {
-						matchedEntries = append(matchedEntries, IdentityEntry{
+						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
 							CertSubject: sub,
 							Issuer:      iss,
 							Index:       *entry.LogIndex,
@@ -220,7 +113,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 				}
 				for _, sub := range subjects {
 					if regex.MatchString(sub) {
-						matchedEntries = append(matchedEntries, IdentityEntry{
+						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
 							Subject: sub,
 							Index:   *entry.LogIndex,
 							UUID:    uuid,
@@ -236,7 +129,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					}
 					if match {
-						matchedEntries = append(matchedEntries, IdentityEntry{
+						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
 							Index:          *entry.LogIndex,
 							UUID:           uuid,
 							OIDExtension:   oid,
@@ -252,7 +145,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 }
 
 // verifyMonitoredValues checks that monitored values are valid
-func verifyMonitoredValues(mvs MonitoredValues) error {
+func verifyMonitoredValues(mvs identity.MonitoredValues) error {
 	if len(mvs.CertificateIdentities) == 0 && len(mvs.Fingerprints) == 0 && len(mvs.Subjects) == 0 && len(mvs.OIDMatchers) == 0 {
 		return errors.New("no identities provided to monitor")
 	}
@@ -285,7 +178,7 @@ func verifyMonitoredValues(mvs MonitoredValues) error {
 }
 
 // verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
-func verifyMonitoredOIDs(mvs MonitoredValues) error {
+func verifyMonitoredOIDs(mvs identity.MonitoredValues) error {
 	for _, oidMatcher := range mvs.OIDMatchers {
 		if len(oidMatcher.ObjectIdentifier) == 0 {
 			return errors.New("oid extension empty")

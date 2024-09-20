@@ -16,40 +16,63 @@ package identity
 
 import (
 	"encoding/asn1"
-	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 )
 
-// OIDMatcher holds an OID field and a list of values to match on
-type OIDMatcher struct {
-	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
-	ExtensionValues  []string              `yaml:"extensionValues"`
+// CertificateIdentity holds a certificate subject and an optional list of identity issuers
+type CertificateIdentity struct {
+	CertSubject string   `yaml:"certSubject"`
+	Issuers     []string `yaml:"issuers"`
 }
 
-// CustomOID holds an OID field represented in dot notation and a list of values to match on
-type CustomExtension struct {
-	ObjectIdentifier string   `yaml:"objectIdentifier"`
-	ExtensionValues  []string `yaml:"extensionValues"`
+// MonitoredValues holds a set of values to compare against a given entry
+type MonitoredValues struct {
+	// CertificateIdentities contains a list of subjects and issuers
+	CertificateIdentities []CertificateIdentity `yaml:"certIdentities"`
+	// Fingerprints contains a list of key fingerprints. Values are as follows:
+	// For keys, certificates, and minisign, hex-encoded SHA-256 digest
+	// of the DER-encoded PKIX public key or certificate
+	// For SSH and PGP, the standard for each ecosystem:
+	// For SSH, unpadded base-64 encoded SHA-256 digest of the key
+	// For PGP, hex-encoded SHA-1 digest of a key, which can be either
+	// a primary key or subkey
+	Fingerprints []string `yaml:"fingerprints"`
+	// Subjects contains a list of subjects that are not specified in a
+	// certificate, such as a SSH key or PGP key email address
+	Subjects []string `yaml:"subjects"`
+	// OIDMatchers contains a list of OID extension fields and associated values
+	// ex. Build Signer URI, associated with specific workflow URIs
+	OIDMatchers []extensions.OIDMatcher `yaml:"oidMatchers"`
+	// FulcioExtensions contains all extensions currently supported by Fulcio
+	// each extension has a list of values to match on, ex. `build-signer-uri`
+	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioExtensions"`
+	// CustomExtensions contains a list of custom extension fields, represented in dot notation
+	// and associated values to match on.
+	CustomExtensions []extensions.CustomExtension `yaml:"customExtensions"`
 }
 
-// ParseObjectIdentifier parses a string representing an ObjectIdentifier in dot notation
-// and converts it into an asn1.ObjectIdentiifer.
-func ParseObjectIdentifier(oid string) (asn1.ObjectIdentifier, error) {
-	if len(oid) == 0 {
-		return nil, errors.New("could not parse object identifier: empty input")
-	}
-	nodes := strings.Split(oid, ".")
-	objectIdentifier := make([]int, len(nodes))
-	for i, node := range nodes {
-		if strings.TrimSpace(node) == "" {
-			return nil, errors.New("could not parse object identifier: no characters between two dots")
+// RekorLogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
+// nolint:all
+type RekorLogEntry struct {
+	CertSubject    string
+	Issuer         string
+	Fingerprint    string
+	Subject        string
+	Index          int64
+	UUID           string
+	OIDExtension   asn1.ObjectIdentifier
+	ExtensionValue string
+}
+
+func (e *RekorLogEntry) String() string {
+	var parts []string
+	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID, e.OIDExtension.String(), e.ExtensionValue} {
+		if strings.TrimSpace(s) != "" {
+			parts = append(parts, s)
 		}
-		intNode, err := strconv.Atoi(node)
-		if err != nil {
-			return nil, err
-		}
-		objectIdentifier[i] = intNode
 	}
-	return asn1.ObjectIdentifier(objectIdentifier), nil
+	return strings.Join(parts, " ")
 }
