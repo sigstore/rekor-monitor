@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
@@ -46,7 +47,7 @@ const (
 )
 
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs rekor.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
+func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs identity.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
@@ -158,7 +159,7 @@ func main() {
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
 
-	var monitoredVals rekor.MonitoredValues
+	var monitoredVals identity.MonitoredValues
 	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
 		log.Fatalf("error parsing identities: %v", err)
 	}

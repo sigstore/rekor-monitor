@@ -18,55 +18,16 @@ import (
 	"testing"
 )
 
-// test ParseObjectIdentifier
-func TestParseObjectIdentifier(t *testing.T) {
-	oid, err := ParseObjectIdentifier("")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
+// Test RekorLogEntry.String()
+func TestIdentityEntryString(t *testing.T) {
+	identityEntry := RekorLogEntry{
+		CertSubject: "test-cert-subject",
+		UUID:        "test-uuid",
+		Index:       1,
 	}
-
-	oid, err = ParseObjectIdentifier(".")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("....")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("a.a")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("1.")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("1.1.5.6.7.8..")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier(".1.1.5.67.8")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	_, err = ParseObjectIdentifier("1")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = ParseObjectIdentifier("1.4.1.5")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = ParseObjectIdentifier("11254215212.4.123.54.1.622")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
+	identityEntryString := identityEntry.String()
+	expectedIdentityEntryString := "test-cert-subject 1 test-uuid"
+	if identityEntryString != expectedIdentityEntryString {
+		t.Errorf("expected %s, received %s", expectedIdentityEntryString, identityEntryString)
 	}
 }
