@@ -74,12 +74,17 @@ func TestMergeOIDMatchers(t *testing.T) {
 	}, {
 		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 18},
 		ExtensionValues:  []string{"test"},
-	}}, FulcioExtensions{}, []CustomExtension{})
+	}}, FulcioExtensions{
+		BuildConfigDigest: []string{"test"},
+	}, []CustomExtension{{
+		ObjectIdentifier: "2.5.29.16",
+		ExtensionValues:  []string{"test"},
+	}})
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
-	if len(oidMatchers) != 2 {
-		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+	if len(oidMatchers) != 4 {
+		t.Errorf("Expected 4 OIDMatchers, got %d", len(oidMatchers))
 	}
 }
 
@@ -176,5 +181,40 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 
 	if len(buildConfigURIMatcherExtValues) != 6 {
 		t.Errorf("expected BuildConfigURI extension values to have length 6, received %d", len(buildConfigURIMatcherExtValues))
+	}
+}
+
+func TestRenderFulcioOIDMatchersAllFields(t *testing.T) {
+	testValueString := "test"
+	fulcioExtensions := FulcioExtensions{
+		Issuer:                              []string{testValueString},
+		GithubWorkflowTrigger:               []string{testValueString},
+		GithubWorkflowSHA:                   []string{testValueString},
+		GithubWorkflowName:                  []string{testValueString},
+		GithubWorkflowRepository:            []string{testValueString},
+		GithubWorkflowRef:                   []string{testValueString},
+		BuildSignerURI:                      []string{testValueString},
+		BuildConfigURI:                      []string{testValueString},
+		BuildSignerDigest:                   []string{testValueString},
+		RunnerEnvironment:                   []string{testValueString},
+		SourceRepositoryURI:                 []string{testValueString},
+		SourceRepositoryDigest:              []string{testValueString},
+		SourceRepositoryIdentifier:          []string{testValueString},
+		SourceRepositoryRef:                 []string{testValueString},
+		SourceRepositoryOwnerURI:            []string{testValueString},
+		SourceRepositoryOwnerIdentifier:     []string{testValueString},
+		SourceRepositoryVisibilityAtSigning: []string{testValueString},
+		BuildConfigDigest:                   []string{testValueString},
+		BuildTrigger:                        []string{testValueString},
+		RunInvocationURI:                    []string{testValueString},
+	}
+
+	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
+	if err != nil {
+		t.Errorf("expected nil, received error %v", err)
+	}
+
+	if len(renderedFulcioOIDMatchers) != 21 {
+		t.Errorf("expected OIDMatchers to have length 21, received length %d", len(renderedFulcioOIDMatchers))
 	}
 }
