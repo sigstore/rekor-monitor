@@ -84,9 +84,9 @@ type MonitoredIdentity struct {
 	FoundIdentityEntries []RekorLogEntry `json:"foundIdentityEntries"`
 }
 
-// ParseMonitoredIdentitiesAsJSON formats a list of monitored identities and corresponding log entries
+// PrintMonitoredIdentities formats a list of monitored identities and corresponding log entries
 // using JSON tagging into JSON formatting.
-func ParseMonitoredIdentitiesAsJSON(monitoredIdentities []MonitoredIdentity) ([]byte, error) {
+func PrintMonitoredIdentities(monitoredIdentities []MonitoredIdentity) ([]byte, error) {
 	jsonBody, err := json.MarshalIndent(monitoredIdentities, "", "\t")
 	if err != nil {
 		return nil, err

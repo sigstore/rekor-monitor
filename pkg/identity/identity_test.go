@@ -72,19 +72,34 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 			Index:       testIndexes["2"],
 		},
 		"testFingerprint1": {
-			CertSubject: testIdentities["testFingerprint"],
+			Fingerprint: testIdentities["testFingerprint"],
 			UUID:        testUUIDs["testUUID"],
 			Index:       testIndexes["1"],
+		},
+		"testFingerprint2": {
+			Fingerprint: testIdentities["testFingerprint"],
+			UUID:        testUUIDs["testUUID"],
+			Index:       testIndexes["2"],
 		},
 		"testExtensionValue1": {
 			ExtensionValue: testIdentities["testExtensionValue"],
 			UUID:           testUUIDs["testUUID"],
 			Index:          testIndexes["1"],
 		},
-		"testSubject1": {
-			ExtensionValue: testIdentities["testSubject"],
+		"testExtensionValue2": {
+			ExtensionValue: testIdentities["testExtensionValue"],
 			UUID:           testUUIDs["testUUID"],
-			Index:          testIndexes["1"],
+			Index:          testIndexes["2"],
+		},
+		"testSubject1": {
+			Subject: testIdentities["testSubject"],
+			UUID:    testUUIDs["testUUID"],
+			Index:   testIndexes["1"],
+		},
+		"testSubject2": {
+			Subject: testIdentities["testSubject"],
+			UUID:    testUUIDs["testUUID"],
+			Index:   testIndexes["2"],
 		},
 	}
 
@@ -101,13 +116,25 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 			Identity:             testIdentities["testFingerprint"],
 			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testFingerprint1"]},
 		},
+		"testMonitoredIdFingerprint2": {
+			Identity:             testIdentities["testFingerprint"],
+			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testFingerprint1"], testIdentityEntries["testFingerprint2"]},
+		},
 		"testMonitoredIdExtensionValue1": {
 			Identity:             testIdentities["testExtensionValue"],
 			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testExtensionValue1"]},
 		},
+		"testMonitoredIdExtensionValue2": {
+			Identity:             testIdentities["testExtensionValue"],
+			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testExtensionValue1"], testIdentityEntries["testExtensionValue2"]},
+		},
 		"testMonitoredIdSubject1": {
 			Identity:             testIdentities["testSubject"],
 			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testSubject1"]},
+		},
+		"testMonitoredIdSubject2": {
+			Identity:             testIdentities["testSubject"],
+			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testSubject1"], testIdentityEntries["testSubject2"]},
 		},
 	}
 
@@ -133,9 +160,9 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 			output:          []MonitoredIdentity{},
 		},
 		"test all identities": {
-			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testFingerprint1"], testIdentityEntries["testExtensionValue1"], testIdentityEntries["testSubject1"]},
+			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testFingerprint1"], testIdentityEntries["testExtensionValue1"], testIdentityEntries["testSubject1"], testIdentityEntries["testCertSubject2"], testIdentityEntries["testFingerprint2"], testIdentityEntries["testExtensionValue2"], testIdentityEntries["testSubject2"]},
 			inputIdentities: []string{testIdentities["testCertSubject"], testIdentities["testFingerprint"], testIdentities["testExtensionValue"], testIdentities["testSubject"]},
-			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject1"], testMonitoredIdentities["testMonitoredIdExtensionValue1"], testMonitoredIdentities["testMonitoredIdFingerprint1"], testMonitoredIdentities["testMonitoredIdSubject1"]},
+			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject2"], testMonitoredIdentities["testMonitoredIdExtensionValue2"], testMonitoredIdentities["testMonitoredIdFingerprint2"], testMonitoredIdentities["testMonitoredIdSubject2"]},
 		},
 	}
 
@@ -152,8 +179,8 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 	}
 }
 
-// Test ParseMonitoredIdentitiesAsJSON
-func TestParseMonitoredIdentitiesAsJSON(t *testing.T) {
+// Test PrintMonitoredIdentities
+func TestPrintMonitoredIdentities(t *testing.T) {
 	monitoredIdentity := MonitoredIdentity{
 		Identity: "test-identity",
 		FoundIdentityEntries: []RekorLogEntry{
@@ -164,7 +191,7 @@ func TestParseMonitoredIdentitiesAsJSON(t *testing.T) {
 			},
 		},
 	}
-	parsedMonitoredIdentity, err := ParseMonitoredIdentitiesAsJSON([]MonitoredIdentity{monitoredIdentity})
+	parsedMonitoredIdentity, err := PrintMonitoredIdentities([]MonitoredIdentity{monitoredIdentity})
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
