@@ -23,69 +23,12 @@ package notifications
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"time"
 
-	"github.com/google/go-github/v65/github"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-)
-
-var (
-	notificationPlatformGitHubIssueBodyHeaderText = "Rekor-monitor found the following pairs of monitored identities and matching log entries: "
-	notificationPlatformGitHubIssueLabels         = []string{"rekor-monitor", "automatically generated"}
 )
 
 // NotificationPlatform provides the Send() method to handle alerting logic
 // for the respective notification platform extending the interface.
 type NotificationPlatform interface {
-	Send([]identity.MonitoredIdentity) error
-}
-
-// GitHubIssueInput extends the NotificationPlatform interface to support found identity
-// notification via creating new GitHub issues in a given repo.
-type GitHubIssueInput struct {
-	GitHubAssigneeUsername string
-	GitHubOwnerUsername    string
-	GitHubRepositoryName   string
-	// The PAT or other access token to authenticate creating an issue.
-	// The authentication token requires repo write and push access.
-	AuthenticationToken string
-	// For users who want to pass in a custom client.
-	// If nil, a default client with the given authentication token will be instantiated.
-	GitHubClient *github.Client
-}
-
-func generateGitHubIssueBody(monitoredIdentities []identity.MonitoredIdentity) (string, error) {
-	header := notificationPlatformGitHubIssueBodyHeaderText
-	body, err := identity.ParseMonitoredIdentitiesAsJSON(monitoredIdentities)
-	if err != nil {
-		return "", err
-	}
-	return strings.Join([]string{header, "```\n" + string(body) + "\n```"}, "\n"), nil
-}
-
-func (gitHubIssueInput GitHubIssueInput) Send(monitoredIdentities []identity.MonitoredIdentity) error {
-	issueTitle := fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822))
-	issueBody, err := generateGitHubIssueBody(monitoredIdentities)
-	if err != nil {
-		return err
-	}
-	var client *github.Client
-	if gitHubIssueInput.GitHubClient == nil {
-		client = github.NewClient(nil).WithAuthToken(gitHubIssueInput.AuthenticationToken)
-	} else {
-		client = gitHubIssueInput.GitHubClient
-	}
-	ctx := context.Background()
-	labels := notificationPlatformGitHubIssueLabels
-
-	issueRequest := &github.IssueRequest{
-		Title:    &issueTitle,
-		Body:     &issueBody,
-		Labels:   &labels,
-		Assignee: &gitHubIssueInput.GitHubAssigneeUsername,
-	}
-	_, _, err = client.Issues.Create(ctx, gitHubIssueInput.GitHubOwnerUsername, gitHubIssueInput.GitHubRepositoryName, issueRequest)
-	return err
+	Send(context.Context, []identity.MonitoredIdentity) error
 }

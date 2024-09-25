@@ -15,6 +15,7 @@
 package notifications
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -27,12 +28,13 @@ import (
 
 func TestGitHubIssueInputSend401BadCredentialsFailure(t *testing.T) {
 	gitHubIssuesInput := GitHubIssueInput{
-		GitHubAssigneeUsername: "test-assignee",
-		GitHubOwnerUsername:    "test-owner",
-		GitHubRepositoryName:   "test-repo",
-		AuthenticationToken:    "",
+		AssigneeUsername:    "test-assignee",
+		RepositoryOwner:     "test-owner",
+		RepositoryName:      "test-repo",
+		AuthenticationToken: "",
 	}
-	err := gitHubIssuesInput.Send([]identity.MonitoredIdentity{})
+	ctx := context.Background()
+	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
 	if err == nil {
 		t.Errorf("expected 401 Bad Credentials, received error %v", err)
 	}
@@ -58,13 +60,14 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 	)
 	mockGitHubClient := github.NewClient(mockedHTTPClient)
 	gitHubIssuesInput := GitHubIssueInput{
-		GitHubAssigneeUsername: "test-assignee",
-		GitHubOwnerUsername:    "test-owner",
-		GitHubRepositoryName:   "test-repo",
-		AuthenticationToken:    "",
-		GitHubClient:           mockGitHubClient,
+		AssigneeUsername:    "test-assignee",
+		RepositoryOwner:     "test-owner",
+		RepositoryName:      "test-repo",
+		AuthenticationToken: "",
+		GitHubClient:        mockGitHubClient,
 	}
-	err := gitHubIssuesInput.Send([]identity.MonitoredIdentity{})
+	ctx := context.Background()
+	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
@@ -85,13 +88,14 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 	)
 	mockGitHubClient := github.NewClient(mockedHTTPClient)
 	gitHubIssuesInput := GitHubIssueInput{
-		GitHubAssigneeUsername: "test-assignee",
-		GitHubOwnerUsername:    "test-owner",
-		GitHubRepositoryName:   "test-repo",
-		AuthenticationToken:    "",
-		GitHubClient:           mockGitHubClient,
+		AssigneeUsername:    "test-assignee",
+		RepositoryOwner:     "test-owner",
+		RepositoryName:      "test-repo",
+		AuthenticationToken: "",
+		GitHubClient:        mockGitHubClient,
 	}
-	err := gitHubIssuesInput.Send([]identity.MonitoredIdentity{})
+	ctx := context.Background()
+	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
 	if err == nil || !strings.Contains(err.Error(), "400 Bad Request") {
 		t.Errorf("expected 400 Bad Request, received %v", err)
 	}
