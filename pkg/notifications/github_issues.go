@@ -16,9 +16,7 @@ package notifications
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/google/go-github/v65/github"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -52,8 +50,11 @@ func generateGitHubIssueBody(monitoredIdentities []identity.MonitoredIdentity) (
 	return strings.Join([]string{header, "```\n" + string(body) + "\n```"}, "\n"), nil
 }
 
+// Send takes in a GitHubIssueInput and attempts to create the specified issue
+// denoting the following found identities.
+// It returns an error in the case of failure.
 func (gitHubIssueInput GitHubIssueInput) Send(ctx context.Context, monitoredIdentities []identity.MonitoredIdentity) error {
-	issueTitle := fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822))
+	issueTitle := NotificationSubject
 	issueBody, err := generateGitHubIssueBody(monitoredIdentities)
 	if err != nil {
 		return err

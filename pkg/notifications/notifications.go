@@ -23,8 +23,14 @@ package notifications
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+)
+
+var (
+	NotificationSubject = fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822))
 )
 
 // NotificationPlatform provides the Send() method to handle alerting logic
