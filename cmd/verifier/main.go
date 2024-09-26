@@ -111,8 +111,8 @@ func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, ve
 			for _, s := range logInfo.InactiveShards {
 				totalSize += int(*s.TreeSize)
 			}
-			startIndex := int(prevCheckpoint.Size) + totalSize - 1
-			endIndex := int(checkpoint.Size) + totalSize - 1
+			startIndex := int(prevCheckpoint.Size) + totalSize - 1 //nolint: gosec // G115, log will never be large enough to overflow
+			endIndex := int(checkpoint.Size) + totalSize - 1       //nolint: gosec // G115
 
 			// Search for identities in the log range
 			if len(mvs.CertificateIdentities) > 0 || len(mvs.Fingerprints) > 0 || len(mvs.Subjects) > 0 {
