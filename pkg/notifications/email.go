@@ -29,8 +29,7 @@ type EmailNotificationInput struct {
 	SenderSMTPUsername    string
 	SenderSMTPPassword    string
 	SMTPHostURL           string
-	SMTPAuthType          mail.SMTPAuthType
-	CustomPort            *int
+	SMTPCustomOptions     []mail.Option
 }
 
 func GenerateEmailBody(monitoredIdentities []identity.MonitoredIdentity) (string, error) {
@@ -60,18 +59,12 @@ func (emailNotificationInput EmailNotificationInput) Send(ctx context.Context, m
 	}
 	email.SetBodyString(mail.TypeTextHTML, emailBody)
 	var client *mail.Client
-	if emailNotificationInput.CustomPort != nil {
-		client, err = mail.NewClient(emailNotificationInput.SMTPHostURL,
-			mail.WithSMTPAuth(emailNotificationInput.SMTPAuthType), mail.WithTLSPortPolicy(mail.NoTLS),
-			mail.WithUsername(emailNotificationInput.SenderSMTPUsername), mail.WithPassword(emailNotificationInput.SenderSMTPPassword),
-			mail.WithPort(*emailNotificationInput.CustomPort),
-		)
-	} else {
-		client, err = mail.NewClient(emailNotificationInput.SMTPHostURL,
-			mail.WithSMTPAuth(emailNotificationInput.SMTPAuthType), mail.WithTLSPortPolicy(mail.DefaultTLSPolicy),
-			mail.WithUsername(emailNotificationInput.SenderSMTPUsername), mail.WithPassword(emailNotificationInput.SenderSMTPPassword),
-		)
+	defaultOpts := []mail.Option{
+		mail.WithUsername(emailNotificationInput.SenderSMTPUsername),
+		mail.WithPassword(emailNotificationInput.SenderSMTPPassword),
 	}
+	defaultOpts = append(defaultOpts, emailNotificationInput.SMTPCustomOptions...)
+	client, err = mail.NewClient(emailNotificationInput.SMTPHostURL, defaultOpts...)
 	if err != nil {
 		return err
 	}

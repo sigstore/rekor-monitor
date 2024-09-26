@@ -32,7 +32,6 @@ func TestEmailSendFailureCases(t *testing.T) {
 			SenderSMTPUsername:    "example-username",
 			SenderSMTPPassword:    "example-password",
 			SMTPHostURL:           "smtp.gmail.com",
-			SMTPAuthType:          mail.SMTPAuthPlain,
 		},
 		{
 			RecipientEmailAddress: "",
@@ -40,7 +39,6 @@ func TestEmailSendFailureCases(t *testing.T) {
 			SenderSMTPUsername:    "example-username",
 			SenderSMTPPassword:    "example-password",
 			SMTPHostURL:           "smtp.gmail.com",
-			SMTPAuthType:          mail.SMTPAuthPlain,
 		},
 		{
 			RecipientEmailAddress: "test-recipient",
@@ -48,7 +46,6 @@ func TestEmailSendFailureCases(t *testing.T) {
 			SenderSMTPUsername:    "example-username",
 			SenderSMTPPassword:    "example-password",
 			SMTPHostURL:           "smtp.gmail.com",
-			SMTPAuthType:          mail.SMTPAuthPlain,
 		},
 		{
 			RecipientEmailAddress: "test-recipient",
@@ -56,7 +53,6 @@ func TestEmailSendFailureCases(t *testing.T) {
 			SenderSMTPUsername:    "example-username",
 			SenderSMTPPassword:    "example-password",
 			SMTPHostURL:           "smtp.mail.com",
-			SMTPAuthType:          mail.SMTPAuthNoAuth,
 		},
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
@@ -80,7 +76,7 @@ func TestEmailSendFailureCases(t *testing.T) {
 
 func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 	server := smtpmock.New(smtpmock.ConfigurationAttr{
-		HostAddress: "localhost",
+		HostAddress: "127.0.0.1",
 	})
 	if err := server.Start(); err != nil {
 		t.Errorf("error starting server: %v", err)
@@ -95,13 +91,11 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 			},
 		},
 	}
-	customPort := server.PortNumber()
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example_sender@mail.com",
-		SMTPHostURL:           "localhost",
-		SMTPAuthType:          mail.SMTPAuthNoAuth,
-		CustomPort:            &customPort,
+		SMTPHostURL:           "127.0.0.1",
+		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
 	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
@@ -112,7 +106,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 
 func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	server := smtpmock.New(smtpmock.ConfigurationAttr{
-		HostAddress:               "localhost",
+		HostAddress:               "127.0.0.1",
 		BlacklistedMailfromEmails: []string{"example_sender@mail.com"},
 	})
 	if err := server.Start(); err != nil {
@@ -128,13 +122,11 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 			},
 		},
 	}
-	customPort := server.PortNumber()
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example_sender@mail.com",
-		SMTPHostURL:           "localhost",
-		SMTPAuthType:          mail.SMTPAuthNoAuth,
-		CustomPort:            &customPort,
+		SMTPHostURL:           "127.0.0.1",
+		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
 	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
