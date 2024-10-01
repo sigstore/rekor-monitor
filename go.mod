@@ -6,7 +6,7 @@ require (
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/go-github/v65 v65.0.0
-	github.com/mailgun/mailgun-go/v4 v4.15.2
+	github.com/mailgun/mailgun-go/v4 v4.16.0
 	github.com/migueleliasweb/go-github-mock v1.0.1
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
@@ -62,6 +62,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/letsencrypt/boulder v0.0.0-20240620165639-de9c06129bec // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mailgun/errors v0.3.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -77,6 +78,7 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
