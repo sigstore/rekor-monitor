@@ -192,33 +192,31 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		}
 	}
 
-	// no match with same subject, other issuer
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		CertificateIdentities: []identity.CertificateIdentity{
-			{
-				CertSubject: subject,
-				Issuers:     []string{"other"},
+	testedMonitoredValues := []identity.MonitoredValues{
+		{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{
+					CertSubject: subject,
+					Issuers:     []string{"other"},
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected error matching IDs, got %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected 0 matches, got %d", len(matches))
-	}
-
-	// no match with different subject
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		CertificateIdentities: []identity.CertificateIdentity{
-			{
-				CertSubject: "other",
+		},
+		{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{
+					CertSubject: "other",
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected error matching IDs, got %v", err)
+		},
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected 0 matches, got %d", len(matches))
+	for _, monitoredValues := range testedMonitoredValues {
+		matches, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
+		if err != nil {
+			t.Fatalf("expected error matching IDs, got %v", err)
+		}
+		if len(matches) != 0 {
+			t.Fatalf("expected 0 matches, got %d", len(matches))
+		}
 	}
 }
 
@@ -547,34 +545,32 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
 	}
 
-	// no match to oid with different extension value
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
-			{
-				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
-				ExtensionValues:  []string{"wrong"},
+	testedMonitoredValues := []identity.MonitoredValues{
+		{
+			OIDMatchers: []extensions.OIDMatcher{
+				{
+					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
+					ExtensionValues:  []string{"wrong"},
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
-	}
-
-	// no match to oid with different oid extension field
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
-			{
-				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14},
-				ExtensionValues:  []string{"test cert value"},
+		},
+		{
+			OIDMatchers: []extensions.OIDMatcher{
+				{
+					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14},
+					ExtensionValues:  []string{"test cert value"},
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		},
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
+	for _, monitoredValues := range testedMonitoredValues {
+		matches, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(matches) != 0 {
+			t.Fatalf("expected no matches, got %d", len(matches))
+		}
 	}
 }
 
@@ -765,135 +761,108 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
 	}
 
-	// no match to oid with different extension value
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		CustomExtensions: []extensions.CustomExtension{
-			{
-				ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
-				ExtensionValues:  []string{"wrong"},
+	testedMonitoredValues := []identity.MonitoredValues{
+		{
+			CustomExtensions: []extensions.CustomExtension{
+				{
+					ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
+					ExtensionValues:  []string{"wrong"},
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
-	}
-
-	// no match to oid with different oid extension field
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		CustomExtensions: []extensions.CustomExtension{
-			{
-				ObjectIdentifier: "1.3.6.1.4.1.57264.1.16",
-				ExtensionValues:  []string{extValueString},
+		},
+		{
+			CustomExtensions: []extensions.CustomExtension{
+				{
+					ObjectIdentifier: "1.3.6.1.4.1.57264.1.16",
+					ExtensionValues:  []string{extValueString},
+				},
 			},
-		}})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		},
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
+	for _, monitoredValues := range testedMonitoredValues {
+		matches, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(matches) != 0 {
+			t.Fatalf("expected no matches, got %d", len(matches))
+		}
 	}
 }
 
 func TestMatchedIndicesFailures(t *testing.T) {
-	// failure: no monitored values
-	_, err := MatchedIndices(nil, identity.MonitoredValues{})
-	if err == nil || !strings.Contains(err.Error(), "no identities provided to monitor") {
-		t.Fatalf("expected error with no identities, got %v", err)
-	}
-
-	// failure: certificate subject empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{CertificateIdentities: []identity.CertificateIdentity{
-		{
-			CertSubject: "",
+	monitoredValuesTests := map[string]struct {
+		input       identity.MonitoredValues
+		errorString string
+	}{
+		"no monitored values": {
+			input:       identity.MonitoredValues{},
+			errorString: "no identities provided to monitor",
 		},
-	}})
-	if err == nil || !strings.Contains(err.Error(), "certificate subject empty") {
-		t.Fatalf("expected error with empty cert subject, got %v", err)
-	}
-
-	// failure: issuer empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{CertificateIdentities: []identity.CertificateIdentity{
-		{
-			CertSubject: "s",
-			Issuers:     []string{""},
+		"cert subject empty": {
+			input: identity.MonitoredValues{
+				CertificateIdentities: []identity.CertificateIdentity{
+					{
+						CertSubject: "",
+					},
+				},
+			},
+			errorString: "certificate subject empty",
 		},
-	}})
-	if err == nil || !strings.Contains(err.Error(), "issuer empty") {
-		t.Fatalf("expected error with empty issuer, got %v", err)
+		"empty issuer": {
+			input: identity.MonitoredValues{CertificateIdentities: []identity.CertificateIdentity{
+				{
+					CertSubject: "s",
+					Issuers:     []string{""},
+				},
+			}},
+			errorString: "issuer empty",
+		},
+		"empty subject": {
+			input:       identity.MonitoredValues{Subjects: []string{""}},
+			errorString: "subject empty",
+		},
+		"empty fingerprint": {
+			input:       identity.MonitoredValues{Fingerprints: []string{""}},
+			errorString: "fingerprint empty",
+		},
+		"empty oid extension": {
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+				ObjectIdentifier: asn1.ObjectIdentifier{},
+				ExtensionValues:  []string{""},
+			}}},
+			errorString: "could not parse object identifier: empty input",
+		},
+		"empty oid matched values": {
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+				ExtensionValues:  []string{},
+			}}},
+			errorString: "oid matched values empty",
+		},
+		"empty oid matched value": {
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+				ExtensionValues:  []string{""},
+			}}},
+			errorString: "oid matched value empty",
+		},
+		"empty oid field": {
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+				ObjectIdentifier: asn1.ObjectIdentifier{},
+				ExtensionValues:  []string{""},
+			}}},
+			errorString: "could not parse object identifier: empty input",
+		},
 	}
 
-	// failure: subject empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{Subjects: []string{""}})
-	if err == nil || !strings.Contains(err.Error(), "subject empty") {
-		t.Fatalf("expected error with empty subject, got %v", err)
-	}
-
-	// failure: fingerprint empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{Fingerprints: []string{""}})
-	if err == nil || !strings.Contains(err.Error(), "fingerprint empty") {
-		t.Fatalf("expected error with empty fingerprint, got %v", err)
-	}
-
-	// failure: oid extension empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{},
-		ExtensionValues:  []string{""},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
-		t.Fatalf("expected error with empty oid extension, got %v", err)
-	}
-
-	// failure: oid matched values list empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid matched values empty") {
-		t.Fatalf("expected error with empty oid matched values list, got %v", err)
-	}
-
-	// failure: oid matched value string empty
-	_, err = MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{""},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid matched value empty") {
-		t.Fatalf("expected error with empty oid matched value string, got %v", err)
-	}
-}
-
-func TestMatchedIndicesFailuresOIDExtensionEmpty(t *testing.T) {
-	// failure: oid extension empty
-	_, err := MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{},
-		ExtensionValues:  []string{""},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "could not parse object identifier: empty input") {
-		t.Fatalf("expected error with empty oid extension, got %v", err)
-	}
-}
-
-func TestMatchedIndicesFailuresOIDExtensionValuesEmpty(t *testing.T) {
-	// failure: oid extension values list empty
-	_, err := MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid matched values empty") {
-		t.Fatalf("expected error with empty oid matched values list, got %v", err)
-	}
-}
-
-func TestMatchedIndicesFailuresOIDExtensionValueEmpty(t *testing.T) {
-	// failure: oid extension value string empty
-	_, err := MatchedIndices(nil, identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{""},
-	}}})
-	if err == nil || !strings.Contains(err.Error(), "oid matched value empty") {
-		t.Fatalf("expected error with empty oid matched value string, got %v", err)
+	for name, testCase := range monitoredValuesTests {
+		t.Run(name, func(t *testing.T) {
+			_, err := MatchedIndices(nil, testCase.input)
+			if err == nil || !strings.Contains(err.Error(), testCase.errorString) {
+				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
+			}
+		})
 	}
 }
 

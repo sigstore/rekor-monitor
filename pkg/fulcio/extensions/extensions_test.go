@@ -16,6 +16,7 @@ package extensions
 
 import (
 	"encoding/asn1"
+	"errors"
 	"testing"
 )
 
@@ -90,54 +91,59 @@ func TestMergeOIDMatchers(t *testing.T) {
 
 // test ParseObjectIdentifier
 func TestParseObjectIdentifier(t *testing.T) {
-	oid, err := ParseObjectIdentifier("")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
+	// success cases
+	objectIdentifierTests := map[string]struct {
+		oid         string
+		expectedErr error
+	}{
+		"empty string": {
+			oid:         "",
+			expectedErr: errors.New("could not parse object identifier: empty input"),
+		},
+		"one dot": {
+			oid:         ".",
+			expectedErr: errors.New("could not parse object identifier: no characters between two dots"),
+		},
+		"four dots": {
+			oid:         "....",
+			expectedErr: errors.New("could not parse object identifier: no characters between two dots"),
+		},
+		"letters": {
+			oid:         "a.a",
+			expectedErr: errors.New("strconv.Atoi: parsing \"a\": invalid syntax"),
+		},
+		"ending dot": {
+			oid:         "1.",
+			expectedErr: errors.New("could not parse object identifier: no characters between two dots"),
+		},
+		"ending dots": {
+			oid:         "1.1.5.6.7.8..",
+			expectedErr: errors.New("could not parse object identifier: no characters between two dots"),
+		},
+		"leading dot": {
+			oid:         ".1.1.5.67.8",
+			expectedErr: errors.New("could not parse object identifier: no characters between two dots"),
+		},
+		"one number": {
+			oid:         "1",
+			expectedErr: nil,
+		},
+		"4 numbers, correctly spaced": {
+			oid:         "1.4.1.5",
+			expectedErr: nil,
+		},
+		"long numbers": {
+			oid:         "11254215212.4.123.54.1.622",
+			expectedErr: nil,
+		},
 	}
-
-	oid, err = ParseObjectIdentifier(".")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("....")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("a.a")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("1.")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier("1.1.5.6.7.8..")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	oid, err = ParseObjectIdentifier(".1.1.5.67.8")
-	if err == nil {
-		t.Errorf("Expected error, got nil and oid %s", oid)
-	}
-
-	_, err = ParseObjectIdentifier("1")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = ParseObjectIdentifier("1.4.1.5")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
-	}
-
-	_, err = ParseObjectIdentifier("11254215212.4.123.54.1.622")
-	if err != nil {
-		t.Errorf("Expected nil, got error %v", err)
+	for name, testCase := range objectIdentifierTests {
+		t.Run(name, func(t *testing.T) {
+			oid, err := ParseObjectIdentifier(testCase.oid)
+			if err != nil && (testCase.expectedErr == nil || err.Error() != testCase.expectedErr.Error()) {
+				t.Errorf("for oid %s, expected error %v, received %v", oid, testCase.expectedErr, err)
+			}
+		})
 	}
 }
 
