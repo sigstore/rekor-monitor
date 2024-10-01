@@ -21,8 +21,8 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
-// SendGrid extends the NotificationPlatform interface to support
-// found identity notification by sending emails to a specified user via SendGrid.
+// MailgunNotificationInput extends the NotificationPlatform interface to support
+// found identity notification by sending emails to a specified user via Mailgun.
 type MailgunNotificationInput struct {
 	RecipientEmailAddress string
 	SenderEmailAddress    string
