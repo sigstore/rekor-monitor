@@ -47,7 +47,7 @@ const (
 )
 
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs identity.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
+func RunConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, verifier signature.Verifier, logInfoFile *string, mvs identity.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
@@ -187,7 +187,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = runConsistencyCheck(interval, rekorClient, verifier, logInfoFile, monitoredVals, outputIdentitiesFile, once)
+	err = RunConsistencyCheck(interval, rekorClient, verifier, logInfoFile, monitoredVals, outputIdentitiesFile, once)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
