@@ -16,19 +16,25 @@ package rekor
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
+	gclient "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 
 	// required imports to call init methods
@@ -50,6 +56,18 @@ var (
 	certExtensionOIDCIssuer   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
 	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
+
+type LogIdentitySearchConfiguration struct {
+	StartIndex                *int                                    `yaml:"startIndex"`
+	EndIndex                  *int                                    `yaml:"endIndex"`
+	MonitoredValues           identity.MonitoredValues                `yaml:"monitoredValues"`
+	OutputIdentitiesFile      *string                                 `yaml:"outputIdentitiesFile"`
+	GitHubIssueInput          notifications.GitHubIssueInput          `yaml:"githubIssueInput"`
+	EmailNotificationInput    notifications.EmailNotificationInput    `yaml:"emailNotificationInput"`
+	MailgunNotificationInput  notifications.MailgunNotificationInput  `yaml:"mailgunNotificationInput"`
+	SendGridNotificationInput notifications.SendGridNotificationInput `yaml:"sendGridNotificationInput"`
+	LogInfoFile               *string                                 `yaml:"logInfoFile"`
+}
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.RekorLogEntry, error) {
@@ -334,4 +352,66 @@ func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensi
 	}
 
 	return false, nil, "", nil
+}
+
+func LogIdentitySearch(config LogIdentitySearchConfiguration, rekorClient *gclient.Rekor) error {
+	// if custom log indices were not set, retrieve logs between previous and current checkpoint
+	if config.StartIndex == nil || config.EndIndex == nil {
+		logInfo, err := GetLogInfo(context.Background(), rekorClient)
+		if err != nil {
+			return fmt.Errorf("getting log info: %v", err)
+		}
+		checkpoint := &util.SignedCheckpoint{}
+		if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+			return fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
+		}
+		fi, err := os.Stat(*config.LogInfoFile)
+		// Look for identities if there was a previous, different checkpoint
+		var prevCheckpoint *util.SignedCheckpoint
+		if err == nil && fi.Size() != 0 {
+			// File containing previous checkpoints exists
+			prevCheckpoint, err = file.ReadLatestCheckpoint(*config.LogInfoFile)
+			if err != nil || prevCheckpoint == nil {
+				return fmt.Errorf("reading checkpoint log: %v", err)
+			}
+		}
+		totalSize := 0
+		for _, s := range logInfo.InactiveShards {
+			totalSize += int(*s.TreeSize)
+		}
+		if config.StartIndex == nil {
+			startIndex := int(prevCheckpoint.Size) + totalSize - 1 //nolint: gosec // G115, log will never be large enough to overflow
+			config.StartIndex = &startIndex
+		}
+		if config.EndIndex == nil {
+			endIndex := int(checkpoint.Size) + totalSize - 1 //nolint: gosec // G115
+			config.EndIndex = &endIndex
+		}
+	}
+
+	if !(*config.EndIndex > *config.StartIndex) {
+		return fmt.Errorf("log end index must be greater than log start index")
+	}
+
+	// Search for identities in the log range
+	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, *config.StartIndex, *config.EndIndex)
+	if err != nil {
+		return fmt.Errorf("error getting entries by index range: %v", err)
+	}
+	idEntries, err := MatchedIndices(entries, config.MonitoredValues)
+	if err != nil {
+		return fmt.Errorf("error finding log indices: %v", err)
+	}
+
+	if len(idEntries) > 0 {
+		for _, idEntry := range idEntries {
+			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
+
+			if err := file.WriteIdentity(*config.OutputIdentitiesFile, idEntry); err != nil {
+				return fmt.Errorf("failed to write entry: %v", err)
+			}
+		}
+	}
+
+	return nil
 }
