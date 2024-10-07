@@ -19,6 +19,8 @@ import (
 	"context"
 	"crypto"
 	"crypto/sha256"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -28,14 +30,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
-	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -43,11 +43,13 @@ import (
 	"sigs.k8s.io/release-utils/version"
 
 	hashedrekord_v001 "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
-	rekord "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
 )
 
 const (
-	rekorURL = "http://127.0.0.1:3000"
+	rekorURL       = "http://127.0.0.1:3000"
+	subject        = "subject@example.com"
+	issuer         = "oidc-issuer@domain.com"
+	extValueString = "test cert value"
 )
 
 // Test RunConsistencyCheck:
@@ -65,37 +67,30 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("error getting log verifier: %v", err)
 	}
 
-	subject := "subject@example.com"
-	issuer := "oidc-issuer@domain.com"
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
+	extValue, err := asn1.Marshal(extValueString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extension := pkix.Extension{
+		Id:       oid,
+		Critical: false,
+		Value:    extValue,
+	}
 
 	rootCert, rootKey, _ := test.GenerateRootCA()
-	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey, extension)
 
 	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
 	if err != nil {
-		t.Fatalf("error loading signer and verifier: %v", err)
+		t.Fatal(err)
 	}
 	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
 
 	payload := []byte{1, 2, 3, 4}
 	sig, err := signer.SignMessage(bytes.NewReader(payload))
 	if err != nil {
-		t.Fatalf("error signing message: %v", err)
-	}
-
-	rekordEntry := rekord.V001Entry{
-		RekordObj: models.RekordV001Schema{
-			Data: &models.RekordV001SchemaData{
-				Content: strfmt.Base64(payload),
-			},
-			Signature: &models.RekordV001SchemaSignature{
-				Content: (*strfmt.Base64)(&sig),
-				Format:  swag.String(models.RekordV001SchemaSignatureFormatX509),
-				PublicKey: &models.RekordV001SchemaSignaturePublicKey{
-					Content: (*strfmt.Base64)(&pemCert),
-				},
-			},
-		},
+		t.Fatal(err)
 	}
 
 	hashedrekord := &hashedrekord_v001.V001Entry{}
@@ -110,20 +105,16 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Fatalf("error creating hashed rekord entry: %v", err)
 	}
 
+	x509Cert, err := cryptoutils.UnmarshalCertificatesFromPEM(pemCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(x509Cert[0].Raw)
+	certFingerprint := hex.EncodeToString(digest[:])
+
 	params := entries.NewCreateLogEntryParams()
 	params.SetProposedEntry(pe)
 	resp, err := rekorClient.Entries.CreateLogEntry(params)
-	if !resp.IsSuccess() || err != nil {
-		t.Errorf("error creating log entry: %v", err)
-	}
-
-	params = entries.NewCreateLogEntryParams()
-	rekordModel := models.Rekord{
-		APIVersion: swag.String(rekordEntry.APIVersion()),
-		Spec:       rekordEntry.RekordObj,
-	}
-	params.SetProposedEntry(&rekordModel)
-	resp, err = rekorClient.Entries.CreateLogEntry(params)
 	if !resp.IsSuccess() || err != nil {
 		t.Errorf("error creating log entry: %v", err)
 	}
@@ -136,21 +127,8 @@ func TestRunConsistencyCheck(t *testing.T) {
 	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
 		t.Errorf("%v", err)
 	}
-	iterator := 0
-	for checkpoint.Size <= 0 {
-		logInfo, err = rekor.GetLogInfo(context.Background(), rekorClient)
-		if err != nil {
-			t.Errorf("error getting log info: %v", err)
-		}
-		checkpoint := &util.SignedCheckpoint{}
-		if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
-			t.Errorf("error unmarshalling checkpoint: %v", err)
-		}
-		iterator++
-		if iterator >= 5 {
-			t.Errorf("log info checkpoint failed to update in time")
-		}
-		time.Sleep(2 * time.Second)
+	if checkpoint.Size != 1 {
+		t.Errorf("expected checkpoint size of 1, received size %d", checkpoint.Size)
 	}
 
 	tempDir := t.TempDir()
@@ -169,8 +147,24 @@ func TestRunConsistencyCheck(t *testing.T) {
 	defer os.Remove(tempOutputIdentitiesFileName)
 
 	interval := time.Minute
+
 	monitoredVals := identity.MonitoredValues{
 		Subjects: []string{subject},
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*ubje.*",
+				Issuers:     []string{".+@domain.com"},
+			},
+		},
+		OIDMatchers: []extensions.OIDMatcher{
+			{
+				ObjectIdentifier: oid,
+				ExtensionValues:  []string{extValueString},
+			},
+		},
+		Fingerprints: []string{
+			certFingerprint,
+		},
 	}
 	once := true
 
@@ -201,6 +195,19 @@ func TestRunConsistencyCheck(t *testing.T) {
 	if !resp.IsSuccess() || err != nil {
 		t.Errorf("error creating log entry: %v", err)
 	}
+
+	logInfo, err = rekor.GetLogInfo(context.Background(), rekorClient)
+	if err != nil {
+		t.Errorf("error getting log info: %v", err)
+	}
+	checkpoint = &util.SignedCheckpoint{}
+	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		t.Errorf("%v", err)
+	}
+	if checkpoint.Size != 2 {
+		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
+	}
+
 	err = RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
@@ -212,6 +219,18 @@ func TestRunConsistencyCheck(t *testing.T) {
 	}
 	tempOutputIdentitiesString := string(tempOutputIdentities)
 	if !strings.Contains(tempOutputIdentitiesString, subject) {
-		t.Errorf("expected to find subject@example.com, did not")
+		t.Errorf("expected to find subject %s, did not", subject)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, issuer) {
+		t.Errorf("expected to find issuer %s, did not", issuer)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, oid.String()) {
+		t.Errorf("expected to find oid %s, did not", oid.String())
+	}
+	if !strings.Contains(tempOutputIdentitiesString, oid.String()) {
+		t.Errorf("expected to find oid value %s, did not", extValueString)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, certFingerprint) {
+		t.Errorf("expected to find fingerprint %s, did not", certFingerprint)
 	}
 }

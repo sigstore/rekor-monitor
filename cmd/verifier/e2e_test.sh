@@ -51,7 +51,8 @@ for repo in rekor ; do
     done
     popd
 done
-cleanup_services() {
+
+function cleanup_services() {
     echo "cleaning up"
     for repo in rekor; do
         pushd $HOME/$repo
