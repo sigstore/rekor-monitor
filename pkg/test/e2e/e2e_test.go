@@ -168,7 +168,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 	}
 	once := true
 
-	err = RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
+	err = rekor.RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
+	err = rekor.RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
