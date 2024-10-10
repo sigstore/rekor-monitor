@@ -118,39 +118,16 @@ func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, ver
 		// Write if there was no stored checkpoint or the sizes differ
 		if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
 			if err := file.WriteCheckpoint(checkpoint, *logInfoFile); err != nil {
-				return fmt.Errorf("failed to write checkpoint: %v", err)
+				// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
+				// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
+				fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
 			}
 		}
 
 		if prevCheckpoint != nil && prevCheckpoint.Size != checkpoint.Size {
-			// Get log size of inactive shards
-			totalSize := 0
-			for _, s := range logInfo.InactiveShards {
-				totalSize += int(*s.TreeSize)
-			}
-			startIndex := int(prevCheckpoint.Size) + totalSize - 1 //nolint: gosec // G115, log will never be large enough to overflow
-			endIndex := int(checkpoint.Size) + totalSize - 1       //nolint: gosec // G115
-
-			// Search for identities in the log range
-			if len(mvs.CertificateIdentities) > 0 || len(mvs.Fingerprints) > 0 || len(mvs.Subjects) > 0 {
-				entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
-				if err != nil {
-					return fmt.Errorf("error getting entries by index range: %v", err)
-				}
-				idEntries, err := MatchedIndices(entries, mvs)
-				if err != nil {
-					return fmt.Errorf("error finding log indices: %v", err)
-				}
-
-				if len(idEntries) > 0 {
-					for _, idEntry := range idEntries {
-						fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
-
-						if err := file.WriteIdentity(*outputIdentitiesFile, idEntry); err != nil {
-							return fmt.Errorf("failed to write entry: %v", err)
-						}
-					}
-				}
+			err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, mvs, rekorClient, outputIdentitiesFile)
+			if err != nil {
+				return fmt.Errorf("failed to monitor identities: %v", err)
 			}
 		}
 
