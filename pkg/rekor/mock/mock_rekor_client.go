@@ -28,13 +28,20 @@ import (
 // EntriesClient is a client that implements entries.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
-// mClient.Entries = &mock.EntriesClient{Entries: <logEntries>}
+// mClient.Entries = &mock.EntriesClient{Entries: <logEntries>, ETag: <etag>, Location: <location>, LogEntry: <logEntry>}
 type EntriesClient struct {
-	Entries []*models.LogEntry
+	Entries  []*models.LogEntry
+	LogEntry models.LogEntry
+	Error    error
 }
 
 func (m *EntriesClient) CreateLogEntry(_ *entries.CreateLogEntryParams, _ ...entries.ClientOption) (*entries.CreateLogEntryCreated, error) {
-	return nil, errors.New("not implemented")
+	if m.Error != nil {
+		return nil, m.Error
+	}
+	return &entries.CreateLogEntryCreated{
+		Payload: m.LogEntry,
+	}, nil
 }
 
 func (m *EntriesClient) GetLogEntryByIndex(_ *entries.GetLogEntryByIndexParams, _ ...entries.ClientOption) (*entries.GetLogEntryByIndexOK, error) {
@@ -46,6 +53,9 @@ func (m *EntriesClient) GetLogEntryByUUID(_ *entries.GetLogEntryByUUIDParams, _ 
 }
 
 func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, _ ...entries.ClientOption) (*entries.SearchLogQueryOK, error) {
+	if m.Error != nil {
+		return nil, m.Error
+	}
 	resp := []models.LogEntry{}
 	if m.Entries != nil {
 		for _, i := range params.Entry.LogIndexes {
@@ -62,19 +72,29 @@ func (m *EntriesClient) SetTransport(_ runtime.ClientTransport) {}
 // TlogClient is a client that implements tlog.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
-// mClient.Entries = &mock.TlogClient{LogInfo: <loginfo>}
+// mClient.Entries = &mock.TlogClient{LogInfo: <loginfo>, ConsistencyProof: <consistencyproof>}
 type TlogClient struct {
-	LogInfo *models.LogInfo
+	LogInfo          *models.LogInfo
+	ConsistencyProof *models.ConsistencyProof
+	Error            error
 }
 
 func (m *TlogClient) GetLogInfo(_ *tlog.GetLogInfoParams, _ ...tlog.ClientOption) (*tlog.GetLogInfoOK, error) {
+	if m.Error != nil {
+		return nil, m.Error
+	}
 	return &tlog.GetLogInfoOK{
 		Payload: m.LogInfo,
 	}, nil
 }
 
 func (m *TlogClient) GetLogProof(_ *tlog.GetLogProofParams, _ ...tlog.ClientOption) (*tlog.GetLogProofOK, error) {
-	return nil, errors.New("not implemented")
+	if m.Error != nil {
+		return nil, m.Error
+	}
+	return &tlog.GetLogProofOK{
+		Payload: m.ConsistencyProof,
+	}, nil
 }
 
 func (m *TlogClient) SetTransport(_ runtime.ClientTransport) {}
