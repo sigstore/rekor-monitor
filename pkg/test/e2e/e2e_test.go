@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+//go:build e2e
+// +build e2e
+
+package e2e
 
 import (
 	"bytes"
@@ -56,7 +59,6 @@ const (
 // Check that Rekor-monitor reusable monitoring workflow successfully verifies consistency of the log checkpoint
 // and is able to find a monitored identity within the checkpoint indices and write it to file.
 func TestRunConsistencyCheck(t *testing.T) {
-	t.Skip("skipping test outside of being run from e2e_test.sh")
 	rekorClient, err := client.GetRekorClient(rekorURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH))))
 	if err != nil {
 		log.Fatalf("getting Rekor client: %v", err)
@@ -168,7 +170,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 	}
 	once := true
 
-	err = RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
+	err = rekor.RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -208,7 +210,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
+	err = rekor.RunConsistencyCheck(&interval, rekorClient, verifier, &tempLogInfoFileName, monitoredVals, &tempOutputIdentitiesFileName, &once)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
