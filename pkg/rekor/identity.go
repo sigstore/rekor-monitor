@@ -342,7 +342,7 @@ func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensi
 }
 
 // writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
-func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint, monitoredValues identity.MonitoredValues, rekorClient *client.Rekor, outputIdentitiesFile *string) error {
+func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint, monitoredValues identity.MonitoredValues, rekorClient *client.Rekor, outputIdentitiesFile string) error {
 	// Get log size of inactive shards
 	totalSize := 0
 	for _, s := range logInfo.InactiveShards {
@@ -366,7 +366,7 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 			for _, idEntry := range idEntries {
 				fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
-				if err := file.WriteIdentity(*outputIdentitiesFile, idEntry); err != nil {
+				if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
 					return fmt.Errorf("failed to write entry: %v", err)
 				}
 			}

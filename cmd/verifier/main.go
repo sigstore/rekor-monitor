@@ -83,7 +83,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, logInfoFile, monitoredVals, outputIdentitiesFile, once)
+	err = rekor.VerifyConsistencyCheckInputs(interval, logInfoFile, outputIdentitiesFile, once)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = rekor.RunConsistencyCheck(*interval, rekorClient, verifier, *logInfoFile, monitoredVals, *outputIdentitiesFile, *once)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
