@@ -83,6 +83,7 @@ func verifyCheckpointConsistency(logInfoFile *string, checkpoint *util.SignedChe
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
+// TODO: RunConsistencyCheck should take in string/bool flags directly instead of pointers and check that flags are being set correctly.
 func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile *string, mvs identity.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
@@ -102,6 +103,7 @@ func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, ver
 		if err != nil {
 			return fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
 		}
+
 		fi, err := os.Stat(*logInfoFile)
 		// File containing previous checkpoints exists
 		var prevCheckpoint *util.SignedCheckpoint

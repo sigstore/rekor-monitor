@@ -63,6 +63,7 @@ jobs:
       - name: Run Go tests w/ `-race`
         if: ${{ runner.os == 'Linux' }}
         run: go test -race $(go list ./... | grep -v third_party/)
+        
   e2e-tests:
     name: Run end-to-end tests
     runs-on: ubuntu-latest
