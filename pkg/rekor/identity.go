@@ -151,7 +151,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 
 // verifyMonitoredValues checks that monitored values are valid
 func verifyMonitoredValues(mvs identity.MonitoredValues) error {
-	if len(mvs.CertificateIdentities) == 0 && len(mvs.Fingerprints) == 0 && len(mvs.Subjects) == 0 && len(mvs.OIDMatchers) == 0 {
+	if !identity.MonitoredValuesExist(mvs) {
 		return errors.New("no identities provided to monitor")
 	}
 	for _, certID := range mvs.CertificateIdentities {
@@ -352,7 +352,7 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 	endIndex := int(checkpoint.Size) + totalSize - 1       //nolint: gosec // G115
 
 	// Search for identities in the log range
-	if len(monitoredValues.CertificateIdentities) > 0 || len(monitoredValues.Fingerprints) > 0 || len(monitoredValues.Subjects) > 0 || len(monitoredValues.OIDMatchers) > 0 {
+	if identity.MonitoredValuesExist(monitoredValues) {
 		entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 		if err != nil {
 			return fmt.Errorf("error getting entries by index range: %v", err)
