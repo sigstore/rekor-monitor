@@ -27,6 +27,8 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,11 +36,14 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor-monitor/pkg/test"
+	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	hashedrekord_v001 "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
@@ -929,5 +934,67 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 	if extValue != extValueString {
 		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
+	logInfo := &models.LogInfo{}
+	treeSize := int64(1234)
+	logInfo.TreeSize = &treeSize
+
+	maxIndex := 100
+	var logEntries []*models.LogEntry
+
+	// the contents of the LogEntryAnon don't matter
+	// test will verify the indices returned by looking at the map keys
+	for i := 0; i <= maxIndex; i++ {
+		lea := models.LogEntryAnon{
+			Body:     base64.StdEncoding.EncodeToString([]byte{1}),
+			LogIndex: swag.Int64(int64(i)),
+		}
+		data := models.LogEntry{
+			fmt.Sprint(i): lea,
+		}
+		logEntries = append(logEntries, &data)
+	}
+
+	var mClient client.Rekor
+	mClient.Entries = &mock.EntriesClient{
+		Entries: logEntries,
+	}
+	mClient.Tlog = &mock.TlogClient{
+		LogInfo: logInfo,
+	}
+
+	logInfo, err := GetLogInfo(context.Background(), &mClient)
+	if err != nil {
+		t.Errorf("failed fetching log info: %v", err)
+	}
+	prevCheckpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 0,
+		},
+	}
+	checkpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 1,
+		},
+	}
+	monitoredValues := identity.MonitoredValues{
+		Subjects: []string{
+			"test-subject",
+		},
+	}
+	tempDir := t.TempDir()
+	tempOutputIdentitiesFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp output identities file: %v", err)
+	}
+	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
+	defer os.Remove(tempOutputIdentitiesFileName)
+
+	err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, monitoredValues, &mClient, tempOutputIdentitiesFileName)
+	if err != nil {
+		t.Errorf("failed write identities between checkpoints: %v", err)
 	}
 }
