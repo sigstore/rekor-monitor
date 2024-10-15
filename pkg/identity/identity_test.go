@@ -15,10 +15,13 @@
 package identity
 
 import (
+	"encoding/asn1"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 )
 
 // Test RekorLogEntry.String()
@@ -215,5 +218,58 @@ func TestPrintMonitoredIdentities(t *testing.T) {
 	parsedMonitoredIdentityFields := strings.Fields(string(parsedMonitoredIdentity))
 	if !reflect.DeepEqual(parsedMonitoredIdentityFields, expectedParsedMonitoredIdentityOutput) {
 		t.Errorf("expected parsed monitored identity to equal %s, got %s", expectedParsedMonitoredIdentityOutput, parsedMonitoredIdentityFields)
+	}
+}
+
+func TestMonitoredValuesExist(t *testing.T) {
+	testCases := map[string]struct {
+		mvs      MonitoredValues
+		expected bool
+	}{
+		"empty case": {
+			mvs:      MonitoredValues{},
+			expected: false,
+		},
+		"fingerprints": {
+			mvs: MonitoredValues{
+				Fingerprints: []string{"test fingerprint"},
+			},
+			expected: true,
+		},
+		"subjects": {
+			mvs: MonitoredValues{
+				Subjects: []string{"test subject"},
+			},
+			expected: true,
+		},
+		"certificate identities": {
+			mvs: MonitoredValues{
+				CertificateIdentities: []CertificateIdentity{
+					{
+						CertSubject: "test cert subject",
+						Issuers:     []string{"test issuer"},
+					},
+				},
+			},
+			expected: true,
+		},
+		"oid matchers": {
+			mvs: MonitoredValues{
+				OIDMatchers: []extensions.OIDMatcher{
+					{
+						ObjectIdentifier: asn1.ObjectIdentifier{1},
+						ExtensionValues:  []string{"test extension value"},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+	for testCaseName, testCase := range testCases {
+		result := MonitoredValuesExist(testCase.mvs)
+		expected := testCase.expected
+		if result != expected {
+			t.Errorf("%s failed: expected %t, received %t", testCaseName, result, expected)
+		}
 	}
 }

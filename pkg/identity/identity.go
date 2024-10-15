@@ -151,3 +151,20 @@ func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredId
 
 	return parsedMonitoredIdentities
 }
+
+// MonitoredValuesExist checks if there are monitored values in an input and returns accordingly.
+func MonitoredValuesExist(mvs MonitoredValues) bool {
+	if len(mvs.CertificateIdentities) > 0 {
+		return true
+	}
+	if len(mvs.Fingerprints) > 0 {
+		return true
+	}
+	if len(mvs.OIDMatchers) > 0 {
+		return true
+	}
+	if len(mvs.Subjects) > 0 {
+		return true
+	}
+	return false
+}
