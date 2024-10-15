@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -65,9 +66,9 @@ func verifyLatestCheckpointSignature(logInfo *models.LogInfo, verifier signature
 
 // verifyCheckpointConsistency reads and verifies the consistency of the previous latest checkpoint from a log info file against the current up-to-date checkpoint.
 // If it successfully fetches and verifies the consistency between these two checkpoints, it returns the previous checkpoint; otherwise, it returns an error.
-func verifyCheckpointConsistency(logInfoFile *string, checkpoint *util.SignedCheckpoint, treeID string, rekorClient *client.Rekor, verifier signature.Verifier) (*util.SignedCheckpoint, error) {
+func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedCheckpoint, treeID string, rekorClient *client.Rekor, verifier signature.Verifier) (*util.SignedCheckpoint, error) {
 	var prevCheckpoint *util.SignedCheckpoint
-	prevCheckpoint, err := file.ReadLatestCheckpoint(*logInfoFile)
+	prevCheckpoint, err := file.ReadLatestCheckpoint(logInfoFile)
 	if err != nil {
 		return nil, fmt.Errorf("reading checkpoint log: %v", err)
 	}
@@ -82,10 +83,26 @@ func verifyCheckpointConsistency(logInfoFile *string, checkpoint *util.SignedChe
 	return prevCheckpoint, nil
 }
 
+// VerifyConsistencyCheckInputs verifies that the input flag values to the rekor-monitor workflow are not nil.
+func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, outputIdentitiesFile *string, once *bool) error {
+	if interval == nil {
+		return errors.New("--interval flag equal to nil")
+	}
+	if logInfoFile == nil {
+		return errors.New("--file flag equal to nil")
+	}
+	if outputIdentitiesFile == nil {
+		return errors.New("--output-identities flag equal to nil")
+	}
+	if once == nil {
+		return errors.New("--once flag equal to nil")
+	}
+	return nil
+}
+
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-// TODO: RunConsistencyCheck should take in string/bool flags directly instead of pointers and check that flags are being set correctly.
-func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile *string, mvs identity.MonitoredValues, outputIdentitiesFile *string, once *bool) error {
-	ticker := time.NewTicker(*interval)
+func RunConsistencyCheck(interval time.Duration, rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string, mvs identity.MonitoredValues, outputIdentitiesFile string, once bool) error {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Loop will:
@@ -104,7 +121,7 @@ func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, ver
 			return fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
 		}
 
-		fi, err := os.Stat(*logInfoFile)
+		fi, err := os.Stat(logInfoFile)
 		// File containing previous checkpoints exists
 		var prevCheckpoint *util.SignedCheckpoint
 		if err == nil && fi.Size() != 0 {
@@ -117,7 +134,7 @@ func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, ver
 
 		// Write if there was no stored checkpoint or the sizes differ
 		if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
-			if err := file.WriteCheckpoint(checkpoint, *logInfoFile); err != nil {
+			if err := file.WriteCheckpoint(checkpoint, logInfoFile); err != nil {
 				// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
 				// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
 				fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
@@ -134,11 +151,11 @@ func RunConsistencyCheck(interval *time.Duration, rekorClient *client.Rekor, ver
 		// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
 		// to persist the last checkpoint.
 		// Delete old checkpoints to avoid the log growing indefinitely
-		if err := file.DeleteOldCheckpoints(*logInfoFile); err != nil {
+		if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
 			return fmt.Errorf("failed to delete old checkpoints: %v", err)
 		}
 
-		if *once {
+		if once {
 			return nil
 		}
 	}
