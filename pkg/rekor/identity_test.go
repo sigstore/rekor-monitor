@@ -48,10 +48,12 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-func TestMatchedIndicesForCertificates(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
+const (
+	subject = "subject@example.com"
+	issuer  = "oidc-issuer@domain.com"
+)
 
+func TestMatchedIndicesForCertificates(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -228,9 +230,6 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 // Test verifies that certificates containing only the deprecated
 // extensions can still be monitored
 func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateDeprecatedLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -388,9 +387,6 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 }
 
 func TestMatchedIndicesForSubjects(t *testing.T) {
-	subject := "subject@example.com"
-	issuer := "oidc-issuer@domain.com"
-
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -470,9 +466,6 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 }
 
 func TestMatchedIndicesForOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -580,9 +573,6 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 }
 
 func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -686,9 +676,6 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 }
 
 func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -937,19 +924,49 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 }
 
+// Test monitoring for identities using mock Rekor client
 func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
-	logInfo := &models.LogInfo{}
-	treeSize := int64(1234)
-	logInfo.TreeSize = &treeSize
-
-	maxIndex := 100
+	maxIndex := 2
 	var logEntries []*models.LogEntry
 
-	// the contents of the LogEntryAnon don't matter
-	// test will verify the indices returned by looking at the map keys
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	hash := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(hash[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for i := 0; i <= maxIndex; i++ {
 		lea := models.LogEntryAnon{
-			Body:     base64.StdEncoding.EncodeToString([]byte{1}),
+			Body:     base64.StdEncoding.EncodeToString(leaf),
 			LogIndex: swag.Int64(int64(i)),
 		}
 		data := models.LogEntry{
@@ -962,8 +979,9 @@ func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
 	mClient.Entries = &mock.EntriesClient{
 		Entries: logEntries,
 	}
+	testLogInfo := &models.LogInfo{}
 	mClient.Tlog = &mock.TlogClient{
-		LogInfo: logInfo,
+		LogInfo: testLogInfo,
 	}
 
 	logInfo, err := GetLogInfo(context.Background(), &mClient)
@@ -982,7 +1000,7 @@ func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
 	}
 	monitoredValues := identity.MonitoredValues{
 		Subjects: []string{
-			"test-subject",
+			subject,
 		},
 	}
 	tempDir := t.TempDir()
@@ -996,5 +1014,14 @@ func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
 	err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, monitoredValues, &mClient, tempOutputIdentitiesFileName)
 	if err != nil {
 		t.Errorf("failed write identities between checkpoints: %v", err)
+	}
+
+	tempOutputIdentities, err := os.ReadFile(tempOutputIdentitiesFileName)
+	if err != nil {
+		t.Errorf("error reading from output identities file: %v", err)
+	}
+	tempOutputIdentitiesString := string(tempOutputIdentities)
+	if !strings.Contains(tempOutputIdentitiesString, subject) {
+		t.Errorf("expected to find subject %s, did not", subject)
 	}
 }
