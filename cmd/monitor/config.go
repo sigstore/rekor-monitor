@@ -16,8 +16,11 @@
 package main
 
 import (
+<<<<<<< HEAD
 	"context"
 	"fmt"
+=======
+>>>>>>> 7ecbf61 (add identity search workflow)
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -25,6 +28,7 @@ import (
 )
 
 type IdentityMonitorConfiguration struct {
+<<<<<<< HEAD
 	StartIndex                *int                                     `yaml:"startIndex"`
 	EndIndex                  *int                                     `yaml:"endIndex"`
 	MonitoredValues           identity.MonitoredValues                 `yaml:"monitoredValues"`
@@ -70,4 +74,17 @@ func (config IdentityMonitorConfiguration) TriggerNotifications(identities []ide
 	}
 
 	return nil
+=======
+	StartIndex                *int                                    `yaml:"startIndex"`
+	EndIndex                  *int                                    `yaml:"endIndex"`
+	MonitoredValues           identity.MonitoredValues                `yaml:"monitoredValues"`
+	ServerURL                 string                                  `yaml:"serverURL"`
+	OutputIdentitiesFile      string                                  `yaml:"outputIdentities"`
+	LogInfoFile               string                                  `yaml:"logInfoFile"`
+	GitHubIssue               notifications.GitHubIssueInput          `yaml:"githubIssue"`
+	EmailNotificationSMTP     notifications.EmailNotificationInput    `yaml:"emailNotificationSMTP"`
+	EmailNotificationMailgun  notifications.MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
+	EmailNotificationSendGrid notifications.SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
+	Interval                  *time.Duration                          `yaml:"interval"`
+>>>>>>> 7ecbf61 (add identity search workflow)
 }
