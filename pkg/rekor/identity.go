@@ -375,7 +375,6 @@ func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCh
 }
 
 func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) error {
-
 	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 	if err != nil {
 		return fmt.Errorf("error getting entries by index range: %v", err)
