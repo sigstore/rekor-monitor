@@ -27,6 +27,8 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,19 +36,24 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor-monitor/pkg/test"
+	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
 	hashedrekord_v001 "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
 	rekord_v001 "github.com/sigstore/rekor/pkg/types/rekord/v0.0.1"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-func TestMatchedIndicesForCertificates(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
+const (
+	subject = "subject@example.com"
+	issuer  = "oidc-issuer@domain.com"
+)
 
+func TestMatchedIndicesForCertificates(t *testing.T) {
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -223,9 +230,6 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 // Test verifies that certificates containing only the deprecated
 // extensions can still be monitored
 func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateDeprecatedLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -383,9 +387,6 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 }
 
 func TestMatchedIndicesForSubjects(t *testing.T) {
-	subject := "subject@example.com"
-	issuer := "oidc-issuer@domain.com"
-
 	rootCert, rootKey, _ := test.GenerateRootCA()
 	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
 
@@ -465,9 +466,6 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 }
 
 func TestMatchedIndicesForOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -575,9 +573,6 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 }
 
 func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -681,9 +676,6 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 }
 
 func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
-	subject := "subject"
-	issuer := "oidc-issuer@domain.com"
-
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
 	extValueString := "test cert value"
 	extValue, err := asn1.Marshal(extValueString)
@@ -929,5 +921,107 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 	if extValue != extValueString {
 		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test monitoring for identities using mock Rekor client
+func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
+	maxIndex := 2
+	var logEntries []*models.LogEntry
+
+	rootCert, rootKey, _ := test.GenerateRootCA()
+	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
+
+	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
+
+	payload := []byte{1, 2, 3, 4}
+	sig, err := signer.SignMessage(bytes.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashedrekord := &hashedrekord_v001.V001Entry{}
+	hash := sha256.Sum256(payload)
+	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+		ArtifactHash:   hex.EncodeToString(hash[:]),
+		SignatureBytes: sig,
+		PublicKeyBytes: [][]byte{pemCert},
+		PKIFormat:      "x509",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := types.UnmarshalEntry(pe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := entry.Canonicalize(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i <= maxIndex; i++ {
+		lea := models.LogEntryAnon{
+			Body:     base64.StdEncoding.EncodeToString(leaf),
+			LogIndex: swag.Int64(int64(i)),
+		}
+		data := models.LogEntry{
+			fmt.Sprint(i): lea,
+		}
+		logEntries = append(logEntries, &data)
+	}
+
+	var mClient client.Rekor
+	mClient.Entries = &mock.EntriesClient{
+		Entries: logEntries,
+	}
+	testLogInfo := &models.LogInfo{}
+	mClient.Tlog = &mock.TlogClient{
+		LogInfo: testLogInfo,
+	}
+
+	logInfo, err := GetLogInfo(context.Background(), &mClient)
+	if err != nil {
+		t.Errorf("failed fetching log info: %v", err)
+	}
+	prevCheckpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 0,
+		},
+	}
+	checkpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 1,
+		},
+	}
+	monitoredValues := identity.MonitoredValues{
+		Subjects: []string{
+			subject,
+		},
+	}
+	tempDir := t.TempDir()
+	tempOutputIdentitiesFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp output identities file: %v", err)
+	}
+	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
+	defer os.Remove(tempOutputIdentitiesFileName)
+
+	err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, monitoredValues, &mClient, tempOutputIdentitiesFileName)
+	if err != nil {
+		t.Errorf("failed write identities between checkpoints: %v", err)
+	}
+
+	tempOutputIdentities, err := os.ReadFile(tempOutputIdentitiesFileName)
+	if err != nil {
+		t.Errorf("error reading from output identities file: %v", err)
+	}
+	tempOutputIdentitiesString := string(tempOutputIdentities)
+	if !strings.Contains(tempOutputIdentitiesString, subject) {
+		t.Errorf("expected to find subject %s, did not", subject)
 	}
 }
