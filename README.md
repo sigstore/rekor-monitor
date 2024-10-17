@@ -49,7 +49,7 @@ entries, you will need to manually set the workflow's start and end indices as p
 To run, create a GitHub Actions workflow that uses the
 [identity monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/identity_monitor.yml).
 
-Example workflow and configuration file below:
+Example workflow below:
 
 ```
 name: Rekor log and identity monitor
@@ -65,35 +65,34 @@ jobs:
       contents: read # Needed to checkout repositories
       issues: write # Needed if you set "file_issue: true"
       id-token: write # Needed to detect the current reusable repository and ref
+    run: |
+      s = "monitoredValues: |
+            certIdentities:
+              - certSubject: user@domain\.com
+              - certSubject: otheruser@domain\.com
+                issuers:
+                  - https://accounts\.google\.com
+                  - https://github\.com/login
+              - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+                issuers:
+                  - https://token\.actions\.githubusercontent\.com
+            subjects:
+              - subject@domain\.com
+            fingerprints:
+              - A0B1C2D3E4F5
+            fulcioExtensions:
+              build-config-uri:
+                - https://example.com/owner/repository/build-config.yml
+            customExtensions:
+              - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+                extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+            gitHubIssue:
+              assigneeUsername: username
+              repositoryOwner: owner	
+              repositoryName: repo-being-monitored
+              authenticationToken: <PAT>"
+      cat s > id_monitor_config.yaml
     uses: sigstore/rekor-monitor/.github/workflows/identity_monitor.yaml@main
-```
-
-```
-monitoredValues: |
-certIdentities:
-  - certSubject: user@domain\.com
-  - certSubject: otheruser@domain\.com
-    issuers:
-      - https://accounts\.google\.com
-      - https://github\.com/login
-  - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
-    issuers:
-      - https://token\.actions\.githubusercontent\.com
-subjects:
-  - subject@domain\.com
-fingerprints:
-  - A0B1C2D3E4F5
-fulcioExtensions:
-  build-config-uri:
-    - https://example.com/owner/repository/build-config.yml
-customExtensions:
-  - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-    extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
-gitHubIssue:
-assigneeUsername: username
-repositoryOwner: owner	
-repositoryName: repo-being-monitored
-authenticationToken: <PAT>
 ```
 
 In this example, the monitor will log:

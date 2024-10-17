@@ -126,20 +126,31 @@ func main() {
 		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
 		monitoredIdentities, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Fprintf(os.Stderr, "failed to complete identity search: %v", err)
+			return
 		}
 
 		err = config.TriggerNotifications(monitoredIdentities)
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Fprintf(os.Stderr, "failed to send notification: %v", err)
+			return
 		}
 
 		if *once || setEndIndex {
 			return
 		}
 
-		config.StartIndex = config.EndIndex
-		config.EndIndex = nil
+		if config.IdentityMetadataFile != nil {
+			config.StartIndex, err = file.ReadIdentityMetadata(*config.IdentityMetadataFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to read identity metadata: %v", err)
+				return
+			}
+			config.EndIndex = nil
+		} else {
+			config.StartIndex = config.EndIndex
+			config.EndIndex = nil
+		}
 	}
 
 }
