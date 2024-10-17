@@ -94,6 +94,26 @@ func PrintMonitoredIdentities(monitoredIdentities []MonitoredIdentity) ([]byte, 
 	return jsonBody, nil
 }
 
+// CreateIdentitiesList takes in a MonitoredValues input and returns a list of all currently monitored identities.
+// It returns a list of strings.
+func CreateIdentitiesList(mvs MonitoredValues) []string {
+	identities := []string{}
+
+	for _, certID := range mvs.CertificateIdentities {
+		identities = append(identities, certID.CertSubject)
+		identities = append(identities, certID.Issuers...)
+	}
+
+	identities = append(identities, mvs.Fingerprints...)
+	identities = append(identities, mvs.Subjects...)
+
+	for _, oidMatcher := range mvs.OIDMatchers {
+		identities = append(identities, oidMatcher.ExtensionValues...)
+	}
+
+	return identities
+}
+
 // CreateMonitoredIdentities takes in a list of IdentityEntries and groups them by
 // associated identity based on an input list of identities to monitor.
 // It returns a list of MonitoredIdentities.

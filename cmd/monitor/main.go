@@ -1,5 +1,5 @@
 //
-// Copyright 2021 The Sigstore Authors.
+// Copyright 2024 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,10 +114,14 @@ func main() {
 
 	// To get an immediate first tick
 	for ; ; <-ticker.C {
-		err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile)
+		monitoredIdentities, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-			return
+			log.Fatal(err.Error())
+		}
+
+		err = config.TriggerNotifications(monitoredIdentities)
+		if err != nil {
+			log.Fatal(err.Error())
 		}
 
 		if *once {
@@ -140,4 +144,5 @@ func main() {
 		config.StartIndex = &checkpointStartIndex
 		config.EndIndex = &checkpointEndIndex
 	}
+
 }
