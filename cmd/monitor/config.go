@@ -17,10 +17,15 @@ package main
 
 import (
 <<<<<<< HEAD
+<<<<<<< HEAD
 	"context"
 	"fmt"
 =======
 >>>>>>> 7ecbf61 (add identity search workflow)
+=======
+	"context"
+	"fmt"
+>>>>>>> 3c714c9 (update identity monitor workflow)
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -29,13 +34,19 @@ import (
 
 type IdentityMonitorConfiguration struct {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3c714c9 (update identity monitor workflow)
 	StartIndex                *int                                     `yaml:"startIndex"`
 	EndIndex                  *int                                     `yaml:"endIndex"`
 	MonitoredValues           identity.MonitoredValues                 `yaml:"monitoredValues"`
 	ServerURL                 string                                   `yaml:"serverURL"`
 	OutputIdentitiesFile      string                                   `yaml:"outputIdentities"`
 	LogInfoFile               string                                   `yaml:"logInfoFile"`
+<<<<<<< HEAD
 	IdentityMetadataFile      *string                                  `yaml:"identityMetadataFile"`
+=======
+>>>>>>> 3c714c9 (update identity monitor workflow)
 	GitHubIssue               *notifications.GitHubIssueInput          `yaml:"githubIssue"`
 	EmailNotificationSMTP     *notifications.EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  *notifications.MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
@@ -74,6 +85,7 @@ func (config IdentityMonitorConfiguration) TriggerNotifications(identities []ide
 	}
 
 	return nil
+<<<<<<< HEAD
 =======
 	StartIndex                *int                                    `yaml:"startIndex"`
 	EndIndex                  *int                                    `yaml:"endIndex"`
@@ -87,4 +99,6 @@ func (config IdentityMonitorConfiguration) TriggerNotifications(identities []ide
 	EmailNotificationSendGrid notifications.SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
 	Interval                  *time.Duration                          `yaml:"interval"`
 >>>>>>> 7ecbf61 (add identity search workflow)
+=======
+>>>>>>> 3c714c9 (update identity monitor workflow)
 }

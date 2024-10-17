@@ -24,10 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor/pkg/client"
-	"gopkg.in/yaml.v3"
 
 	"sigs.k8s.io/release-utils/version"
 )
@@ -48,30 +46,8 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
-	monitoredValsInput := flag.String("monitored-values", "", "yaml of certificate subjects and issuers, key subjects, "+
-		"and fingerprints. For certificates, if no issuers are specified, match any OIDC provider.")
-	outputIdentitiesFile := flag.String("output-identities", outputIdentitiesFileName,
-		"Name of the file containing indices and identities found in the log. Format is \"subject issuer index uuid\"")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
-
-	var monitoredVals identity.MonitoredValues
-	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
-		log.Fatalf("error parsing identities: %v", err)
-	}
-	for _, certID := range monitoredVals.CertificateIdentities {
-		if len(certID.Issuers) == 0 {
-			fmt.Printf("Monitoring certificate subject %s\n", certID.CertSubject)
-		} else {
-			fmt.Printf("Monitoring certificate subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
-		}
-	}
-	for _, fp := range monitoredVals.Fingerprints {
-		fmt.Printf("Monitoring fingerprint %s\n", fp)
-	}
-	for _, sub := range monitoredVals.Subjects {
-		fmt.Printf("Monitoring subject %s\n", sub)
-	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
 	if err != nil {
@@ -83,12 +59,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = rekor.VerifyConsistencyCheckInputs(interval, logInfoFile, outputIdentitiesFile, once)
+	err = rekor.VerifyConsistencyCheckInputs(interval, logInfoFile, once)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = rekor.RunConsistencyCheck(*interval, rekorClient, verifier, *logInfoFile, monitoredVals, *outputIdentitiesFile, *once)
+	err = rekor.RunConsistencyCheck(*interval, rekorClient, verifier, *logInfoFile, *once)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
