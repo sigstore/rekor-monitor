@@ -116,12 +116,14 @@ func main() {
 	for ; ; <-ticker.C {
 		monitoredIdentities, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile)
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Fprintf(os.Stderr, "failed to complete identity search: %v", err)
+			return
 		}
 
 		err = config.TriggerNotifications(monitoredIdentities)
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Fprintf(os.Stderr, "failed to send notification: %v", err)
+			return
 		}
 
 		if *once {
