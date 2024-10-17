@@ -69,31 +69,31 @@ jobs:
 ```
 
 ```
-      monitoredValues: |
-        certIdentities:
-          - certSubject: user@domain\.com
-          - certSubject: otheruser@domain\.com
-            issuers:
-              - https://accounts\.google\.com
-              - https://github\.com/login
-          - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
-            issuers:
-              - https://token\.actions\.githubusercontent\.com
-        subjects:
-          - subject@domain\.com
-        fingerprints:
-          - A0B1C2D3E4F5
-        fulcioExtensions:
-          build-config-uri:
-            - https://example.com/owner/repository/build-config.yml
-        customExtensions:
-          - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-            extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
-      gitHubIssue:
-      	assigneeUsername: username
-	repositoryOwner: owner	
-	repositoryName: repo-being-monitored
-	authenticationToken: <PAT>
+monitoredValues: |
+certIdentities:
+  - certSubject: user@domain\.com
+  - certSubject: otheruser@domain\.com
+    issuers:
+      - https://accounts\.google\.com
+      - https://github\.com/login
+  - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+    issuers:
+      - https://token\.actions\.githubusercontent\.com
+subjects:
+  - subject@domain\.com
+fingerprints:
+  - A0B1C2D3E4F5
+fulcioExtensions:
+  build-config-uri:
+    - https://example.com/owner/repository/build-config.yml
+customExtensions:
+  - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+    extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+gitHubIssue:
+assigneeUsername: username
+repositoryOwner: owner	
+repositoryName: repo-being-monitored
+authenticationToken: <PAT>
 ```
 
 In this example, the monitor will log:
