@@ -1,5 +1,5 @@
 //
-// Copyright 2021 The Sigstore Authors.
+// Copyright 2024 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,10 +124,14 @@ func main() {
 		}
 
 		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+		monitoredIdentities, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-			return
+			log.Fatal(err.Error())
+		}
+
+		err = config.TriggerNotifications(monitoredIdentities)
+		if err != nil {
+			log.Fatal(err.Error())
 		}
 
 		if *once || setEndIndex {
@@ -137,4 +141,5 @@ func main() {
 		config.StartIndex = config.EndIndex
 		config.EndIndex = nil
 	}
+
 }

@@ -203,7 +203,11 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
+<<<<<<< HEAD
 	err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)
+=======
+	idEntries, err := rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName)
+>>>>>>> 3c714c9 (update identity monitor workflow)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -229,6 +233,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected to find fingerprint %s, did not", certFingerprint)
 	}
 
+<<<<<<< HEAD
 	tempMetadata, err := os.ReadFile(tempMetadataFileName)
 	if err != nil {
 		t.Errorf("error reading from output identities file: %v", err)
@@ -236,5 +241,9 @@ func TestIdentitySearch(t *testing.T) {
 	tempMetadataString := string(tempMetadata)
 	if !strings.Contains(tempOutputIdentitiesString, "2") {
 		t.Errorf("expected to find latest index 2 in %s, did not", tempMetadataString)
+=======
+	if !(len(idEntries) == 3) {
+		t.Errorf("expected to find 3 identity entries, found %d", len(idEntries))
+>>>>>>> 3c714c9 (update identity monitor workflow)
 	}
 }

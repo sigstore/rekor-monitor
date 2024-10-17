@@ -88,8 +88,8 @@ jobs:
         with:
           go-version-file: './go.mod'
           check-latest: true
-      - name: run e2e test
-        run: ./pkg/test/e2e/e2e_test.sh
+      - name: run consistency check test
+        run: ./pkg/test/consistency_check/consistency_check_e2e_test.sh
       - name: run identity monitor test
         run: ./pkg/test/identity_workflow/identity_workflow_e2e_test.sh
 

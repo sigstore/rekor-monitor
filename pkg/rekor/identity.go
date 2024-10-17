@@ -374,14 +374,14 @@ func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCh
 	return startIndex, endIndex
 }
 
-func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) error {
+func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
 	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 	if err != nil {
-		return fmt.Errorf("error getting entries by index range: %v", err)
+		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 	idEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return fmt.Errorf("error finding log indices: %v", err)
+		return nil, fmt.Errorf("error finding log indices: %v", err)
 	}
 
 	if len(idEntries) > 0 {
@@ -389,7 +389,7 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
 			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
-				return fmt.Errorf("failed to write entry: %v", err)
+				return nil, fmt.Errorf("failed to write entry: %v", err)
 			}
 		}
 	}
@@ -402,11 +402,13 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 		}
 		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
 		if err != nil {
-			return fmt.Errorf("failed to write id metadata: %v", err)
+			return nil, fmt.Errorf("failed to write id metadata: %v", err)
 		}
 	}
 
-	return nil
+	identities := identity.CreateIdentitiesList(monitoredValues)
+	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
+	return monitoredIdentities, nil
 }
 
 // writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
@@ -416,7 +418,7 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 
 	// Search for identities in the log range
 	if identity.MonitoredValuesExist(monitoredValues) {
-		err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
+		_, err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
 		if err != nil {
 			return fmt.Errorf("error monitoring for identities: %v", err)
 		}
