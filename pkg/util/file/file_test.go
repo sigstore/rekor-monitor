@@ -126,7 +126,7 @@ func TestDeleteOldCheckpoints(t *testing.T) {
 	}
 }
 
-func TestWriteIdentityMetadata(t *testing.T) {
+func TestReadWriteIdentityMetadata(t *testing.T) {
 	tempDir := t.TempDir()
 	tempMetadataFile, err := os.CreateTemp(tempDir, "")
 	if err != nil {
@@ -139,12 +139,11 @@ func TestWriteIdentityMetadata(t *testing.T) {
 		LatestIndex: 1,
 	})
 
-	tempMetadata, err := os.ReadFile(tempMetadataFileName)
+	latestIndex, err := ReadIdentityMetadata(tempMetadataFileName)
 	if err != nil {
-		t.Errorf("error reading from output identities file: %v", err)
+		t.Errorf("failed to read identity metadata: %v", err)
 	}
-	tempMetadataString := string(tempMetadata)
-	if !strings.Contains(tempMetadataString, "1") {
-		t.Errorf("expected to find index 1, did not in %s", tempMetadataString)
+	if latestIndex == nil || *latestIndex != 1 {
+		t.Errorf("expected latest index of 1, received incorrect or nil")
 	}
 }

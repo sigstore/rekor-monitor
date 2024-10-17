@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -153,4 +154,31 @@ func WriteIdentityMetadata(metadataFile string, idMetadata IdentityMetadata) err
 	}
 
 	return nil
+}
+
+// ReadIdentityMetadata reads the latest information about what log indices have been scanned to a file
+func ReadIdentityMetadata(metadataFile string) (*int, error) {
+	// Each line represents a piece of identity metadata
+	file, err := os.Open(metadataFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read line by line and get the last line
+	scanner := bufio.NewScanner(file)
+	line := ""
+	for scanner.Scan() {
+		line = scanner.Text()
+	}
+
+	latestIndex, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, err
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &latestIndex, nil
 }

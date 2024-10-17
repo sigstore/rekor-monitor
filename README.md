@@ -90,10 +90,10 @@ customExtensions:
   - objectIdentifier: 1.3.6.1.4.1.57264.1.9
     extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 gitHubIssue:
-assigneeUsername: username
-repositoryOwner: owner	
-repositoryName: repo-being-monitored
-authenticationToken: <PAT>
+  assigneeUsername: username
+  repositoryOwner: owner	
+  repositoryName: repo-being-monitored
+  authenticationToken: <PAT>
 ```
 
 In this example, the monitor will log:
