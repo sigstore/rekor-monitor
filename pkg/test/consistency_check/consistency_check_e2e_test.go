@@ -31,7 +31,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
@@ -132,10 +131,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 	tempLogInfoFileName := tempLogInfoFile.Name()
 	defer os.Remove(tempLogInfoFileName)
 
-	interval := time.Minute
-	once := true
-
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, once)
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -175,7 +171,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, once)
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
