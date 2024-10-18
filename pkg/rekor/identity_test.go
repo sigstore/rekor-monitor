@@ -27,7 +27,6 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -860,7 +859,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 	}
 }
 
-func TestGetCheckpointIndices(t *testing.T) {
+func TestGetCheckpointIndex(t *testing.T) {
 	shardTreeSize := int64(1)
 	inactiveShard := models.InactiveShardLogInfo{
 		TreeSize: &shardTreeSize,
@@ -873,44 +872,32 @@ func TestGetCheckpointIndices(t *testing.T) {
 	emptyLogInfo := &models.LogInfo{
 		InactiveShards: emptyInactiveShards,
 	}
-	prevCheckpoint := &util.SignedCheckpoint{
-		Checkpoint: util.Checkpoint{
-			Size: 1,
-		},
-	}
 	checkpoint := &util.SignedCheckpoint{
 		Checkpoint: util.Checkpoint{
 			Size: 2,
 		},
 	}
 	getCheckpointIndicesTests := map[string]struct {
-		inputLogInfo        *models.LogInfo
-		inputPrevCheckpoint *util.SignedCheckpoint
-		inputCheckpoint     *util.SignedCheckpoint
-		expectedStartIndex  int
-		expectedEndIndex    int
+		inputLogInfo     *models.LogInfo
+		inputCheckpoint  *util.SignedCheckpoint
+		expectedEndIndex int
 	}{
 		"populated inactive shards": {
-			inputLogInfo:        logInfo,
-			inputPrevCheckpoint: prevCheckpoint,
-			inputCheckpoint:     checkpoint,
-			expectedStartIndex:  1,
-			expectedEndIndex:    2,
+			inputLogInfo:     logInfo,
+			inputCheckpoint:  checkpoint,
+			expectedEndIndex: 2,
 		},
 		"empty inactive shards": {
-			inputLogInfo:        emptyLogInfo,
-			inputPrevCheckpoint: prevCheckpoint,
-			inputCheckpoint:     checkpoint,
-			expectedStartIndex:  0,
-			expectedEndIndex:    1,
+			inputLogInfo:     emptyLogInfo,
+			inputCheckpoint:  checkpoint,
+			expectedEndIndex: 1,
 		},
 	}
 	for testCaseName, testCase := range getCheckpointIndicesTests {
-		expectedStartIndex := testCase.expectedStartIndex
 		expectedEndIndex := testCase.expectedEndIndex
-		resultStartIndex, resultEndIndex := GetCheckpointIndices(testCase.inputLogInfo, testCase.inputPrevCheckpoint, testCase.inputCheckpoint)
-		if resultStartIndex != expectedStartIndex || resultEndIndex != expectedEndIndex {
-			t.Errorf("%s failed: expected %d, %d indices, received %d, %d indices", testCaseName, expectedStartIndex, expectedEndIndex, resultStartIndex, resultEndIndex)
+		resultEndIndex := GetCheckpointIndex(testCase.inputLogInfo, testCase.inputCheckpoint)
+		if resultEndIndex != expectedEndIndex {
+			t.Errorf("%s failed: expected %d index, received %d index", testCaseName, expectedEndIndex, resultEndIndex)
 		}
 	}
 }
@@ -1029,107 +1016,5 @@ func TestOIDMatchesValue(t *testing.T) {
 	}
 	if extValue != extValueString {
 		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
-	}
-}
-
-// Test monitoring for identities using mock Rekor client
-func TestWriteIdentitiesBetweenCheckpoints(t *testing.T) {
-	maxIndex := 2
-	var logEntries []*models.LogEntry
-
-	rootCert, rootKey, _ := test.GenerateRootCA()
-	leafCert, leafKey, _ := test.GenerateLeafCert(subject, issuer, rootCert, rootKey)
-
-	signer, err := signature.LoadECDSASignerVerifier(leafKey, crypto.SHA256)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pemCert, _ := cryptoutils.MarshalCertificateToPEM(leafCert)
-
-	payload := []byte{1, 2, 3, 4}
-	sig, err := signer.SignMessage(bytes.NewReader(payload))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	hashedrekord := &hashedrekord_v001.V001Entry{}
-	hash := sha256.Sum256(payload)
-	pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
-		ArtifactHash:   hex.EncodeToString(hash[:]),
-		SignatureBytes: sig,
-		PublicKeyBytes: [][]byte{pemCert},
-		PKIFormat:      "x509",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry, err := types.UnmarshalEntry(pe)
-	if err != nil {
-		t.Fatal(err)
-	}
-	leaf, err := entry.Canonicalize(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i <= maxIndex; i++ {
-		lea := models.LogEntryAnon{
-			Body:     base64.StdEncoding.EncodeToString(leaf),
-			LogIndex: swag.Int64(int64(i)),
-		}
-		data := models.LogEntry{
-			fmt.Sprint(i): lea,
-		}
-		logEntries = append(logEntries, &data)
-	}
-
-	var mClient client.Rekor
-	mClient.Entries = &mock.EntriesClient{
-		Entries: logEntries,
-	}
-	testLogInfo := &models.LogInfo{}
-	mClient.Tlog = &mock.TlogClient{
-		LogInfo: testLogInfo,
-	}
-
-	logInfo, err := GetLogInfo(context.Background(), &mClient)
-	if err != nil {
-		t.Errorf("failed fetching log info: %v", err)
-	}
-	prevCheckpoint := &util.SignedCheckpoint{
-		Checkpoint: util.Checkpoint{
-			Size: 0,
-		},
-	}
-	checkpoint := &util.SignedCheckpoint{
-		Checkpoint: util.Checkpoint{
-			Size: 1,
-		},
-	}
-	monitoredValues := identity.MonitoredValues{
-		Subjects: []string{
-			subject,
-		},
-	}
-	tempDir := t.TempDir()
-	tempOutputIdentitiesFile, err := os.CreateTemp(tempDir, "")
-	if err != nil {
-		t.Errorf("failed to create temp output identities file: %v", err)
-	}
-	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
-	defer os.Remove(tempOutputIdentitiesFileName)
-
-	err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, monitoredValues, &mClient, tempOutputIdentitiesFileName)
-	if err != nil {
-		t.Errorf("failed write identities between checkpoints: %v", err)
-	}
-
-	tempOutputIdentities, err := os.ReadFile(tempOutputIdentitiesFileName)
-	if err != nil {
-		t.Errorf("error reading from output identities file: %v", err)
-	}
-	tempOutputIdentitiesString := string(tempOutputIdentities)
-	if !strings.Contains(tempOutputIdentitiesString, subject) {
-		t.Errorf("expected to find subject %s, did not", subject)
 	}
 }

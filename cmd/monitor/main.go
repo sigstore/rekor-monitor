@@ -28,7 +28,6 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
-	"github.com/sigstore/rekor/pkg/util"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -45,17 +44,34 @@ const (
 // indefinitely to perform identity search for every time interval that was specified.
 func main() {
 	// Command-line flags that are parameters to the verifier job
-	configString := flag.String("config", "", "configuration yaml containing identity monitor settings")
+	configString := flag.String("config-string", "", "configuration yaml containing identity monitor settings input as a string")
+	configFilePath := flag.String("config-file", "", "configuration yaml containing identity monitor settings input as a path to a .yaml file")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	flag.Parse()
 
-	if configString == nil {
-		log.Fatalf("empty configuration file path")
+	if configString == nil && configFilePath == nil {
+		log.Fatalf("no configuration input")
+	}
+
+	if configString != nil && configFilePath != nil {
+		log.Fatalf("input only one of --config-string or --config-file")
 	}
 
 	var config IdentityMonitorConfiguration
-	if err := yaml.Unmarshal([]byte(*configString), &config); err != nil {
-		log.Fatalf("error parsing identities: %v", err)
+	if configString != nil {
+		if err := yaml.Unmarshal([]byte(*configString), &config); err != nil {
+			log.Fatalf("error parsing identities from --config-string: %v", err)
+		}
+	}
+
+	if configFilePath != nil {
+		configFileString, err := os.ReadFile(*configFilePath)
+		if err != nil {
+			log.Fatalf("error reading yaml configuration file: %v", err)
+		}
+		if err := yaml.Unmarshal(configFileString, &config); err != nil {
+			log.Fatalf("error parsing identities from --config-string: %v", err)
+		}
 	}
 
 	if config.ServerURL == "" {
@@ -82,7 +98,7 @@ func main() {
 		setEndIndex = true
 	}
 
-	if config.StartIndex == nil || config.EndIndex == nil {
+	if config.EndIndex == nil {
 		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
 		if err != nil {
 			log.Fatalf("error getting log info: %v", err)
@@ -93,18 +109,15 @@ func main() {
 			log.Fatalf("error reading checkpoint: %v", err)
 		}
 
-		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, err = file.ReadLatestCheckpoint(config.LogInfoFile)
-		if err != nil {
-			log.Fatalf("reading checkpoint log: %v", err)
-		}
+		checkpointIndex := rekor.GetCheckpointIndex(logInfo, checkpoint)
+		config.EndIndex = &checkpointIndex
+	}
 
-		checkpointStartIndex, checkpointEndIndex := rekor.GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
-		if config.StartIndex == nil {
-			config.StartIndex = &checkpointStartIndex
-		}
-		if config.EndIndex == nil {
-			config.EndIndex = &checkpointEndIndex
+	if config.StartIndex == nil && config.IdentityMetadataFile != nil {
+		config.StartIndex, err = file.ReadIdentityMetadata(*config.IdentityMetadataFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read identity metadata: %v", err)
+			return
 		}
 	}
 

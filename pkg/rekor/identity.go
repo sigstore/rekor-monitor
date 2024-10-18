@@ -361,17 +361,16 @@ func GetPrevCurrentCheckpoints(client *client.Rekor, logInfoFile string) (*util.
 	return prevCheckpoint, checkpoint, nil
 }
 
-// GetCheckpointIndices fetches the start and end indexes between two checkpoints and returns them.
-func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint) (int, int) {
+// GetCheckpointIndex fetches the index of a checkpoint and returns it.
+func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoint) int {
 	// Get log size of inactive shards
 	totalSize := 0
 	for _, s := range logInfo.InactiveShards {
 		totalSize += int(*s.TreeSize)
 	}
-	startIndex := int(prevCheckpoint.Size) + totalSize - 1 //nolint: gosec // G115, log will never be large enough to overflow
-	endIndex := int(checkpoint.Size) + totalSize - 1       //nolint: gosec // G115
+	index := int(checkpoint.Size) + totalSize - 1 //nolint: gosec // G115
 
-	return startIndex, endIndex
+	return index
 }
 
 func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
@@ -409,19 +408,4 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 	identities := identity.CreateIdentitiesList(monitoredValues)
 	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
 	return monitoredIdentities, nil
-}
-
-// writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
-func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint, monitoredValues identity.MonitoredValues, rekorClient *client.Rekor, outputIdentitiesFile string) error {
-	// Get log size of inactive shards
-	startIndex, endIndex := GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
-
-	// Search for identities in the log range
-	if identity.MonitoredValuesExist(monitoredValues) {
-		_, err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
-		if err != nil {
-			return fmt.Errorf("error monitoring for identities: %v", err)
-		}
-	}
-	return nil
 }
