@@ -12,7 +12,7 @@ require (
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.6
 	github.com/sigstore/sigstore v1.8.9
-	github.com/wneessen/go-mail v0.5.0
+	github.com/wneessen/go-mail v0.5.1
 	golang.org/x/mod v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.8.5
