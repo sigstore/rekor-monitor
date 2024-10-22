@@ -95,7 +95,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example_sender@mail.com",
 		SMTPHostURL:           "127.0.0.1",
-		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com"), mail.WithSMTPAuth(mail.SMTPAuthCustom)},
+		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
 	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
@@ -126,7 +126,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example_sender@mail.com",
 		SMTPHostURL:           "127.0.0.1",
-		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com"), mail.WithSMTPAuth(mail.SMTPAuthCustom)},
+		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
 	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
