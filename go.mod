@@ -11,7 +11,7 @@ require (
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.6
-	github.com/sigstore/sigstore v1.8.9
+	github.com/sigstore/sigstore v1.8.10
 	github.com/wneessen/go-mail v0.5.1
 	golang.org/x/mod v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
