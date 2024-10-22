@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/sigstore/rekor/pkg/util"
 	"golang.org/x/mod/sumdb/note"
 )
@@ -123,5 +124,33 @@ func TestDeleteOldCheckpoints(t *testing.T) {
 	fi, _ = os.Stat(f)
 	if fi.Size() != 100 {
 		t.Fatalf("log size should be 100, got %d", fi.Size())
+	}
+}
+
+func TestReadWriteCTSignedTreeHead(t *testing.T) {
+	sth := &ct.SignedTreeHead{
+		TreeSize: 1,
+	}
+
+	tempDir := t.TempDir()
+	tempSTHFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp STH file: %v", err)
+	}
+	tempSTHFileName := tempSTHFile.Name()
+	defer os.Remove(tempSTHFileName)
+
+	err = WriteCTSignedTreeHead(sth, tempSTHFileName)
+	if err != nil {
+		t.Errorf("failed to write STH: %v", err)
+	}
+
+	readSTH, err := ReadLatestCTSignedTreeHead(tempSTHFileName)
+	if err != nil {
+		t.Errorf("failed to read STH: %v", err)
+	}
+
+	if readSTH.String() != sth.String() {
+		t.Errorf("expected STH: %s, received STH: %s", sth, readSTH)
 	}
 }

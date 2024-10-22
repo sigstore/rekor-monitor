@@ -16,10 +16,12 @@ package file
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor/pkg/util"
 )
@@ -50,6 +52,55 @@ func ReadLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
 	}
 
 	return &checkpoint, nil
+}
+
+// ReadLatestCTSignedTreeHead reads the most recent signed tree head from the log file
+func ReadLatestCTSignedTreeHead(logInfoFile string) (*ct.SignedTreeHead, error) {
+	// Each line in the file is one signed tree head
+	file, err := os.Open(logInfoFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read line by line and get the last line
+	scanner := bufio.NewScanner(file)
+	line := ""
+	for scanner.Scan() {
+		line = scanner.Text()
+	}
+
+	var checkpoint ct.SignedTreeHead
+	err = json.Unmarshal([]byte(strings.ReplaceAll(line, "\\n", "\n")), &checkpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &checkpoint, nil
+}
+
+// WriteCTSignedTreeHead writes a signed tree head to a given log file
+func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, logInfoFile string) error {
+	// Each line in the file is one signed tree head
+	file, err := os.OpenFile(logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	marshalledSTH, err := json.Marshal(sth)
+	if err != nil {
+		return err
+	}
+
+	if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.ReplaceAll(string(marshalledSTH), "\n", "\\n"))); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
 }
 
 // WriteCheckpoint writes a signed checkpoint to the log file

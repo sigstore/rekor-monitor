@@ -56,7 +56,6 @@ type MonitoredValues struct {
 }
 
 // RekorLogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
-// nolint:all
 type RekorLogEntry struct {
 	CertSubject    string
 	Issuer         string
