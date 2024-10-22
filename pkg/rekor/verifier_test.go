@@ -53,66 +53,51 @@ func TestGetLogVerifier(t *testing.T) {
 func TestVerifyConsistencyCheckInputs(t *testing.T) {
 	interval := 5 * time.Minute
 	logInfoFile := "./test/example_log_info_file_path.txt"
-	outputIdentitiesFile := "./test/example_output_identities_file.txt"
 	once := true
 	verifyConsistencyCheckInputTests := map[string]struct {
-		interval             *time.Duration
-		logInfoFile          *string
-		outputIdentitiesFile *string
-		once                 *bool
-		expectedError        error
+		interval      *time.Duration
+		logInfoFile   *string
+		once          *bool
+		expectedError error
 	}{
 		"successful verification": {
-			interval:             &interval,
-			logInfoFile:          &logInfoFile,
-			outputIdentitiesFile: &outputIdentitiesFile,
-			once:                 &once,
-			expectedError:        nil,
+			interval:      &interval,
+			logInfoFile:   &logInfoFile,
+			once:          &once,
+			expectedError: nil,
 		},
 		"fail --interval verification": {
-			interval:             nil,
-			logInfoFile:          &logInfoFile,
-			outputIdentitiesFile: &outputIdentitiesFile,
-			once:                 &once,
-			expectedError:        errors.New("--interval flag equal to nil"),
+			interval:      nil,
+			logInfoFile:   &logInfoFile,
+			once:          &once,
+			expectedError: errors.New("--interval flag equal to nil"),
 		},
 		"fail --file verification": {
-			interval:             &interval,
-			logInfoFile:          nil,
-			outputIdentitiesFile: &outputIdentitiesFile,
-			once:                 &once,
-			expectedError:        errors.New("--file flag equal to nil"),
-		},
-		"fail --output-identities verification": {
-			interval:             &interval,
-			logInfoFile:          &logInfoFile,
-			outputIdentitiesFile: nil,
-			once:                 &once,
-			expectedError:        errors.New("--output-identities flag equal to nil"),
+			interval:      &interval,
+			logInfoFile:   nil,
+			once:          &once,
+			expectedError: errors.New("--file flag equal to nil"),
 		},
 		"fail --once verification": {
-			interval:             &interval,
-			logInfoFile:          &logInfoFile,
-			outputIdentitiesFile: &outputIdentitiesFile,
-			once:                 nil,
-			expectedError:        errors.New("--once flag equal to nil"),
+			interval:      &interval,
+			logInfoFile:   &logInfoFile,
+			once:          nil,
+			expectedError: errors.New("--once flag equal to nil"),
 		},
 		"empty case": {
-			interval:             nil,
-			logInfoFile:          nil,
-			outputIdentitiesFile: nil,
-			once:                 nil,
-			expectedError:        errors.New("--interval flag equal to nil"),
+			interval:      nil,
+			logInfoFile:   nil,
+			once:          nil,
+			expectedError: errors.New("--interval flag equal to nil"),
 		},
 	}
 
 	for verifyConsistencyCheckInputTestCaseName, verifyConsistencyCheckInputTestCase := range verifyConsistencyCheckInputTests {
 		interval := verifyConsistencyCheckInputTestCase.interval
 		logInfoFile := verifyConsistencyCheckInputTestCase.logInfoFile
-		outputIdentitiesFile := verifyConsistencyCheckInputTestCase.outputIdentitiesFile
 		once := verifyConsistencyCheckInputTestCase.once
 		expectedError := verifyConsistencyCheckInputTestCase.expectedError
-		err := VerifyConsistencyCheckInputs(interval, logInfoFile, outputIdentitiesFile, once)
+		err := VerifyConsistencyCheckInputs(interval, logInfoFile, once)
 		if (err == nil && expectedError != nil) || (err != nil && expectedError != nil && err.Error() != expectedError.Error()) {
 			t.Errorf("%s: expected error %v, received error %v", verifyConsistencyCheckInputTestCaseName, expectedError, err)
 		}

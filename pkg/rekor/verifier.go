@@ -23,7 +23,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -51,11 +50,21 @@ func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor) (signature.V
 	return verifier, nil
 }
 
+// ReadLatestCheckpoint fetches the latest checkpoint from log info fetched from Rekor.
+// It returns the checkpoint if it successfully fetches one; otherwise, it returns an error.
+func ReadLatestCheckpoint(logInfo *models.LogInfo) (*util.SignedCheckpoint, error) {
+	checkpoint := &util.SignedCheckpoint{}
+	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		return nil, fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
+	}
+	return checkpoint, nil
+}
+
 // verifyLatestCheckpoint fetches and verifies the signature of the latest checkpoint from log info fetched from Rekor.
 // If it successfully verifies the checkpoint's signature, it returns the checkpoint; otherwise, it returns an error.
 func verifyLatestCheckpointSignature(logInfo *models.LogInfo, verifier signature.Verifier) (*util.SignedCheckpoint, error) {
-	checkpoint := &util.SignedCheckpoint{}
-	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+	checkpoint, err := ReadLatestCheckpoint(logInfo)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
 	}
 	if !checkpoint.Verify(verifier) {
@@ -84,15 +93,12 @@ func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedChec
 }
 
 // VerifyConsistencyCheckInputs verifies that the input flag values to the rekor-monitor workflow are not nil.
-func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, outputIdentitiesFile *string, once *bool) error {
+func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, once *bool) error {
 	if interval == nil {
 		return errors.New("--interval flag equal to nil")
 	}
 	if logInfoFile == nil {
 		return errors.New("--file flag equal to nil")
-	}
-	if outputIdentitiesFile == nil {
-		return errors.New("--output-identities flag equal to nil")
 	}
 	if once == nil {
 		return errors.New("--once flag equal to nil")
@@ -101,62 +107,39 @@ func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, 
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func RunConsistencyCheck(interval time.Duration, rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string, mvs identity.MonitoredValues, outputIdentitiesFile string, once bool) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) error {
+	logInfo, err := GetLogInfo(context.Background(), rekorClient)
+	if err != nil {
+		return fmt.Errorf("failed to get log info: %v", err)
+	}
+	checkpoint, err := verifyLatestCheckpointSignature(logInfo, verifier)
+	if err != nil {
+		return fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
+	}
 
-	// Loop will:
-	// 1. Fetch latest checkpoint and verify
-	// 2. If old checkpoint is present, verify consistency proof
-	// 3. Write latest checkpoint to file
-
-	// To get an immediate first tick
-	for ; ; <-ticker.C {
-		logInfo, err := GetLogInfo(context.Background(), rekorClient)
+	fi, err := os.Stat(logInfoFile)
+	// File containing previous checkpoints exists
+	var prevCheckpoint *util.SignedCheckpoint
+	if err == nil && fi.Size() != 0 {
+		prevCheckpoint, err = verifyCheckpointConsistency(logInfoFile, checkpoint, *logInfo.TreeID, rekorClient, verifier)
 		if err != nil {
-			return fmt.Errorf("failed to get log info: %v", err)
-		}
-		checkpoint, err := verifyLatestCheckpointSignature(logInfo, verifier)
-		if err != nil {
-			return fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
+			return fmt.Errorf("failed to verify previous checkpoint: %v", err)
 		}
 
-		fi, err := os.Stat(logInfoFile)
-		// File containing previous checkpoints exists
-		var prevCheckpoint *util.SignedCheckpoint
-		if err == nil && fi.Size() != 0 {
-			prevCheckpoint, err = verifyCheckpointConsistency(logInfoFile, checkpoint, *logInfo.TreeID, rekorClient, verifier)
-			if err != nil {
-				return fmt.Errorf("failed to verify previous checkpoint: %v", err)
-			}
+	}
 
-		}
-
-		// Write if there was no stored checkpoint or the sizes differ
-		if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
-			if err := file.WriteCheckpoint(checkpoint, logInfoFile); err != nil {
-				// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
-				// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
-				fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
-			}
-		}
-
-		if prevCheckpoint != nil && prevCheckpoint.Size != checkpoint.Size {
-			err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, mvs, rekorClient, outputIdentitiesFile)
-			if err != nil {
-				return fmt.Errorf("failed to monitor identities: %v", err)
-			}
-		}
-
-		// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
-		// to persist the last checkpoint.
-		// Delete old checkpoints to avoid the log growing indefinitely
-		if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
-			return fmt.Errorf("failed to delete old checkpoints: %v", err)
-		}
-
-		if once {
-			return nil
+	// Write if there was no stored checkpoint or the sizes differ
+	if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
+		if err := file.WriteCheckpoint(checkpoint, logInfoFile); err != nil {
+			return fmt.Errorf("failed to write checkpoint: %v", err)
 		}
 	}
+
+	// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
+	// to persist the last checkpoint.
+	// Delete old checkpoints to avoid the log growing indefinitely
+	if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
+		return fmt.Errorf("failed to delete old checkpoints: %v", err)
+	}
+	return nil
 }

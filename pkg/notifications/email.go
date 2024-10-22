@@ -24,12 +24,12 @@ import (
 // EmailNotificationInput extends the NotificationPlatform interface to support
 // found identity notification by sending emails to a specified user.
 type EmailNotificationInput struct {
-	RecipientEmailAddress string
-	SenderEmailAddress    string
-	SenderSMTPUsername    string
-	SenderSMTPPassword    string
-	SMTPHostURL           string
-	SMTPCustomOptions     []mail.Option
+	RecipientEmailAddress string        `yaml:"recipientEmailAddress"`
+	SenderEmailAddress    string        `yaml:"senderEmailAddress"`
+	SenderSMTPUsername    string        `yaml:"senderSMTPUsername"`
+	SenderSMTPPassword    string        `yaml:"senderSMTPPassword"`
+	SMTPHostURL           string        `yaml:"SMTPHostURL"`
+	SMTPCustomOptions     []mail.Option `yaml:"SMTPCustomOptions"`
 }
 
 func GenerateEmailBody(monitoredIdentities []identity.MonitoredIdentity) (string, error) {
