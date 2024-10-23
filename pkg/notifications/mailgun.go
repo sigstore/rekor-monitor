@@ -24,10 +24,10 @@ import (
 // MailgunNotificationInput extends the NotificationPlatform interface to support
 // found identity notification by sending emails to a specified user via Mailgun.
 type MailgunNotificationInput struct {
-	RecipientEmailAddress string
-	SenderEmailAddress    string
-	MailgunAPIKey         string
-	MailgunDomainName     string
+	RecipientEmailAddress string `yaml:"recipientEmailAddress"`
+	SenderEmailAddress    string `yaml:"senderEmailAddress"`
+	MailgunAPIKey         string `yaml:"mailgunAPIKey"`
+	MailgunDomainName     string `yaml:"mailgunDomainName"`
 }
 
 // Send takes in an MailgunNotificationInput and attempts to send the

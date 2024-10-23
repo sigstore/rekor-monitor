@@ -18,11 +18,20 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor/pkg/util"
 )
+
+type IdentityMetadata struct {
+	LatestIndex int
+}
+
+func (idMetadata IdentityMetadata) String() string {
+	return fmt.Sprint(idMetadata.LatestIndex)
+}
 
 // ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
 func ReadLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
@@ -130,4 +139,46 @@ func WriteIdentity(idFile string, idEntry identity.RekorLogEntry) error {
 	}
 
 	return nil
+}
+
+// WriteIdentityMetadata writes information about what log indices have been scanned to a file
+func WriteIdentityMetadata(metadataFile string, idMetadata IdentityMetadata) error {
+	file, err := os.OpenFile(metadataFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open identities file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(fmt.Sprintf("%s\n", idMetadata.String())); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	return nil
+}
+
+// ReadIdentityMetadata reads the latest information about what log indices have been scanned to a file
+func ReadIdentityMetadata(metadataFile string) (*int, error) {
+	// Each line represents a piece of identity metadata
+	file, err := os.Open(metadataFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read line by line and get the last line
+	scanner := bufio.NewScanner(file)
+	line := ""
+	for scanner.Scan() {
+		line = scanner.Text()
+	}
+
+	latestIndex, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, err
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &latestIndex, nil
 }
