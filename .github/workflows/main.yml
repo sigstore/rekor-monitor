@@ -90,4 +90,6 @@ jobs:
           check-latest: true
       - name: run e2e test
         run: ./pkg/test/e2e/e2e_test.sh
+      - name: run identity monitor test
+        run: ./pkg/test/identity_workflow/identity_workflow_e2e_test.sh
 
