@@ -142,6 +142,13 @@ func TestIdentitySearch(t *testing.T) {
 	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
 	defer os.Remove(tempOutputIdentitiesFileName)
 
+	tempMetadataFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp output identities file: %v", err)
+	}
+	tempMetadataFileName := tempMetadataFile.Name()
+	defer os.Remove(tempMetadataFileName)
+
 	monitoredVals := identity.MonitoredValues{
 		Subjects: []string{subject},
 		CertificateIdentities: []identity.CertificateIdentity{
@@ -196,7 +203,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName)
+	err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -220,5 +227,14 @@ func TestIdentitySearch(t *testing.T) {
 	}
 	if !strings.Contains(tempOutputIdentitiesString, certFingerprint) {
 		t.Errorf("expected to find fingerprint %s, did not", certFingerprint)
+	}
+
+	tempMetadata, err := os.ReadFile(tempMetadataFileName)
+	if err != nil {
+		t.Errorf("error reading from output identities file: %v", err)
+	}
+	tempMetadataString := string(tempMetadata)
+	if !strings.Contains(tempOutputIdentitiesString, "2") {
+		t.Errorf("expected to find latest index 2 in %s, did not", tempMetadataString)
 	}
 }

@@ -29,6 +29,7 @@ type IdentityMonitorConfiguration struct {
 	ServerURL                 string                                  `yaml:"serverURL"`
 	OutputIdentitiesFile      string                                  `yaml:"outputIdentities"`
 	LogInfoFile               string                                  `yaml:"logInfoFile"`
+	IdentityMetadataFile      *string                                 `yaml:"identityMetadataFile"`
 	GitHubIssue               notifications.GitHubIssueInput          `yaml:"githubIssue"`
 	EmailNotificationSMTP     notifications.EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  notifications.MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
