@@ -125,3 +125,26 @@ func TestDeleteOldCheckpoints(t *testing.T) {
 		t.Fatalf("log size should be 100, got %d", fi.Size())
 	}
 }
+
+func TestWriteIdentityMetadata(t *testing.T) {
+	tempDir := t.TempDir()
+	tempMetadataFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp log file: %v", err)
+	}
+	tempMetadataFileName := tempMetadataFile.Name()
+	defer os.Remove(tempMetadataFileName)
+
+	WriteIdentityMetadata(tempMetadataFileName, IdentityMetadata{
+		LatestIndex: 1,
+	})
+
+	tempMetadata, err := os.ReadFile(tempMetadataFileName)
+	if err != nil {
+		t.Errorf("error reading from output identities file: %v", err)
+	}
+	tempMetadataString := string(tempMetadata)
+	if !strings.Contains(tempMetadataString, "1") {
+		t.Errorf("expected to find index 1, did not in %s", tempMetadataString)
+	}
+}

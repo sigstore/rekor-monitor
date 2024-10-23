@@ -69,32 +69,6 @@ func main() {
 		log.Fatalf("getting Rekor client: %v", err)
 	}
 
-	if config.StartIndex == nil || config.EndIndex == nil {
-		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
-		if err != nil {
-			log.Fatalf("error getting log info: %v", err)
-		}
-
-		checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
-		if err != nil {
-			log.Fatalf("error reading checkpoint: %v", err)
-		}
-
-		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, err = file.ReadLatestCheckpoint(config.LogInfoFile)
-		if err != nil {
-			log.Fatalf("reading checkpoint log: %v", err)
-		}
-
-		checkpointStartIndex, checkpointEndIndex := rekor.GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
-		if config.StartIndex == nil {
-			config.StartIndex = &checkpointStartIndex
-		}
-		if config.EndIndex == nil {
-			config.EndIndex = &checkpointEndIndex
-		}
-	}
-
 	if config.ServerURL == "" {
 		config.ServerURL = publicRekorServerURL
 	}
@@ -114,30 +88,52 @@ func main() {
 
 	// To get an immediate first tick
 	for ; ; <-ticker.C {
-		err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile)
+		inputEndIndex := config.EndIndex
+		if config.StartIndex == nil || config.EndIndex == nil {
+			logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error getting log info: %v", err)
+				return
+			}
+
+			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
+				return
+			}
+
+			var prevCheckpoint *util.SignedCheckpoint
+			prevCheckpoint, err = file.ReadLatestCheckpoint(config.LogInfoFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "reading checkpoint log: %v", err)
+				return
+			}
+
+			checkpointStartIndex, checkpointEndIndex := rekor.GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
+			if config.StartIndex == nil {
+				config.StartIndex = &checkpointStartIndex
+			}
+			if config.EndIndex == nil {
+				config.EndIndex = &checkpointEndIndex
+			}
+		}
+
+		if *config.StartIndex >= *config.EndIndex {
+			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
+		}
+
+		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
+		err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 			return
 		}
 
-		if *once {
+		if *once || inputEndIndex != nil {
 			return
 		}
 
-		prevCheckpoint, checkpoint, err := rekor.GetPrevCurrentCheckpoints(rekorClient, config.LogInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to fetch previous and current checkpoints: %v", err)
-			return
-		}
-
-		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to fetch log info: %v", err)
-			return
-		}
-
-		checkpointStartIndex, checkpointEndIndex := rekor.GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
-		config.StartIndex = &checkpointStartIndex
-		config.EndIndex = &checkpointEndIndex
+		config.StartIndex = config.EndIndex
+		config.EndIndex = nil
 	}
 }

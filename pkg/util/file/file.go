@@ -24,6 +24,14 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 )
 
+type IdentityMetadata struct {
+	LatestIndex int
+}
+
+func (idMetadata IdentityMetadata) String() string {
+	return fmt.Sprint(idMetadata.LatestIndex)
+}
+
 // ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
 func ReadLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
 	// Each line in the file is one signed checkpoint
@@ -126,6 +134,21 @@ func WriteIdentity(idFile string, idEntry identity.RekorLogEntry) error {
 	defer file.Close()
 
 	if _, err := file.WriteString(fmt.Sprintf("%s\n", idEntry.String())); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	return nil
+}
+
+// WriteIdentityMetadata writes information about what log indices have been scanned to a file
+func WriteIdentityMetadata(metadataFile string, idMetadata IdentityMetadata) error {
+	file, err := os.OpenFile(metadataFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open identities file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(fmt.Sprintf("%s\n", idMetadata.String())); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 

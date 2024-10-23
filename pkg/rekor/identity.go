@@ -374,7 +374,7 @@ func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCh
 	return startIndex, endIndex
 }
 
-func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string) error {
+func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) error {
 
 	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 	if err != nil {
@@ -394,6 +394,19 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 			}
 		}
 	}
+
+	// TODO: idMetadataFile currently takes in a string pointer to not cause a regression in the current reusable monitoring workflow.
+	// Once the reusable monitoring workflow is split into a consistency check and identity search, idMetadataFile should always take in a string value.
+	if idMetadataFile != nil {
+		idMetadata := file.IdentityMetadata{
+			LatestIndex: endIndex,
+		}
+		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
+		if err != nil {
+			return fmt.Errorf("failed to write id metadata: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -404,7 +417,7 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 
 	// Search for identities in the log range
 	if identity.MonitoredValuesExist(monitoredValues) {
-		err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile)
+		err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
 		if err != nil {
 			return fmt.Errorf("error monitoring for identities: %v", err)
 		}
