@@ -134,20 +134,7 @@ func main() {
 			return
 		}
 
-		prevCheckpoint, checkpoint, err := rekor.GetPrevCurrentCheckpoints(rekorClient, config.LogInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to fetch previous and current checkpoints: %v", err)
-			return
-		}
-
-		logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to fetch log info: %v", err)
-			return
-		}
-
-		checkpointStartIndex, checkpointEndIndex := rekor.GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
-		config.StartIndex = &checkpointStartIndex
-		config.EndIndex = &checkpointEndIndex
+		config.StartIndex = config.EndIndex
+		config.EndIndex = nil
 	}
 }
