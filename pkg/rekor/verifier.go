@@ -23,6 +23,8 @@ import (
 	"os"
 	"time"
 
+	ct "github.com/google/certificate-transparency-go"
+	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -31,6 +33,9 @@ import (
 	"github.com/sigstore/rekor/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 // GetLogVerifier creates a verifier from the log's public key
@@ -96,6 +101,23 @@ func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, 
 	}
 	if once == nil {
 		return errors.New("--once flag equal to nil")
+	}
+	return nil
+}
+
+func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) error {
+	prevSTH, err := file.ReadLatestCTSignedTreeHead(logInfoFile)
+	if err != nil {
+		return fmt.Errorf("error reading checkpoint: %v", err)
+	}
+	first := prevSTH.TreeSize
+	second := signedTreeHead.TreeSize
+	pf, err := logClient.GetSTHConsistency(context.Background(), first, second)
+	if err != nil {
+		return fmt.Errorf("error getting consistency proof: %v", err)
+	}
+	if err := proof.VerifyConsistency(rfc6962.DefaultHasher, first, second, pf, prevSTH.SHA256RootHash[:], signedTreeHead.SHA256RootHash[:]); err != nil {
+		return fmt.Errorf("error verifying consistency: %v", err)
 	}
 	return nil
 }
