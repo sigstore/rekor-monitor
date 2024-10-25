@@ -30,15 +30,15 @@ var (
 // GitHubIssueInput extends the NotificationPlatform interface to support found identity
 // notification via creating new GitHub issues in a given repo.
 type GitHubIssueInput struct {
-	AssigneeUsername string
-	RepositoryOwner  string
-	RepositoryName   string
+	AssigneeUsername string `yaml:"assigneeUsername"`
+	RepositoryOwner  string `yaml:"repositoryOwner"`
+	RepositoryName   string `yaml:"repositoryName"`
 	// The PAT or other access token to authenticate creating an issue.
 	// The authentication token requires repo write and push access.
-	AuthenticationToken string
+	AuthenticationToken string `yaml:"authenticationToken"`
 	// For users who want to pass in a custom client.
 	// If nil, a default client with the given authentication token will be instantiated.
-	GitHubClient *github.Client
+	GitHubClient *github.Client `yaml:"githubClient"`
 }
 
 func generateGitHubIssueBody(monitoredIdentities []identity.MonitoredIdentity) (string, error) {
