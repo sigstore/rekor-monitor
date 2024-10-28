@@ -6,7 +6,7 @@ require (
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/go-github/v65 v65.0.0
-	github.com/mailgun/mailgun-go/v4 v4.16.0
+	github.com/mailgun/mailgun-go/v4 v4.17.0
 	github.com/migueleliasweb/go-github-mock v1.0.1
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
@@ -14,6 +14,7 @@ require (
 	github.com/sigstore/sigstore v1.8.10
 	github.com/wneessen/go-mail v0.5.1
 	golang.org/x/mod v0.21.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.8.5
 )
@@ -108,6 +109,5 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
