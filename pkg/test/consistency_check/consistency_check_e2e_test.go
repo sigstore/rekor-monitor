@@ -33,6 +33,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/client"
@@ -105,6 +107,13 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Fatalf("error creating hashed rekord entry: %v", err)
 	}
 
+	x509Cert, err := cryptoutils.UnmarshalCertificatesFromPEM(pemCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(x509Cert[0].Raw)
+	certFingerprint := hex.EncodeToString(digest[:])
+
 	params := entries.NewCreateLogEntryParams()
 	params.SetProposedEntry(pe)
 	resp, err := rekorClient.Entries.CreateLogEntry(params)
@@ -132,10 +141,36 @@ func TestRunConsistencyCheck(t *testing.T) {
 	tempLogInfoFileName := tempLogInfoFile.Name()
 	defer os.Remove(tempLogInfoFileName)
 
+	tempOutputIdentitiesFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp output identities file: %v", err)
+	}
+	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
+	defer os.Remove(tempOutputIdentitiesFileName)
+
 	interval := time.Minute
+
+	monitoredVals := identity.MonitoredValues{
+		Subjects: []string{subject},
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*ubje.*",
+				Issuers:     []string{".+@domain.com"},
+			},
+		},
+		OIDMatchers: []extensions.OIDMatcher{
+			{
+				ObjectIdentifier: oid,
+				ExtensionValues:  []string{extValueString},
+			},
+		},
+		Fingerprints: []string{
+			certFingerprint,
+		},
+	}
 	once := true
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, once)
+	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName, once)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -175,8 +210,29 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, once)
+	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName, once)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
+	}
+
+	tempOutputIdentities, err := os.ReadFile(tempOutputIdentitiesFileName)
+	if err != nil {
+		t.Errorf("error reading from output identities file: %v", err)
+	}
+	tempOutputIdentitiesString := string(tempOutputIdentities)
+	if !strings.Contains(tempOutputIdentitiesString, subject) {
+		t.Errorf("expected to find subject %s, did not", subject)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, issuer) {
+		t.Errorf("expected to find issuer %s, did not", issuer)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, oid.String()) {
+		t.Errorf("expected to find oid %s, did not", oid.String())
+	}
+	if !strings.Contains(tempOutputIdentitiesString, oid.String()) {
+		t.Errorf("expected to find oid value %s, did not", extValueString)
+	}
+	if !strings.Contains(tempOutputIdentitiesString, certFingerprint) {
+		t.Errorf("expected to find fingerprint %s, did not", certFingerprint)
 	}
 }

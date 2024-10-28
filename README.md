@@ -5,7 +5,7 @@ that the log is immutability and append-only. Monitoring is critical to
 the transparency log ecosystem, as logs are tamper-evident but not tamper-proof.
 
 To run, create a GitHub Actions workflow that uses the
-[consistency check workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/reusable_monitoring.yml).
+[reusable monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/reusable_monitoring.yml).
 It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow:
@@ -37,17 +37,14 @@ Caveats:
 
 ## Identity monitoring
 
-Using the identity monitoring workflow, you can also monitor a list of identities. Currently, only identities from the certificate's
+You can also specify a list of identities to monitor. Currently, only identities from the certificate's
 Subject Alternative Name (SAN) field will be matched, and only for the hashedrekord Rekor entry type.
 
 Note: `certIdentities.certSubject`, `certIdentities.issuers` and `subjects` are expecting regular expression.
 Please read [this](https://github.com/google/re2/wiki/Syntax) for syntax reference.
 
-Note: The log monitor monitors from the latest checkpoint by default. If you want to search previous
-entries, you will need to manually set the workflow's start and end indices as parameters.
-
-To run, create a GitHub Actions workflow that uses the
-[identity monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/identity_monitor.yml).
+Note: The log monitor only starts monitoring from the latest checkpoint. If you want to search previous
+entries, you will need to query the log.
 
 Example workflow below:
 
@@ -65,34 +62,30 @@ jobs:
       contents: read # Needed to checkout repositories
       issues: write # Needed if you set "file_issue: true"
       id-token: write # Needed to detect the current reusable repository and ref
-    run: |
-      s = "monitoredValues: |
-            certIdentities:
-              - certSubject: user@domain\.com
-              - certSubject: otheruser@domain\.com
-                issuers:
-                  - https://accounts\.google\.com
-                  - https://github\.com/login
-              - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
-                issuers:
-                  - https://token\.actions\.githubusercontent\.com
-            subjects:
-              - subject@domain\.com
-            fingerprints:
-              - A0B1C2D3E4F5
-            fulcioExtensions:
-              build-config-uri:
-                - https://example.com/owner/repository/build-config.yml
-            customExtensions:
-              - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-                extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
-            gitHubIssue:
-              assigneeUsername: username
-              repositoryOwner: owner	
-              repositoryName: repo-being-monitored
-              authenticationToken: <PAT>"
-      cat s > id_monitor_config.yaml
-    uses: sigstore/rekor-monitor/.github/workflows/identity_monitor.yaml@main
+    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yaml@main
+    with:
+      file_issue: true # Strongly recommended: Files an issue on monitoring failure
+      artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
+      identities: |
+        certIdentities:
+          - certSubject: user@domain\.com
+          - certSubject: otheruser@domain\.com
+            issuers:
+              - https://accounts\.google\.com
+              - https://github\.com/login
+          - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+            issuers:
+              - https://token\.actions\.githubusercontent\.com
+        subjects:
+          - subject@domain\.com
+        fingerprints:
+          - A0B1C2D3E4F5
+        fulcioExtensions:
+          build-config-uri:
+            - https://example.com/owner/repository/build-config.yml
+        customExtensions:
+          - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+            extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
 In this example, the monitor will log:
@@ -111,8 +104,6 @@ Fingerprint values are as follows:
 * For SSH and PGP, the standard for each ecosystem:
    * For SSH, unpadded base-64 encoded SHA-256 digest of the key
 	 * For PGP, hex-encoded SHA-1 digest of a key, which can be either a primary key or subkey
- 
-If the monitor finds entries containing given monitored identities, it will create a new GitHub issue in the repository being monitored with given identities and associated entries.
 
 Upcoming features:
 
