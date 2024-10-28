@@ -341,8 +341,28 @@ func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensi
 	return false, nil, "", nil
 }
 
-// writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
-func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint, monitoredValues identity.MonitoredValues, rekorClient *client.Rekor, outputIdentitiesFile string) error {
+func GetPrevCurrentCheckpoints(client *client.Rekor, logInfoFile string) (*util.SignedCheckpoint, *util.SignedCheckpoint, error) {
+	logInfo, err := GetLogInfo(context.Background(), client)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting log info: %v", err)
+	}
+
+	checkpoint, err := ReadLatestCheckpoint(logInfo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error reading checkpoint: %v", err)
+	}
+
+	var prevCheckpoint *util.SignedCheckpoint
+	prevCheckpoint, err = file.ReadLatestCheckpoint(logInfoFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading checkpoint log: %v", err)
+	}
+
+	return prevCheckpoint, checkpoint, nil
+}
+
+// GetCheckpointIndices fetches the start and end indexes between two checkpoints and returns them.
+func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint) (int, int) {
 	// Get log size of inactive shards
 	totalSize := 0
 	for _, s := range logInfo.InactiveShards {
@@ -351,25 +371,55 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 	startIndex := int(prevCheckpoint.Size) + totalSize - 1 //nolint: gosec // G115, log will never be large enough to overflow
 	endIndex := int(checkpoint.Size) + totalSize - 1       //nolint: gosec // G115
 
+	return startIndex, endIndex
+}
+
+func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) error {
+
+	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+	if err != nil {
+		return fmt.Errorf("error getting entries by index range: %v", err)
+	}
+	idEntries, err := MatchedIndices(entries, monitoredValues)
+	if err != nil {
+		return fmt.Errorf("error finding log indices: %v", err)
+	}
+
+	if len(idEntries) > 0 {
+		for _, idEntry := range idEntries {
+			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
+
+			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
+				return fmt.Errorf("failed to write entry: %v", err)
+			}
+		}
+	}
+
+	// TODO: idMetadataFile currently takes in a string pointer to not cause a regression in the current reusable monitoring workflow.
+	// Once the reusable monitoring workflow is split into a consistency check and identity search, idMetadataFile should always take in a string value.
+	if idMetadataFile != nil {
+		idMetadata := file.IdentityMetadata{
+			LatestIndex: endIndex,
+		}
+		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
+		if err != nil {
+			return fmt.Errorf("failed to write id metadata: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
+func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *util.SignedCheckpoint, checkpoint *util.SignedCheckpoint, monitoredValues identity.MonitoredValues, rekorClient *client.Rekor, outputIdentitiesFile string) error {
+	// Get log size of inactive shards
+	startIndex, endIndex := GetCheckpointIndices(logInfo, prevCheckpoint, checkpoint)
+
 	// Search for identities in the log range
 	if identity.MonitoredValuesExist(monitoredValues) {
-		entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+		err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
 		if err != nil {
-			return fmt.Errorf("error getting entries by index range: %v", err)
-		}
-		idEntries, err := MatchedIndices(entries, monitoredValues)
-		if err != nil {
-			return fmt.Errorf("error finding log indices: %v", err)
-		}
-
-		if len(idEntries) > 0 {
-			for _, idEntry := range idEntries {
-				fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
-
-				if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
-					return fmt.Errorf("failed to write entry: %v", err)
-				}
-			}
+			return fmt.Errorf("error monitoring for identities: %v", err)
 		}
 	}
 	return nil

@@ -25,11 +25,11 @@ import (
 // SendGrid extends the NotificationPlatform interface to support
 // found identity notification by sending emails to a specified user via SendGrid.
 type SendGridNotificationInput struct {
-	RecipientName         string
-	RecipientEmailAddress string
-	SenderName            string
-	SenderEmailAddress    string
-	SendGridAPIKey        string
+	RecipientName         string `yaml:"recipientName"`
+	RecipientEmailAddress string `yaml:"recipientEmailAddress"`
+	SenderName            string `yaml:"senderName"`
+	SenderEmailAddress    string `yaml:"senderEmailAddress"`
+	SendGridAPIKey        string `yaml:"sendGridAPIKey"`
 }
 
 // Send takes in an SendGridNotificationInput and attempts to send the

@@ -51,11 +51,21 @@ func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor) (signature.V
 	return verifier, nil
 }
 
+// ReadLatestCheckpoint fetches the latest checkpoint from log info fetched from Rekor.
+// It returns the checkpoint if it successfully fetches one; otherwise, it returns an error.
+func ReadLatestCheckpoint(logInfo *models.LogInfo) (*util.SignedCheckpoint, error) {
+	checkpoint := &util.SignedCheckpoint{}
+	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+		return nil, fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
+	}
+	return checkpoint, nil
+}
+
 // verifyLatestCheckpoint fetches and verifies the signature of the latest checkpoint from log info fetched from Rekor.
 // If it successfully verifies the checkpoint's signature, it returns the checkpoint; otherwise, it returns an error.
 func verifyLatestCheckpointSignature(logInfo *models.LogInfo, verifier signature.Verifier) (*util.SignedCheckpoint, error) {
-	checkpoint := &util.SignedCheckpoint{}
-	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
+	checkpoint, err := ReadLatestCheckpoint(logInfo)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshalling logInfo.SignedTreeHead to Checkpoint: %v", err)
 	}
 	if !checkpoint.Verify(verifier) {

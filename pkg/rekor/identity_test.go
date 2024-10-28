@@ -38,6 +38,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor-monitor/pkg/test"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
@@ -46,6 +47,7 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -855,6 +857,112 @@ func TestMatchedIndicesFailures(t *testing.T) {
 				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
 			}
 		})
+	}
+}
+
+func TestGetCheckpointIndices(t *testing.T) {
+	shardTreeSize := int64(1)
+	inactiveShard := models.InactiveShardLogInfo{
+		TreeSize: &shardTreeSize,
+	}
+	inactiveShards := []*models.InactiveShardLogInfo{&inactiveShard}
+	emptyInactiveShards := []*models.InactiveShardLogInfo{}
+	logInfo := &models.LogInfo{
+		InactiveShards: inactiveShards,
+	}
+	emptyLogInfo := &models.LogInfo{
+		InactiveShards: emptyInactiveShards,
+	}
+	prevCheckpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 1,
+		},
+	}
+	checkpoint := &util.SignedCheckpoint{
+		Checkpoint: util.Checkpoint{
+			Size: 2,
+		},
+	}
+	getCheckpointIndicesTests := map[string]struct {
+		inputLogInfo        *models.LogInfo
+		inputPrevCheckpoint *util.SignedCheckpoint
+		inputCheckpoint     *util.SignedCheckpoint
+		expectedStartIndex  int
+		expectedEndIndex    int
+	}{
+		"populated inactive shards": {
+			inputLogInfo:        logInfo,
+			inputPrevCheckpoint: prevCheckpoint,
+			inputCheckpoint:     checkpoint,
+			expectedStartIndex:  1,
+			expectedEndIndex:    2,
+		},
+		"empty inactive shards": {
+			inputLogInfo:        emptyLogInfo,
+			inputPrevCheckpoint: prevCheckpoint,
+			inputCheckpoint:     checkpoint,
+			expectedStartIndex:  0,
+			expectedEndIndex:    1,
+		},
+	}
+	for testCaseName, testCase := range getCheckpointIndicesTests {
+		expectedStartIndex := testCase.expectedStartIndex
+		expectedEndIndex := testCase.expectedEndIndex
+		resultStartIndex, resultEndIndex := GetCheckpointIndices(testCase.inputLogInfo, testCase.inputPrevCheckpoint, testCase.inputCheckpoint)
+		if resultStartIndex != expectedStartIndex || resultEndIndex != expectedEndIndex {
+			t.Errorf("%s failed: expected %d, %d indices, received %d, %d indices", testCaseName, expectedStartIndex, expectedEndIndex, resultStartIndex, resultEndIndex)
+		}
+	}
+}
+
+func TestGetPrevCurrentCheckpoints(t *testing.T) {
+	// generate checkpoint
+	root, _ := hex.DecodeString("1a341bc342ff4e567387de9789ab14000b147124317841489172419874198147")
+	expectedCheckpoint, err := util.CreateSignedCheckpoint(util.Checkpoint{
+		Origin: "origin",
+		Size:   uint64(123),
+		Hash:   root,
+	})
+	expectedCheckpoint.Signatures = []note.Signature{{Name: "name", Hash: 1, Base64: "adbadbadb"}}
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkpointBytes, err := expectedCheckpoint.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Errorf("error marshalling checkpoint: %v", err)
+	}
+	checkpointString := string(checkpointBytes)
+
+	var mClient client.Rekor
+	mClient.Tlog = &mock.TlogClient{
+		LogInfo: &models.LogInfo{
+			SignedTreeHead: &checkpointString,
+		},
+	}
+
+	tempDir := t.TempDir()
+	tempLogInfoFile, err := os.CreateTemp(tempDir, "")
+	if err != nil {
+		t.Errorf("failed to create temp log file: %v", err)
+	}
+	tempLogInfoFileName := tempLogInfoFile.Name()
+	defer os.Remove(tempLogInfoFileName)
+	file.WriteCheckpoint(expectedCheckpoint, tempLogInfoFileName)
+
+	prevCheckpoint, currentCheckpoint, err := GetPrevCurrentCheckpoints(&mClient, tempLogInfoFileName)
+	if err != nil {
+		t.Errorf("expected nil, received %v", err)
+	}
+
+	if prevCheckpoint.Checkpoint.String() != expectedCheckpoint.Checkpoint.String() {
+		t.Errorf("expected prev checkpoint %s, received %s", expectedCheckpoint.Checkpoint, prevCheckpoint.Checkpoint)
+	}
+
+	if currentCheckpoint.Checkpoint.String() != expectedCheckpoint.Checkpoint.String() {
+		t.Errorf("expected current checkpoint %s, received %s", expectedCheckpoint.Checkpoint, currentCheckpoint.Checkpoint)
 	}
 }
 
