@@ -45,23 +45,31 @@ const (
 // indefinitely to perform identity search for every time interval that was specified.
 func main() {
 	// Command-line flags that are parameters to the verifier job
-	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
+	configString := flag.String("config", "", "configuration yaml containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	flag.Parse()
 
-	if configFilePath == nil {
+	if configString == nil {
 		log.Fatalf("empty configuration file path")
 	}
 
-	readConfig, err := os.ReadFile(*configFilePath)
-	if err != nil {
-		log.Fatalf("error reading from identity monitor configuration file: %v", err)
+	var config IdentityMonitorConfiguration
+	if err := yaml.Unmarshal([]byte(*configString), &config); err != nil {
+		log.Fatalf("error parsing identities: %v", err)
 	}
 
-	configString := string(readConfig)
-	var config IdentityMonitorConfiguration
-	if err := yaml.Unmarshal([]byte(configString), &config); err != nil {
-		log.Fatalf("error parsing identities: %v", err)
+	if config.ServerURL == "" {
+		config.ServerURL = publicRekorServerURL
+	}
+	if config.LogInfoFile == "" {
+		config.LogInfoFile = logInfoFileName
+	}
+	if config.OutputIdentitiesFile == "" {
+		config.OutputIdentitiesFile = outputIdentitiesFileName
+	}
+	if config.Interval == nil {
+		defaultInterval := time.Hour
+		config.Interval = &defaultInterval
 	}
 
 	rekorClient, err := client.GetRekorClient(config.ServerURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH))))
@@ -98,20 +106,6 @@ func main() {
 		if config.EndIndex == nil {
 			config.EndIndex = &checkpointEndIndex
 		}
-	}
-
-	if config.ServerURL == "" {
-		config.ServerURL = publicRekorServerURL
-	}
-	if config.LogInfoFile == "" {
-		config.LogInfoFile = logInfoFileName
-	}
-	if config.OutputIdentitiesFile == "" {
-		config.OutputIdentitiesFile = outputIdentitiesFileName
-	}
-	if config.Interval == nil {
-		defaultInterval := time.Hour
-		config.Interval = &defaultInterval
 	}
 
 	ticker := time.NewTicker(*config.Interval)

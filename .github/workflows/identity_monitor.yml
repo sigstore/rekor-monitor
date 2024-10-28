@@ -18,11 +18,20 @@
 
 name: Rekor Identity Monitor Template
 
+on:
+  workflow_call:
+    inputs:
+      once:
+        default: true
+        required: false
+        type: boolean
+      config:
+        description: 'multiline yaml of configuration settings for identity monitor run'
+        required: true
+        type: string
+
 permissions:
   contents: read
-
-env:
-  ID_MONITOR_CONFIG_FILE: id_monitor_config.yaml
 
 jobs:
   detect-workflow:
@@ -49,4 +58,4 @@ jobs:
         with:
           go-version: '1.23'
       - name: Run identity monitor
-        run: go run ./cmd/verifier --config-file ${{ env.ID_MONITOR_CONFIG_FILE }} --once
+        run: go run ./cmd/monitor --config ${{ inputs.config }} --once
