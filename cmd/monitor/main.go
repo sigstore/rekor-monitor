@@ -123,7 +123,7 @@ func main() {
 		}
 
 		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+		_, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 			return

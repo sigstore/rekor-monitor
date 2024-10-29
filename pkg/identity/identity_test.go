@@ -273,3 +273,43 @@ func TestMonitoredValuesExist(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateIdentitiesList(t *testing.T) {
+	testCases := map[string]struct {
+		input    MonitoredValues
+		expected []string
+	}{
+		"empty input": {
+			input:    MonitoredValues{},
+			expected: []string{},
+		},
+		"multiple identities": {
+			input: MonitoredValues{
+				CertificateIdentities: []CertificateIdentity{
+					{
+						CertSubject: "example-cert-subject",
+						Issuers:     []string{},
+					},
+				},
+				Fingerprints: []string{"example-fingerprint"},
+				Subjects:     []string{"example-subject"},
+				OIDMatchers: []extensions.OIDMatcher{
+					{
+						ObjectIdentifier: asn1.ObjectIdentifier{1, 4, 1, 9},
+						ExtensionValues:  []string{"example-oid-matcher"},
+					},
+				},
+			},
+			expected: []string{
+				"example-cert-subject", "example-fingerprint", "example-subject", "example-oid-matcher",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		result := CreateIdentitiesList(tc.input)
+		expected := tc.expected
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("expected %v, received %v", expected, result)
+		}
+	}
+}
