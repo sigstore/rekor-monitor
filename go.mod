@@ -7,8 +7,8 @@ require (
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/certificate-transparency-go v1.2.1
 	github.com/google/go-github/v65 v65.0.0
-	github.com/mailgun/mailgun-go/v4 v4.16.0
-	github.com/migueleliasweb/go-github-mock v1.0.1
+	github.com/mailgun/mailgun-go/v4 v4.17.0
+	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.6
@@ -16,6 +16,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/wneessen/go-mail v0.5.1
 	golang.org/x/mod v0.21.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/release-utils v0.8.5
 )
