@@ -31,7 +31,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -148,8 +147,6 @@ func TestRunConsistencyCheck(t *testing.T) {
 	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
 	defer os.Remove(tempOutputIdentitiesFileName)
 
-	interval := time.Minute
-
 	monitoredVals := identity.MonitoredValues{
 		Subjects: []string{subject},
 		CertificateIdentities: []identity.CertificateIdentity{
@@ -168,9 +165,8 @@ func TestRunConsistencyCheck(t *testing.T) {
 			certFingerprint,
 		},
 	}
-	once := true
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName, once)
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -210,7 +206,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
 	}
 
-	err = rekor.RunConsistencyCheck(interval, rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName, once)
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
