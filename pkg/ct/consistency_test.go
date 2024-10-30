@@ -16,9 +16,7 @@ package ct
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -29,37 +27,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 )
-
-const (
-	ValidSTHResponseTreeSize                 = 3721782
-	ValidSTHResponseTimestamp         uint64 = 1396609800587
-	ValidSTHResponseSHA256RootHash           = "SxKOxksguvHPyUaKYKXoZHzXl91Q257+JQ0AUMlFfeo="
-	ValidSTHResponseTreeHeadSignature        = "BAMARjBEAiBUYO2tODlUUw4oWGiVPUHqZadRRyXs9T2rSXchA79VsQIgLASkQv3cu4XdPFCZbgFkIUefniNPCpO3LzzHX53l+wg="
-	GetSTHConsistencyEmptyResp               = `{ "consistency": [ ] }`
-)
-
-// serveHandlerAt returns a test HTTP server that only expects requests at the given path, and invokes
-// the provided handler for that path.
-func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter, *http.Request)) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == path {
-			handler(w, r)
-		} else {
-			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
-		}
-	}))
-}
-
-// serveRspAt returns a test HTTP server that returns a canned response body rsp for a given path.
-func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
-	t.Helper()
-	return serveHandlerAt(t, path, func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := fmt.Fprint(w, rsp); err != nil {
-			t.Fatal(err)
-		}
-	})
-}
 
 // Test VerifyCertificateTransparencyConsistency
 func TestVerifyCertificateTransparencyConsistency(t *testing.T) {

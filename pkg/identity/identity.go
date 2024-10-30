@@ -55,8 +55,8 @@ type MonitoredValues struct {
 	CustomExtensions []extensions.CustomExtension `yaml:"customExtensions"`
 }
 
-// RekorLogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
-type RekorLogEntry struct {
+// LogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
+type LogEntry struct {
 	CertSubject    string
 	Issuer         string
 	Fingerprint    string
@@ -67,7 +67,7 @@ type RekorLogEntry struct {
 	ExtensionValue string
 }
 
-func (e *RekorLogEntry) String() string {
+func (e *LogEntry) String() string {
 	var parts []string
 	for _, s := range []string{e.CertSubject, e.Issuer, e.Fingerprint, e.Subject, strconv.Itoa(int(e.Index)), e.UUID, e.OIDExtension.String(), e.ExtensionValue} {
 		if strings.TrimSpace(s) != "" {
@@ -79,8 +79,8 @@ func (e *RekorLogEntry) String() string {
 
 // MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
 type MonitoredIdentity struct {
-	Identity             string          `json:"identity"`
-	FoundIdentityEntries []RekorLogEntry `json:"foundIdentityEntries"`
+	Identity             string     `json:"identity"`
+	FoundIdentityEntries []LogEntry `json:"foundIdentityEntries"`
 }
 
 // PrintMonitoredIdentities formats a list of monitored identities and corresponding log entries
@@ -96,13 +96,13 @@ func PrintMonitoredIdentities(monitoredIdentities []MonitoredIdentity) ([]byte, 
 // CreateMonitoredIdentities takes in a list of IdentityEntries and groups them by
 // associated identity based on an input list of identities to monitor.
 // It returns a list of MonitoredIdentities.
-func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredIdentities []string) []MonitoredIdentity {
+func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentities []string) []MonitoredIdentity {
 	identityMap := make(map[string]bool)
 	for _, id := range monitoredIdentities {
 		identityMap[id] = true
 	}
 
-	monitoredIdentityMap := make(map[string][]RekorLogEntry)
+	monitoredIdentityMap := make(map[string][]LogEntry)
 	for _, idEntry := range inputIdentityEntries {
 		switch {
 		case identityMap[idEntry.CertSubject]:
@@ -111,7 +111,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredId
 			if ok {
 				monitoredIdentityMap[idCertSubject] = append(monitoredIdentityMap[idCertSubject], idEntry)
 			} else {
-				monitoredIdentityMap[idCertSubject] = []RekorLogEntry{idEntry}
+				monitoredIdentityMap[idCertSubject] = []LogEntry{idEntry}
 			}
 		case identityMap[idEntry.ExtensionValue]:
 			idExtValue := idEntry.ExtensionValue
@@ -119,7 +119,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredId
 			if ok {
 				monitoredIdentityMap[idExtValue] = append(monitoredIdentityMap[idExtValue], idEntry)
 			} else {
-				monitoredIdentityMap[idExtValue] = []RekorLogEntry{idEntry}
+				monitoredIdentityMap[idExtValue] = []LogEntry{idEntry}
 			}
 		case identityMap[idEntry.Fingerprint]:
 			idFingerprint := idEntry.Fingerprint
@@ -127,7 +127,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredId
 			if ok {
 				monitoredIdentityMap[idFingerprint] = append(monitoredIdentityMap[idFingerprint], idEntry)
 			} else {
-				monitoredIdentityMap[idFingerprint] = []RekorLogEntry{idEntry}
+				monitoredIdentityMap[idFingerprint] = []LogEntry{idEntry}
 			}
 		case identityMap[idEntry.Subject]:
 			idSubject := idEntry.Subject
@@ -135,7 +135,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []RekorLogEntry, monitoredId
 			if ok {
 				monitoredIdentityMap[idSubject] = append(monitoredIdentityMap[idSubject], idEntry)
 			} else {
-				monitoredIdentityMap[idSubject] = []RekorLogEntry{idEntry}
+				monitoredIdentityMap[idSubject] = []LogEntry{idEntry}
 			}
 		}
 	}

@@ -57,7 +57,7 @@ var (
 )
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.RekorLogEntry, error) {
+func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
 	allOIDMatchers, err := extensions.MergeOIDMatchers(mvs.OIDMatchers, mvs.FulcioExtensions, mvs.CustomExtensions)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 		return nil, err
 	}
 
-	var matchedEntries []identity.RekorLogEntry
+	var matchedEntries []identity.LogEntry
 
 	for _, entries := range logEntries {
 		for uuid, entry := range entries {
@@ -86,7 +86,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 			for _, monitoredFp := range mvs.Fingerprints {
 				for _, fp := range fps {
 					if fp == monitoredFp {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Fingerprint: fp,
 							Index:       *entry.LogIndex,
 							UUID:        uuid,
@@ -101,7 +101,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 					if err != nil {
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					} else if match {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							CertSubject: sub,
 							Issuer:      iss,
 							Index:       *entry.LogIndex,
@@ -118,7 +118,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 				}
 				for _, sub := range subjects {
 					if regex.MatchString(sub) {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Subject: sub,
 							Index:   *entry.LogIndex,
 							UUID:    uuid,
@@ -134,7 +134,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					}
 					if match {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Index:          *entry.LogIndex,
 							UUID:           uuid,
 							OIDExtension:   oid,

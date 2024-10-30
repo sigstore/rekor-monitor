@@ -158,7 +158,7 @@ func DeleteOldCheckpoints(logInfoFile string) error {
 }
 
 // WriteIdentity writes an identity found in the log to a file
-func WriteIdentity(idFile string, idEntry identity.RekorLogEntry) error {
+func WriteIdentity(idFile string, idEntry identity.LogEntry) error {
 	file, err := os.OpenFile(idFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open identities file: %w", err)

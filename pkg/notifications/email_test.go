@@ -57,7 +57,7 @@ func TestEmailSendFailureCases(t *testing.T) {
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
 		Identity: "test-identity",
-		FoundIdentityEntries: []identity.RekorLogEntry{
+		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
 				UUID:        "test-uuid",
@@ -83,7 +83,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
 		Identity: "test-identity",
-		FoundIdentityEntries: []identity.RekorLogEntry{
+		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
 				UUID:        "test-uuid",
@@ -114,7 +114,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
 		Identity: "test-identity",
-		FoundIdentityEntries: []identity.RekorLogEntry{
+		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
 				UUID:        "test-uuid",

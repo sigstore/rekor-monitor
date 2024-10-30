@@ -7,6 +7,7 @@ require (
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/certificate-transparency-go v1.2.1
 	github.com/google/go-github/v65 v65.0.0
+	github.com/google/trillian v1.6.0
 	github.com/mailgun/mailgun-go/v4 v4.17.0
 	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
@@ -109,10 +110,10 @@ require (
 	golang.org/x/term v0.25.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240520151616-dc85e6b867a5 // indirect
 	google.golang.org/grpc v1.64.1 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
