@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	configString := string(readConfig)
-	var config IdentityMonitorConfiguration
+	var config notifications.IdentityMonitorConfiguration
 	if err := yaml.Unmarshal([]byte(configString), &config); err != nil {
 		log.Fatalf("error parsing identities: %v", err)
 	}
@@ -123,7 +124,7 @@ func main() {
 		}
 
 		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+		_, err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 			return
