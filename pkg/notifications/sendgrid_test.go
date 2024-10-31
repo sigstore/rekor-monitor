@@ -31,7 +31,7 @@ func TestSendGridSendFailure(t *testing.T) {
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
 		Identity: "test-identity",
-		FoundIdentityEntries: []identity.RekorLogEntry{
+		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
 				UUID:        "test-uuid",
