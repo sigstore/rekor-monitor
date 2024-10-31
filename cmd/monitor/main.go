@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	configString := string(readConfig)
-	var config IdentityMonitorConfiguration
+	var config notifications.IdentityMonitorConfiguration
 	if err := yaml.Unmarshal([]byte(configString), &config); err != nil {
 		log.Fatalf("error parsing identities: %v", err)
 	}
