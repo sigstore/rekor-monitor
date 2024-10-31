@@ -27,7 +27,7 @@ import (
 )
 
 type IdentityMetadata struct {
-	LatestIndex int
+	LatestIndex int `json:"latestIndex"`
 }
 
 func (idMetadata IdentityMetadata) String() string {
@@ -174,15 +174,29 @@ func WriteIdentity(idFile string, idEntry identity.RekorLogEntry) error {
 
 // WriteIdentityMetadata writes information about what log indices have been scanned to a file
 func WriteIdentityMetadata(metadataFile string, idMetadata IdentityMetadata) error {
-	file, err := os.OpenFile(metadataFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	marshalled, err := json.Marshal(idMetadata)
 	if err != nil {
-		return fmt.Errorf("failed to open identities file: %w", err)
+		return fmt.Errorf("failed to marshal identity metadata: %v", err)
 	}
-	defer file.Close()
-
-	if _, err := file.WriteString(fmt.Sprintf("%s\n", idMetadata.String())); err != nil {
+	if err := os.WriteFile(metadataFile, marshalled, 0600); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
-
 	return nil
+}
+
+// ReadIdentityMetadata reads the latest information about what log indices have been scanned to a file
+func ReadIdentityMetadata(metadataFile string) (*IdentityMetadata, error) {
+	// Each line represents a piece of identity metadata
+	idMetadataBytes, err := os.ReadFile(metadataFile)
+	if err != nil {
+		return nil, err
+	}
+
+	idMetadata := &IdentityMetadata{}
+	err = json.Unmarshal(idMetadataBytes, idMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return idMetadata, nil
 }
