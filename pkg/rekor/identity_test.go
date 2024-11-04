@@ -526,7 +526,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	// match to oid with matching extension value
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
+		OIDMatchers: []extensions.OIDExtension{
 			{
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
@@ -547,7 +547,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	testedMonitoredValues := []identity.MonitoredValues{
 		{
-			OIDMatchers: []extensions.OIDMatcher{
+			OIDMatchers: []extensions.OIDExtension{
 				{
 					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
 					ExtensionValues:  []string{"wrong"},
@@ -555,7 +555,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 			},
 		},
 		{
-			OIDMatchers: []extensions.OIDMatcher{
+			OIDMatchers: []extensions.OIDExtension{
 				{
 					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14},
 					ExtensionValues:  []string{"test cert value"},
@@ -651,7 +651,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 
 	// no match to oid with different extension value
 	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
+		OIDMatchers: []extensions.OIDExtension{
 			{
 				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
 				ExtensionValues:  []string{"wrong"},
@@ -821,28 +821,28 @@ func TestMatchedIndicesFailures(t *testing.T) {
 			errorString: "fingerprint empty",
 		},
 		"empty oid extension": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{},
 				ExtensionValues:  []string{""},
 			}}},
 			errorString: "could not parse object identifier: empty input",
 		},
 		"empty oid matched values": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 				ExtensionValues:  []string{},
 			}}},
 			errorString: "oid matched values empty",
 		},
 		"empty oid matched value": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 				ExtensionValues:  []string{""},
 			}}},
 			errorString: "oid matched value empty",
 		},
 		"empty oid field": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{},
 				ExtensionValues:  []string{""},
 			}}},

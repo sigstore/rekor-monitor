@@ -26,7 +26,6 @@ import (
 	"regexp"
 
 	"github.com/go-openapi/runtime"
-	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -58,7 +57,7 @@ var (
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
-	allOIDMatchers, err := extensions.MergeOIDMatchers(mvs.OIDMatchers, mvs.FulcioExtensions, mvs.CustomExtensions)
+	allOIDMatchers, err := mvs.OIDMatchers.RenderOIDMatchers()
 	if err != nil {
 		return nil, err
 	}
