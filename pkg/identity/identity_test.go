@@ -24,9 +24,9 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 )
 
-// Test RekorLogEntry.String()
+// Test LogEntry.String()
 func TestIdentityEntryString(t *testing.T) {
-	identityEntry := RekorLogEntry{
+	identityEntry := LogEntry{
 		CertSubject: "test-cert-subject",
 		UUID:        "test-uuid",
 		Index:       1,
@@ -41,7 +41,7 @@ func TestIdentityEntryString(t *testing.T) {
 // Test CreateMonitoredIdentities
 func TestCreateMonitoredIdentities(t *testing.T) {
 	type test struct {
-		inputEntries    []RekorLogEntry
+		inputEntries    []LogEntry
 		inputIdentities []string
 		output          []MonitoredIdentity
 	}
@@ -63,7 +63,7 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 		"2": int64(2),
 	}
 
-	testIdentityEntries := map[string]RekorLogEntry{
+	testIdentityEntries := map[string]LogEntry{
 		"testCertSubject1": {
 			CertSubject: testIdentities["testCertSubject"],
 			UUID:        testUUIDs["testUUID"],
@@ -109,61 +109,61 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 	testMonitoredIdentities := map[string]MonitoredIdentity{
 		"testMonitoredIdCertSubject1": {
 			Identity:             testIdentities["testCertSubject"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testCertSubject1"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testCertSubject1"]},
 		},
 		"testMonitoredIdCertSubject2": {
 			Identity:             testIdentities["testCertSubject"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
 		},
 		"testMonitoredIdFingerprint1": {
 			Identity:             testIdentities["testFingerprint"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testFingerprint1"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testFingerprint1"]},
 		},
 		"testMonitoredIdFingerprint2": {
 			Identity:             testIdentities["testFingerprint"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testFingerprint1"], testIdentityEntries["testFingerprint2"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testFingerprint1"], testIdentityEntries["testFingerprint2"]},
 		},
 		"testMonitoredIdExtensionValue1": {
 			Identity:             testIdentities["testExtensionValue"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testExtensionValue1"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testExtensionValue1"]},
 		},
 		"testMonitoredIdExtensionValue2": {
 			Identity:             testIdentities["testExtensionValue"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testExtensionValue1"], testIdentityEntries["testExtensionValue2"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testExtensionValue1"], testIdentityEntries["testExtensionValue2"]},
 		},
 		"testMonitoredIdSubject1": {
 			Identity:             testIdentities["testSubject"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testSubject1"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testSubject1"]},
 		},
 		"testMonitoredIdSubject2": {
 			Identity:             testIdentities["testSubject"],
-			FoundIdentityEntries: []RekorLogEntry{testIdentityEntries["testSubject1"], testIdentityEntries["testSubject2"]},
+			FoundIdentityEntries: []LogEntry{testIdentityEntries["testSubject1"], testIdentityEntries["testSubject2"]},
 		},
 	}
 
 	tests := map[string]test{
 		"empty case": {
-			inputEntries:    []RekorLogEntry{},
+			inputEntries:    []LogEntry{},
 			inputIdentities: []string{},
 			output:          []MonitoredIdentity{},
 		},
 		"one entry for given identity": {
-			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"]},
+			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"]},
 			inputIdentities: []string{testIdentities["testCertSubject"]},
 			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject1"]},
 		},
 		"multiple log entries under same identity": {
-			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
+			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
 			inputIdentities: []string{testIdentities["testCertSubject"]},
 			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject2"]},
 		},
 		"no log entries matching given identity": {
-			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
+			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
 			inputIdentities: []string{testIdentities["testFingerprint"]},
 			output:          []MonitoredIdentity{},
 		},
 		"test all identities": {
-			inputEntries:    []RekorLogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testFingerprint1"], testIdentityEntries["testExtensionValue1"], testIdentityEntries["testSubject1"], testIdentityEntries["testCertSubject2"], testIdentityEntries["testFingerprint2"], testIdentityEntries["testExtensionValue2"], testIdentityEntries["testSubject2"]},
+			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testFingerprint1"], testIdentityEntries["testExtensionValue1"], testIdentityEntries["testSubject1"], testIdentityEntries["testCertSubject2"], testIdentityEntries["testFingerprint2"], testIdentityEntries["testExtensionValue2"], testIdentityEntries["testSubject2"]},
 			inputIdentities: []string{testIdentities["testCertSubject"], testIdentities["testFingerprint"], testIdentities["testExtensionValue"], testIdentities["testSubject"]},
 			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject2"], testMonitoredIdentities["testMonitoredIdExtensionValue2"], testMonitoredIdentities["testMonitoredIdFingerprint2"], testMonitoredIdentities["testMonitoredIdSubject2"]},
 		},
@@ -186,7 +186,7 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 func TestPrintMonitoredIdentities(t *testing.T) {
 	monitoredIdentity := MonitoredIdentity{
 		Identity: "test-identity",
-		FoundIdentityEntries: []RekorLogEntry{
+		FoundIdentityEntries: []LogEntry{
 			{
 				CertSubject: "test-cert-subject",
 				UUID:        "test-uuid",
@@ -270,6 +270,46 @@ func TestMonitoredValuesExist(t *testing.T) {
 		expected := testCase.expected
 		if result != expected {
 			t.Errorf("%s failed: expected %t, received %t", testCaseName, result, expected)
+		}
+	}
+}
+
+func TestCreateIdentitiesList(t *testing.T) {
+	testCases := map[string]struct {
+		input    MonitoredValues
+		expected []string
+	}{
+		"empty input": {
+			input:    MonitoredValues{},
+			expected: []string{},
+		},
+		"multiple identities": {
+			input: MonitoredValues{
+				CertificateIdentities: []CertificateIdentity{
+					{
+						CertSubject: "example-cert-subject",
+						Issuers:     []string{},
+					},
+				},
+				Fingerprints: []string{"example-fingerprint"},
+				Subjects:     []string{"example-subject"},
+				OIDMatchers: []extensions.OIDMatcher{
+					{
+						ObjectIdentifier: asn1.ObjectIdentifier{1, 4, 1, 9},
+						ExtensionValues:  []string{"example-oid-matcher"},
+					},
+				},
+			},
+			expected: []string{
+				"example-cert-subject", "example-fingerprint", "example-subject", "example-oid-matcher",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		result := CreateIdentitiesList(tc.input)
+		expected := tc.expected
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("expected %v, received %v", expected, result)
 		}
 	}
 }
