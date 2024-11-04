@@ -57,12 +57,6 @@ var (
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
-	allOIDMatchers, err := mvs.OIDMatchers.RenderOIDMatchers()
-	if err != nil {
-		return nil, err
-	}
-	// TODO: OIDMatchers should be preprocessed and merged before being passed into MatchedIndices
-	mvs.OIDMatchers = allOIDMatchers
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}

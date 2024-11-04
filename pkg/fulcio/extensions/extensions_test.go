@@ -156,10 +156,7 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 		BuildConfigURI: []string{"1", "2", "3", "4", "5", "6"},
 	}
 
-	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		t.Errorf("expected nil, received error %v", err)
-	}
+	renderedFulcioOIDMatchers := fulcioExtensions.RenderFulcioOIDMatchers()
 
 	if len(renderedFulcioOIDMatchers) != 2 {
 		t.Errorf("expected OIDMatchers to have length 2, received length %d", len(renderedFulcioOIDMatchers))
@@ -216,10 +213,7 @@ func TestRenderFulcioOIDMatchersAllFields(t *testing.T) {
 		RunInvocationURI:                    []string{testValueString},
 	}
 
-	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		t.Errorf("expected nil, received error %v", err)
-	}
+	renderedFulcioOIDMatchers := fulcioExtensions.RenderFulcioOIDMatchers()
 
 	if len(renderedFulcioOIDMatchers) != 21 {
 		t.Errorf("expected OIDMatchers to have length 21, received length %d", len(renderedFulcioOIDMatchers))

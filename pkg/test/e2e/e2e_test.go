@@ -34,6 +34,7 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/client"
@@ -147,7 +148,7 @@ func TestRunConsistencyCheck(t *testing.T) {
 	tempOutputIdentitiesFileName := tempOutputIdentitiesFile.Name()
 	defer os.Remove(tempOutputIdentitiesFileName)
 
-	monitoredVals := identity.MonitoredValues{
+	configMonitoredValues := notifications.ConfigMonitoredValues{
 		Subjects: []string{subject},
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
@@ -155,15 +156,31 @@ func TestRunConsistencyCheck(t *testing.T) {
 				Issuers:     []string{".+@domain.com"},
 			},
 		},
-		OIDMatchers: []extensions.OIDExtension{
-			{
-				ObjectIdentifier: oid,
-				ExtensionValues:  []string{extValueString},
+		OIDMatchers: extensions.OIDMatchers{
+			OIDExtensions: []extensions.OIDExtension{
+				{
+					ObjectIdentifier: oid,
+					ExtensionValues:  []string{extValueString},
+				},
 			},
+			FulcioExtensions: extensions.FulcioExtensions{},
+			CustomExtensions: []extensions.CustomExtension{},
 		},
 		Fingerprints: []string{
 			certFingerprint,
 		},
+	}
+
+	configRenderedOIDMatchers, err := configMonitoredValues.OIDMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Errorf("error rendering OID matchers: %v", err)
+	}
+
+	monitoredVals := identity.MonitoredValues{
+		Fingerprints:          configMonitoredValues.Fingerprints,
+		Subjects:              configMonitoredValues.Subjects,
+		OIDMatchers:           configRenderedOIDMatchers,
+		CertificateIdentities: configMonitoredValues.CertificateIdentities,
 	}
 
 	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName, monitoredVals, tempOutputIdentitiesFileName)

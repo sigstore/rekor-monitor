@@ -293,7 +293,7 @@ func TestCreateIdentitiesList(t *testing.T) {
 				},
 				Fingerprints: []string{"example-fingerprint"},
 				Subjects:     []string{"example-subject"},
-				OIDMatchers: []extensions.OIDMatcher{
+				OIDMatchers: []extensions.OIDExtension{
 					{
 						ObjectIdentifier: asn1.ObjectIdentifier{1, 4, 1, 9},
 						ExtensionValues:  []string{"example-oid-matcher"},
