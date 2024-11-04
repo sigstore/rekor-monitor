@@ -255,7 +255,7 @@ func TestMonitoredValuesExist(t *testing.T) {
 		},
 		"oid matchers": {
 			mvs: MonitoredValues{
-				OIDMatchers: []extensions.OIDMatcher{
+				OIDMatchers: []extensions.OIDExtension{
 					{
 						ObjectIdentifier: asn1.ObjectIdentifier{1},
 						ExtensionValues:  []string{"test extension value"},

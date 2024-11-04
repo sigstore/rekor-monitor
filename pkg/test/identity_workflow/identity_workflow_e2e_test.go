@@ -157,7 +157,7 @@ func TestIdentitySearch(t *testing.T) {
 				Issuers:     []string{".+@domain.com"},
 			},
 		},
-		OIDMatchers: []extensions.OIDMatcher{
+		OIDMatchers: []extensions.OIDExtension{
 			{
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
