@@ -58,12 +58,11 @@ var (
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.RekorLogEntry, error) {
-	allOIDMatchers, err := extensions.RenderOIDMatchers(mvs.OIDMatchers, mvs.FulcioExtensions, mvs.CustomExtensions)
+	allOIDMatchers, err := mvs.OIDMatchers.RenderOIDMatchers()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: OIDMatchers should be preprocessed and merged before being passed into MatchedIndices
-	mvs.OIDMatchers = allOIDMatchers
+
 	if err := verifyMonitoredValues(mvs); err != nil {
 		return nil, err
 	}
@@ -127,7 +126,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 				}
 			}
 
-			for _, monitoredOID := range mvs.OIDMatchers {
+			for _, monitoredOID := range allOIDMatchers {
 				for _, cert := range certs {
 					match, oid, extValue, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 					if err != nil {
@@ -175,27 +174,9 @@ func verifyMonitoredValues(mvs identity.MonitoredValues) error {
 			return errors.New("subject empty")
 		}
 	}
-	err := verifyMonitoredOIDs(mvs)
+	err := extensions.VerifyMonitoredOIDs(mvs)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-// verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
-func verifyMonitoredOIDs(mvs identity.MonitoredValues) error {
-	for _, oidMatcher := range mvs.OIDMatchers {
-		if len(oidMatcher.ObjectIdentifier) == 0 {
-			return errors.New("oid extension empty")
-		}
-		if len(oidMatcher.ExtensionValues) == 0 {
-			return errors.New("oid matched values empty")
-		}
-		for _, extensionValue := range oidMatcher.ExtensionValues {
-			if len(extensionValue) == 0 {
-				return errors.New("oid matched value empty")
-			}
-		}
 	}
 	return nil
 }

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
@@ -122,8 +123,20 @@ func main() {
 			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
 		}
 
+		allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
+		if err != nil {
+			fmt.Printf("error parsing OID matchers: %v", err)
+		}
+
+		monitoredValues := identity.MonitoredValues{
+			CertificateIdentities: config.MonitoredValues.CertificateIdentities,
+			Subjects:              config.MonitoredValues.Subjects,
+			Fingerprints:          config.MonitoredValues.Fingerprints,
+			OIDMatchers:           allOIDMatchers,
+		}
+
 		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		err := rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, config.MonitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+		err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 			return

@@ -192,7 +192,7 @@ type OIDMatchers struct {
 	CustomExtensions []CustomExtension
 }
 
-func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]OIDExtension, error) {
+func (e FulcioExtensions) RenderFulcioOIDMatchers() []OIDExtension {
 	var exts []OIDExtension
 
 	// BEGIN: Deprecated
@@ -329,15 +329,17 @@ func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]OIDExtension, error) {
 		})
 	}
 
-	return exts, nil
+	return exts
 }
 
-// RenderOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice of OIDMatchers
+// Length retrieves the length of all OID matchers in an OIDMatchers struct from OIDExtensions, FulcioExtensions, and CustomExtensions
+func (oidMatchers OIDMatchers) Length() int {
+	return len(oidMatchers.CustomExtensions) + len(oidMatchers.FulcioExtensions.RenderFulcioOIDMatchers()) + len(oidMatchers.OIDExtensions)
+}
+
+// RenderOIDMatchers groups all OID matchers from OIDExtensions, FulcioExtensions, and CustomExtensions into one slice of OIDMatchers
 func (oidMatchers OIDMatchers) RenderOIDMatchers() ([]OIDExtension, error) {
-	fulcioOIDMatchers, err := oidMatchers.FulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		return nil, fmt.Errorf("error rendering OID matchers from Fulcio OID extensions: %w", err)
-	}
+	fulcioOIDMatchers := oidMatchers.FulcioExtensions.RenderFulcioOIDMatchers()
 	// map of all OID extensions to all associated matching extension values
 	oidMap := make(map[string]map[string]bool)
 	// dedup OID extensions and associated values through one mapping
