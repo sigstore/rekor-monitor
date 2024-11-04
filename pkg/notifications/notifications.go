@@ -38,3 +38,52 @@ var (
 type NotificationPlatform interface {
 	Send(context.Context, []identity.MonitoredIdentity) error
 }
+
+// IdentityMonitorConfiguration holds the configuration settings for an identity monitor workflow run.
+type IdentityMonitorConfiguration struct {
+	StartIndex                *int                       `yaml:"startIndex"`
+	EndIndex                  *int                       `yaml:"endIndex"`
+	MonitoredValues           identity.MonitoredValues   `yaml:"monitoredValues"`
+	ServerURL                 string                     `yaml:"serverURL"`
+	OutputIdentitiesFile      string                     `yaml:"outputIdentities"`
+	LogInfoFile               string                     `yaml:"logInfoFile"`
+	IdentityMetadataFile      *string                    `yaml:"identityMetadataFile"`
+	GitHubIssue               *GitHubIssueInput          `yaml:"githubIssue"`
+	EmailNotificationSMTP     *EmailNotificationInput    `yaml:"emailNotificationSMTP"`
+	EmailNotificationMailgun  *MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
+	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
+	Interval                  *time.Duration             `yaml:"interval"`
+}
+
+func CreateNotificationPool(config IdentityMonitorConfiguration) []NotificationPlatform {
+	// update this as new notification platforms are implemented within rekor-monitor
+	notificationPlatforms := []NotificationPlatform{}
+	if config.GitHubIssue != nil {
+		notificationPlatforms = append(notificationPlatforms, config.GitHubIssue)
+	}
+
+	if config.EmailNotificationSMTP != nil {
+		notificationPlatforms = append(notificationPlatforms, config.EmailNotificationSMTP)
+	}
+
+	if config.EmailNotificationSendGrid != nil {
+		notificationPlatforms = append(notificationPlatforms, config.EmailNotificationSendGrid)
+	}
+
+	if config.EmailNotificationMailgun != nil {
+		notificationPlatforms = append(notificationPlatforms, config.EmailNotificationMailgun)
+	}
+
+	return notificationPlatforms
+}
+
+func TriggerNotifications(notificationPlatforms []NotificationPlatform, identities []identity.MonitoredIdentity) error {
+	// update this as new notification platforms are implemented within rekor-monitor
+	for _, notificationPlatform := range notificationPlatforms {
+		if err := notificationPlatform.Send(context.Background(), identities); err != nil {
+			return fmt.Errorf("error sending notification from platform: %v", err)
+		}
+	}
+
+	return nil
+}

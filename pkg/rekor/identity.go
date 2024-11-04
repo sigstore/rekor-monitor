@@ -57,7 +57,7 @@ var (
 )
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.RekorLogEntry, error) {
+func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
 	allOIDMatchers, err := extensions.MergeOIDMatchers(mvs.OIDMatchers, mvs.FulcioExtensions, mvs.CustomExtensions)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 		return nil, err
 	}
 
-	var matchedEntries []identity.RekorLogEntry
+	var matchedEntries []identity.LogEntry
 
 	for _, entries := range logEntries {
 		for uuid, entry := range entries {
@@ -86,7 +86,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 			for _, monitoredFp := range mvs.Fingerprints {
 				for _, fp := range fps {
 					if fp == monitoredFp {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Fingerprint: fp,
 							Index:       *entry.LogIndex,
 							UUID:        uuid,
@@ -101,7 +101,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 					if err != nil {
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					} else if match {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							CertSubject: sub,
 							Issuer:      iss,
 							Index:       *entry.LogIndex,
@@ -118,7 +118,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 				}
 				for _, sub := range subjects {
 					if regex.MatchString(sub) {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Subject: sub,
 							Index:   *entry.LogIndex,
 							UUID:    uuid,
@@ -134,7 +134,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					}
 					if match {
-						matchedEntries = append(matchedEntries, identity.RekorLogEntry{
+						matchedEntries = append(matchedEntries, identity.LogEntry{
 							Index:          *entry.LogIndex,
 							UUID:           uuid,
 							OIDExtension:   oid,
@@ -374,15 +374,15 @@ func GetCheckpointIndices(logInfo *models.LogInfo, prevCheckpoint *util.SignedCh
 	return startIndex, endIndex
 }
 
-func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) error {
+func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
 
 	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 	if err != nil {
-		return fmt.Errorf("error getting entries by index range: %v", err)
+		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 	idEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return fmt.Errorf("error finding log indices: %v", err)
+		return nil, fmt.Errorf("error finding log indices: %v", err)
 	}
 
 	if len(idEntries) > 0 {
@@ -390,7 +390,7 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
 			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
-				return fmt.Errorf("failed to write entry: %v", err)
+				return nil, fmt.Errorf("failed to write entry: %v", err)
 			}
 		}
 	}
@@ -403,11 +403,13 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 		}
 		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
 		if err != nil {
-			return fmt.Errorf("failed to write id metadata: %v", err)
+			return nil, fmt.Errorf("failed to write id metadata: %v", err)
 		}
 	}
 
-	return nil
+	identities := identity.CreateIdentitiesList(monitoredValues)
+	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
+	return monitoredIdentities, nil
 }
 
 // writeIdentitiesBetweenCheckpoints monitors for given identities between two checkpoints and writes any found identities to file.
@@ -417,7 +419,7 @@ func writeIdentitiesBetweenCheckpoints(logInfo *models.LogInfo, prevCheckpoint *
 
 	// Search for identities in the log range
 	if identity.MonitoredValuesExist(monitoredValues) {
-		err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
+		_, err := IdentitySearch(startIndex, endIndex, rekorClient, monitoredValues, outputIdentitiesFile, nil)
 		if err != nil {
 			return fmt.Errorf("error monitoring for identities: %v", err)
 		}
