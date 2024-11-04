@@ -40,8 +40,8 @@ func (mailgunNotificationInput MailgunNotificationInput) Send(ctx context.Contex
 		return err
 	}
 	mg := mailgun.NewMailgun(mailgunNotificationInput.MailgunDomainName, mailgunNotificationInput.MailgunAPIKey)
-	email := mg.NewMessage(mailgunNotificationInput.SenderEmailAddress, subject, "", mailgunNotificationInput.RecipientEmailAddress)
-	email.SetHtml(emailHTMLBody)
+	email := mailgun.NewMessage(mailgunNotificationInput.SenderEmailAddress, subject, "", mailgunNotificationInput.RecipientEmailAddress)
+	email.SetHTML(emailHTMLBody)
 	_, _, err = mg.Send(ctx, email)
 	return err
 }
