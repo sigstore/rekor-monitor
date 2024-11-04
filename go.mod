@@ -7,7 +7,7 @@ require (
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/certificate-transparency-go v1.2.1
 	github.com/google/go-github/v65 v65.0.0
-	github.com/mailgun/mailgun-go/v4 v4.17.0
+	github.com/mailgun/mailgun-go/v4 v4.18.1
 	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
@@ -112,7 +112,6 @@ require (
 	google.golang.org/grpc v1.64.1 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
