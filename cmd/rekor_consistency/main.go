@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -59,6 +60,7 @@ func main() {
 	if err := yaml.Unmarshal([]byte(*monitoredValsInput), &monitoredVals); err != nil {
 		log.Fatalf("error parsing identities: %v", err)
 	}
+
 	for _, certID := range monitoredVals.CertificateIdentities {
 		if len(certID.Issuers) == 0 {
 			fmt.Printf("Monitoring certificate subject %s\n", certID.CertSubject)
@@ -88,8 +90,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = rekor.RunConsistencyCheck(*interval, rekorClient, verifier, *logInfoFile, monitoredVals, *outputIdentitiesFile, *once)
-	if err != nil {
-		log.Fatalf("%v", err)
+	ticker := time.NewTicker(*interval)
+	defer ticker.Stop()
+
+	// Loop will:
+	// 1. Fetch latest checkpoint and verify
+	// 2. If old checkpoint is present, verify consistency proof
+	// 3. Write latest checkpoint to file
+
+	// To get an immediate first tick
+	for ; ; <-ticker.C {
+		err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile, monitoredVals, *outputIdentitiesFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
+			return
+		}
+
+		if *once {
+			return
+		}
 	}
 }
