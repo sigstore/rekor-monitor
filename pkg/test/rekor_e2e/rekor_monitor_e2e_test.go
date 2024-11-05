@@ -34,6 +34,7 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	"github.com/sigstore/rekor/pkg/client"
@@ -149,7 +150,7 @@ func TestIdentitySearch(t *testing.T) {
 	tempMetadataFileName := tempMetadataFile.Name()
 	defer os.Remove(tempMetadataFileName)
 
-	monitoredVals := identity.MonitoredValues{
+	configMonitoredValues := notifications.ConfigMonitoredValues{
 		Subjects: []string{subject},
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
@@ -157,15 +158,41 @@ func TestIdentitySearch(t *testing.T) {
 				Issuers:     []string{".+@domain.com"},
 			},
 		},
-		OIDMatchers: []extensions.OIDExtension{
-			{
-				ObjectIdentifier: oid,
-				ExtensionValues:  []string{extValueString},
+		OIDMatchers: extensions.OIDMatchers{
+			OIDExtensions: []extensions.OIDExtension{
+				{
+					ObjectIdentifier: oid,
+					ExtensionValues:  []string{extValueString},
+				},
 			},
+			FulcioExtensions: extensions.FulcioExtensions{},
+			CustomExtensions: []extensions.CustomExtension{},
 		},
 		Fingerprints: []string{
 			certFingerprint,
 		},
+	}
+
+	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
+	if err != nil {
+		t.Errorf("error getting log verifier: %v", err)
+	}
+
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	if err != nil {
+		t.Errorf("first consistency check failed: %v", err)
+	}
+
+	configRenderedOIDMatchers, err := configMonitoredValues.OIDMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Errorf("error rendering OID matchers: %v", err)
+	}
+
+	monitoredVals := identity.MonitoredValues{
+		Subjects:              configMonitoredValues.Subjects,
+		Fingerprints:          configMonitoredValues.Fingerprints,
+		OIDMatchers:           configRenderedOIDMatchers,
+		CertificateIdentities: configMonitoredValues.CertificateIdentities,
 	}
 
 	payload = []byte{1, 2, 3, 4, 5, 6}
@@ -201,6 +228,11 @@ func TestIdentitySearch(t *testing.T) {
 	}
 	if checkpoint.Size != 2 {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
+	}
+
+	err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	if err != nil {
+		t.Errorf("second consistency check failed: %v", err)
 	}
 
 	_, err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)

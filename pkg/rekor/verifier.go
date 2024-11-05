@@ -23,7 +23,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -94,15 +93,12 @@ func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedChec
 }
 
 // VerifyConsistencyCheckInputs verifies that the input flag values to the rekor-monitor workflow are not nil.
-func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, outputIdentitiesFile *string, once *bool) error {
+func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, once *bool) error {
 	if interval == nil {
 		return errors.New("--interval flag equal to nil")
 	}
 	if logInfoFile == nil {
 		return errors.New("--file flag equal to nil")
-	}
-	if outputIdentitiesFile == nil {
-		return errors.New("--output-identities flag equal to nil")
 	}
 	if once == nil {
 		return errors.New("--once flag equal to nil")
@@ -111,7 +107,7 @@ func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, 
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string, mvs identity.MonitoredValues, outputIdentitiesFile string) error {
+func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) error {
 	logInfo, err := GetLogInfo(context.Background(), rekorClient)
 	if err != nil {
 		return fmt.Errorf("failed to get log info: %v", err)
@@ -138,13 +134,6 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 			// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
 			// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
 			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
-		}
-	}
-
-	if prevCheckpoint != nil && prevCheckpoint.Size != checkpoint.Size {
-		err = writeIdentitiesBetweenCheckpoints(logInfo, prevCheckpoint, checkpoint, mvs, rekorClient, outputIdentitiesFile)
-		if err != nil {
-			return fmt.Errorf("failed to monitor identities: %v", err)
 		}
 	}
 
