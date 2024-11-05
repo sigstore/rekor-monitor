@@ -26,6 +26,7 @@ import (
 	"regexp"
 
 	"github.com/go-openapi/runtime"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -55,6 +56,83 @@ var (
 	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
 
+func MatchLogEntryFingerprints(logEntryAnon models.LogEntryAnon, uuid string, entryFingerprints []string, monitoredFingerprints []string) []identity.LogEntry {
+	matchedEntries := []identity.LogEntry{}
+	for _, monitoredFp := range monitoredFingerprints {
+		for _, fp := range entryFingerprints {
+			if fp == monitoredFp {
+				matchedEntries = append(matchedEntries, identity.LogEntry{
+					Fingerprint: fp,
+					Index:       *logEntryAnon.LogIndex,
+					UUID:        uuid,
+				})
+			}
+		}
+	}
+	return matchedEntries
+}
+
+func MatchLogEntryCertificateIdentities(logEntryAnon models.LogEntryAnon, uuid string, entryCertificates []*x509.Certificate, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
+	matchedEntries := []identity.LogEntry{}
+	for _, monitoredCertID := range monitoredCertIDs {
+		for _, cert := range entryCertificates {
+			match, sub, iss, err := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
+			if err != nil {
+				return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+			} else if match {
+				matchedEntries = append(matchedEntries, identity.LogEntry{
+					CertSubject: sub,
+					Issuer:      iss,
+					Index:       *logEntryAnon.LogIndex,
+					UUID:        uuid,
+				})
+			}
+		}
+	}
+	return matchedEntries, nil
+}
+
+func MatchLogEntrySubjects(logEntryAnon models.LogEntryAnon, uuid string, entrySubjects []string, monitoredSubjects []string) ([]identity.LogEntry, error) {
+	matchedEntries := []identity.LogEntry{}
+	for _, monitoredSub := range monitoredSubjects {
+		regex, err := regexp.Compile(monitoredSub)
+		if err != nil {
+			return nil, fmt.Errorf("error compiling regex for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+		}
+		for _, sub := range entrySubjects {
+			if regex.MatchString(sub) {
+				matchedEntries = append(matchedEntries, identity.LogEntry{
+					Subject: sub,
+					Index:   *logEntryAnon.LogIndex,
+					UUID:    uuid,
+				})
+			}
+		}
+	}
+	return matchedEntries, nil
+}
+
+func MatchLogEntryOIDs(logEntryAnon models.LogEntryAnon, uuid string, entryCertificates []*x509.Certificate, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
+	matchedEntries := []identity.LogEntry{}
+	for _, monitoredOID := range monitoredOIDMatchers {
+		for _, cert := range entryCertificates {
+			match, oid, extValue, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
+			if err != nil {
+				return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+			}
+			if match {
+				matchedEntries = append(matchedEntries, identity.LogEntry{
+					Index:          *logEntryAnon.LogIndex,
+					UUID:           uuid,
+					OIDExtension:   oid,
+					ExtensionValue: extValue,
+				})
+			}
+		}
+	}
+	return matchedEntries, nil
+}
+
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
 	if err := verifyMonitoredValues(mvs); err != nil {
@@ -76,66 +154,26 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 				return nil, fmt.Errorf("error extracting identities for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
 
-			for _, monitoredFp := range mvs.Fingerprints {
-				for _, fp := range fps {
-					if fp == monitoredFp {
-						matchedEntries = append(matchedEntries, identity.LogEntry{
-							Fingerprint: fp,
-							Index:       *entry.LogIndex,
-							UUID:        uuid,
-						})
-					}
-				}
-			}
+			matchedFingerprintEntries := MatchLogEntryFingerprints(entry, uuid, fps, mvs.Fingerprints)
+			matchedEntries = append(matchedEntries, matchedFingerprintEntries...)
 
-			for _, monitoredCertID := range mvs.CertificateIdentities {
-				for _, cert := range certs {
-					match, sub, iss, err := certMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
-					if err != nil {
-						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
-					} else if match {
-						matchedEntries = append(matchedEntries, identity.LogEntry{
-							CertSubject: sub,
-							Issuer:      iss,
-							Index:       *entry.LogIndex,
-							UUID:        uuid,
-						})
-					}
-				}
+			matchedSubjectEntries, err := MatchLogEntrySubjects(entry, uuid, subjects, mvs.Subjects)
+			if err != nil {
+				return nil, fmt.Errorf("error matching subjects for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
+			matchedEntries = append(matchedEntries, matchedSubjectEntries...)
 
-			for _, monitoredSub := range mvs.Subjects {
-				regex, err := regexp.Compile(monitoredSub)
-				if err != nil {
-					return nil, fmt.Errorf("error compiling regex for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
-				}
-				for _, sub := range subjects {
-					if regex.MatchString(sub) {
-						matchedEntries = append(matchedEntries, identity.LogEntry{
-							Subject: sub,
-							Index:   *entry.LogIndex,
-							UUID:    uuid,
-						})
-					}
-				}
+			matchedCertIDEntries, err := MatchLogEntryCertificateIdentities(entry, uuid, certs, mvs.CertificateIdentities)
+			if err != nil {
+				return nil, fmt.Errorf("error matching certificate identities for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
+			matchedEntries = append(matchedEntries, matchedCertIDEntries...)
 
-			for _, monitoredOID := range mvs.OIDMatchers {
-				for _, cert := range certs {
-					match, oid, extValue, err := oidMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
-					if err != nil {
-						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
-					}
-					if match {
-						matchedEntries = append(matchedEntries, identity.LogEntry{
-							Index:          *entry.LogIndex,
-							UUID:           uuid,
-							OIDExtension:   oid,
-							ExtensionValue: extValue,
-						})
-					}
-				}
+			matchedOIDEntries, err := MatchLogEntryOIDs(entry, uuid, certs, mvs.OIDMatchers)
+			if err != nil {
+				return nil, fmt.Errorf("error matching object identifier extensions and values for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 			}
+			matchedEntries = append(matchedEntries, matchedOIDEntries...)
 		}
 	}
 
