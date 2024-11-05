@@ -44,15 +44,9 @@ type MonitoredValues struct {
 	// Subjects contains a list of subjects that are not specified in a
 	// certificate, such as a SSH key or PGP key email address
 	Subjects []string `yaml:"subjects"`
-	// OIDMatchers contains a list of OID extension fields and associated values
-	// ex. Build Signer URI, associated with specific workflow URIs
-	OIDMatchers []extensions.OIDMatcher `yaml:"oidMatchers"`
-	// FulcioExtensions contains all extensions currently supported by Fulcio
-	// each extension has a list of values to match on, ex. `build-signer-uri`
-	FulcioExtensions extensions.FulcioExtensions `yaml:"fulcioExtensions"`
-	// CustomExtensions contains a list of custom extension fields, represented in dot notation
-	// and associated values to match on.
-	CustomExtensions []extensions.CustomExtension `yaml:"customExtensions"`
+	// OIDMatchers represents a list of OID extension fields and associated values,
+	// which includes those constructed directly, those supported by Fulcio, and any constructed via dot notation.
+	OIDMatchers []extensions.OIDExtension `yaml:"oidMatchers"`
 }
 
 // LogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata

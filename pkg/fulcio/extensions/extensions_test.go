@@ -20,72 +20,73 @@ import (
 	"testing"
 )
 
-// Test mergeOIDMatchers
-func TestMergeOIDMatchers(t *testing.T) {
-	oidMatchers, err := MergeOIDMatchers([]OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{},
-	}}, FulcioExtensions{}, []CustomExtension{})
-	if err != nil {
-		t.Errorf("Expected nil, got %v", err)
-	}
-	if len(oidMatchers) != 1 {
-		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
+// Test RenderOIDMatchers
+func TestRenderOIDMatchers(t *testing.T) {
+	testCases := map[string]struct {
+		inputOIDMatchers OIDMatchers
+		expectedLen      int
+	}{
+		"one OIDExtension": {
+			inputOIDMatchers: OIDMatchers{
+				OIDExtensions: []OIDExtension{{
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+					ExtensionValues:  []string{},
+				}},
+			},
+			expectedLen: 1,
+		},
+		"one OIDExtension with extValues": {
+			inputOIDMatchers: OIDMatchers{
+				OIDExtensions: []OIDExtension{{
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+					ExtensionValues:  []string{"test", "test2"},
+				}},
+			},
+			expectedLen: 1,
+		},
+		"two OIDExtensions with same OID field": {
+			inputOIDMatchers: OIDMatchers{
+				OIDExtensions: []OIDExtension{{
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+					ExtensionValues:  []string{"test1"},
+				}, {
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+					ExtensionValues:  []string{"test"},
+				}},
+			},
+			expectedLen: 1,
+		},
+		"all OID extension types supported": {
+			inputOIDMatchers: OIDMatchers{
+				OIDExtensions: []OIDExtension{{
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
+					ExtensionValues:  []string{"test1"},
+				}, {
+					ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 18},
+					ExtensionValues:  []string{"test"},
+				}},
+				FulcioExtensions: FulcioExtensions{
+					BuildConfigDigest: []string{"test"},
+				},
+				CustomExtensions: []CustomExtension{{
+					ObjectIdentifier: "2.5.29.16",
+					ExtensionValues:  []string{"test"},
+				}},
+			},
+			expectedLen: 4,
+		},
 	}
 
-	oidMatchers, err = MergeOIDMatchers([]OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{""},
-	}}, FulcioExtensions{}, []CustomExtension{})
-	if err != nil {
-		t.Errorf("Expected nil, got %v", err)
-	}
-	if len(oidMatchers) != 1 {
-		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
-	}
-
-	oidMatchers, err = MergeOIDMatchers([]OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{"test", "test2"},
-	}}, FulcioExtensions{}, []CustomExtension{})
-	if err != nil {
-		t.Errorf("Expected nil, got %v", err)
-	}
-	if len(oidMatchers) != 1 {
-		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
-	}
-
-	oidMatchers, err = MergeOIDMatchers([]OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{"test1"},
-	}, {
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{"test"},
-	}}, FulcioExtensions{}, []CustomExtension{})
-	if err != nil {
-		t.Errorf("Expected nil, got %v", err)
-	}
-	if len(oidMatchers) != 1 {
-		t.Errorf("Expected 1 OIDMatcher, got %d", len(oidMatchers))
-	}
-
-	oidMatchers, err = MergeOIDMatchers([]OIDMatcher{{
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
-		ExtensionValues:  []string{"test1"},
-	}, {
-		ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 18},
-		ExtensionValues:  []string{"test"},
-	}}, FulcioExtensions{
-		BuildConfigDigest: []string{"test"},
-	}, []CustomExtension{{
-		ObjectIdentifier: "2.5.29.16",
-		ExtensionValues:  []string{"test"},
-	}})
-	if err != nil {
-		t.Errorf("Expected nil, got %v", err)
-	}
-	if len(oidMatchers) != 4 {
-		t.Errorf("Expected 4 OIDMatchers, got %d", len(oidMatchers))
+	for _, tc := range testCases {
+		oidMatchers, err := tc.inputOIDMatchers.RenderOIDMatchers()
+		if err != nil {
+			t.Errorf("expected nil, received %v", err)
+		}
+		expectedLen := tc.expectedLen
+		resultLen := len(oidMatchers)
+		if expectedLen != resultLen {
+			t.Errorf("expected %d OID matchers, received %d", expectedLen, resultLen)
+		}
 	}
 }
 
@@ -155,10 +156,7 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 		BuildConfigURI: []string{"1", "2", "3", "4", "5", "6"},
 	}
 
-	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		t.Errorf("expected nil, received error %v", err)
-	}
+	renderedFulcioOIDMatchers := fulcioExtensions.RenderFulcioOIDMatchers()
 
 	if len(renderedFulcioOIDMatchers) != 2 {
 		t.Errorf("expected OIDMatchers to have length 2, received length %d", len(renderedFulcioOIDMatchers))
@@ -168,7 +166,7 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 	buildSignerURIMatcherOID := buildSignerURIMatcher.ObjectIdentifier
 	buildSignerURIMatcherExtValues := buildSignerURIMatcher.ExtensionValues
 	if !buildSignerURIMatcherOID.Equal(OIDBuildSignerURI) {
-		t.Errorf("expected OIDMatcher to be BuildSignerURI 1.3.6.1.4.1.57264.1.9, received %s", buildSignerURIMatcherOID)
+		t.Errorf("expected OIDExtension to be BuildSignerURI 1.3.6.1.4.1.57264.1.9, received %s", buildSignerURIMatcherOID)
 	}
 	if len(buildSignerURIMatcherExtValues) != 1 {
 		t.Errorf("expected BuildSignerURI extension values to have length 1, received %d", len(buildSignerURIMatcherExtValues))
@@ -182,7 +180,7 @@ func TestRenderFulcioOIDMatchers(t *testing.T) {
 	buildConfigURIMatcherOID := buildConfigURIMatcher.ObjectIdentifier
 	buildConfigURIMatcherExtValues := buildConfigURIMatcher.ExtensionValues
 	if !buildConfigURIMatcherOID.Equal(OIDBuildConfigURI) {
-		t.Errorf("expected OIDMatcher to be BuildConfigURI 1.3.6.1.4.1.57264.1.18, received %s", buildConfigURIMatcherOID)
+		t.Errorf("expected OIDExtension to be BuildConfigURI 1.3.6.1.4.1.57264.1.18, received %s", buildConfigURIMatcherOID)
 	}
 
 	if len(buildConfigURIMatcherExtValues) != 6 {
@@ -215,10 +213,7 @@ func TestRenderFulcioOIDMatchersAllFields(t *testing.T) {
 		RunInvocationURI:                    []string{testValueString},
 	}
 
-	renderedFulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		t.Errorf("expected nil, received error %v", err)
-	}
+	renderedFulcioOIDMatchers := fulcioExtensions.RenderFulcioOIDMatchers()
 
 	if len(renderedFulcioOIDMatchers) != 21 {
 		t.Errorf("expected OIDMatchers to have length 21, received length %d", len(renderedFulcioOIDMatchers))

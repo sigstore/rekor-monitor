@@ -526,7 +526,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	// match to oid with matching extension value
 	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
+		OIDMatchers: []extensions.OIDExtension{
 			{
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
@@ -547,7 +547,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 
 	testedMonitoredValues := []identity.MonitoredValues{
 		{
-			OIDMatchers: []extensions.OIDMatcher{
+			OIDMatchers: []extensions.OIDExtension{
 				{
 					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
 					ExtensionValues:  []string{"wrong"},
@@ -555,7 +555,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 			},
 		},
 		{
-			OIDMatchers: []extensions.OIDMatcher{
+			OIDMatchers: []extensions.OIDExtension{
 				{
 					ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 14},
 					ExtensionValues:  []string{"test cert value"},
@@ -632,10 +632,18 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	// match to oid with matching extension value
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	oidMatchers := extensions.OIDMatchers{
 		FulcioExtensions: extensions.FulcioExtensions{
 			BuildSignerURI: []string{extValueString},
-		}})
+		},
+	}
+	renderedOIDMatchers, err := oidMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Fatalf("received error rendering OID matchers: %v", err)
+	}
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		OIDMatchers: renderedOIDMatchers,
+	})
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -649,26 +657,19 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
 	}
 
-	// no match to oid with different extension value
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: []extensions.OIDMatcher{
-			{
-				ObjectIdentifier: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9},
-				ExtensionValues:  []string{"wrong"},
-			},
-		}})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
-	}
-
 	// no match to oid with different oid extension field
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	oidMatchers = extensions.OIDMatchers{
 		FulcioExtensions: extensions.FulcioExtensions{
 			BuildSignerDigest: []string{extValueString},
-		}})
+		},
+	}
+	renderedOIDMatchers, err = oidMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Fatalf("received error rendering OID matchers: %v", err)
+	}
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		OIDMatchers: renderedOIDMatchers,
+	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -735,13 +736,20 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	// match to oid with matching extension value
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	oidMatchers := extensions.OIDMatchers{
 		CustomExtensions: []extensions.CustomExtension{
 			{
 				ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
 				ExtensionValues:  []string{extValueString},
 			},
-		}})
+		},
+	}
+	renderedOIDMatchers, err := oidMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Fatalf("received error rendering OID matchers: %v", err)
+	}
+	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		OIDMatchers: renderedOIDMatchers})
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -755,32 +763,30 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
 	}
 
-	testedMonitoredValues := []identity.MonitoredValues{
-		{
-			CustomExtensions: []extensions.CustomExtension{
-				{
-					ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
-					ExtensionValues:  []string{"wrong"},
-				},
+	oidMatchers = extensions.OIDMatchers{
+		CustomExtensions: []extensions.CustomExtension{
+			{
+				ObjectIdentifier: "1.3.6.1.4.1.57264.1.9",
+				ExtensionValues:  []string{"wrong"},
 			},
-		},
-		{
-			CustomExtensions: []extensions.CustomExtension{
-				{
-					ObjectIdentifier: "1.3.6.1.4.1.57264.1.16",
-					ExtensionValues:  []string{extValueString},
-				},
+			{
+				ObjectIdentifier: "1.3.6.1.4.1.57264.1.16",
+				ExtensionValues:  []string{extValueString},
 			},
 		},
 	}
-	for _, monitoredValues := range testedMonitoredValues {
-		matches, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-		if len(matches) != 0 {
-			t.Fatalf("expected no matches, got %d", len(matches))
-		}
+	renderedOIDMatchers, err = oidMatchers.RenderOIDMatchers()
+	if err != nil {
+		t.Fatalf("received error rendering OID matchers: %v", err)
+	}
+	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		OIDMatchers: renderedOIDMatchers})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no matches, got %d", len(matches))
 	}
 }
 
@@ -821,32 +827,32 @@ func TestMatchedIndicesFailures(t *testing.T) {
 			errorString: "fingerprint empty",
 		},
 		"empty oid extension": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{},
 				ExtensionValues:  []string{""},
 			}}},
-			errorString: "could not parse object identifier: empty input",
+			errorString: "oid extension empty",
 		},
 		"empty oid matched values": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 				ExtensionValues:  []string{},
 			}}},
 			errorString: "oid matched values empty",
 		},
 		"empty oid matched value": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{2, 5, 29, 17},
 				ExtensionValues:  []string{""},
 			}}},
 			errorString: "oid matched value empty",
 		},
 		"empty oid field": {
-			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDMatcher{{
+			input: identity.MonitoredValues{OIDMatchers: []extensions.OIDExtension{{
 				ObjectIdentifier: asn1.ObjectIdentifier{},
 				ExtensionValues:  []string{""},
 			}}},
-			errorString: "could not parse object identifier: empty input",
+			errorString: "oid extension empty",
 		},
 	}
 

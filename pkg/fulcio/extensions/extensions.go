@@ -173,56 +173,63 @@ type FulcioExtensions struct {
 	SourceRepositoryVisibilityAtSigning []string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
-// OIDMatcher holds an OID field and a list of values to match on
-type OIDMatcher struct {
+// OIDExtension holds an OID field and a list of values to match on
+type OIDExtension struct {
 	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
 	ExtensionValues  []string              `yaml:"extensionValues"`
 }
 
-// CustomOID holds an OID field represented in dot notation and a list of values to match on
+// CustomExtension holds an OID field represented in dot notation and a list of values to match on
 type CustomExtension struct {
 	ObjectIdentifier string   `yaml:"objectIdentifier"`
 	ExtensionValues  []string `yaml:"extensionValues"`
 }
 
-func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]OIDMatcher, error) {
-	var exts []OIDMatcher
+// OIDMatchers holds all FulcioExtensions, OIDMatchers, and CustomExtensions
+type OIDMatchers struct {
+	OIDExtensions    []OIDExtension
+	FulcioExtensions FulcioExtensions
+	CustomExtensions []CustomExtension
+}
+
+func (e FulcioExtensions) RenderFulcioOIDMatchers() []OIDExtension {
+	var exts []OIDExtension
 
 	// BEGIN: Deprecated
 	if len(e.Issuer) != 0 {
 		// deprecated issuer extension due to incorrect encoding
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDIssuer,
 			ExtensionValues:  e.Issuer,
 		})
 	}
 
 	if len(e.GithubWorkflowTrigger) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDGitHubWorkflowTrigger,
 			ExtensionValues:  e.GithubWorkflowTrigger,
 		})
 	}
 	if len(e.GithubWorkflowSHA) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDGitHubWorkflowSHA,
 			ExtensionValues:  e.GithubWorkflowSHA,
 		})
 	}
 	if len(e.GithubWorkflowName) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDGitHubWorkflowName,
 			ExtensionValues:  e.GithubWorkflowName,
 		})
 	}
 	if len(e.GithubWorkflowRepository) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDGitHubWorkflowRepository,
 			ExtensionValues:  e.GithubWorkflowRepository,
 		})
 	}
 	if len(e.GithubWorkflowRef) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDGitHubWorkflowRef,
 			ExtensionValues:  e.GithubWorkflowRef,
 		})
@@ -231,110 +238,107 @@ func (e FulcioExtensions) RenderFulcioOIDMatchers() ([]OIDMatcher, error) {
 
 	// duplicate issuer with correct RFC 5280 encoding
 	if len(e.Issuer) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDIssuerV2,
 			ExtensionValues:  e.Issuer,
 		})
 	}
 
 	if len(e.BuildSignerURI) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDBuildSignerURI,
 			ExtensionValues:  e.BuildSignerURI,
 		})
 	}
 	if len(e.BuildSignerDigest) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDBuildSignerDigest,
 			ExtensionValues:  e.BuildSignerDigest,
 		})
 	}
 	if len(e.RunnerEnvironment) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDRunnerEnvironment,
 			ExtensionValues:  e.RunnerEnvironment,
 		})
 	}
 	if len(e.SourceRepositoryURI) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryURI,
 			ExtensionValues:  e.SourceRepositoryURI,
 		})
 	}
 	if len(e.SourceRepositoryDigest) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryDigest,
 			ExtensionValues:  e.SourceRepositoryDigest,
 		})
 	}
 	if len(e.SourceRepositoryRef) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryRef,
 			ExtensionValues:  e.SourceRepositoryRef,
 		})
 	}
 	if len(e.SourceRepositoryIdentifier) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryIdentifier,
 			ExtensionValues:  e.SourceRepositoryIdentifier,
 		})
 	}
 	if len(e.SourceRepositoryOwnerURI) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryOwnerURI,
 			ExtensionValues:  e.SourceRepositoryOwnerURI,
 		})
 	}
 	if len(e.SourceRepositoryOwnerIdentifier) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryOwnerIdentifier,
 			ExtensionValues:  e.SourceRepositoryOwnerIdentifier,
 		})
 	}
 	if len(e.BuildConfigURI) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDBuildConfigURI,
 			ExtensionValues:  e.BuildConfigURI,
 		})
 	}
 	if len(e.BuildConfigDigest) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDBuildConfigDigest,
 			ExtensionValues:  e.BuildConfigDigest,
 		})
 	}
 	if len(e.BuildTrigger) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDBuildTrigger,
 			ExtensionValues:  e.BuildTrigger,
 		})
 	}
 	if len(e.RunInvocationURI) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDRunInvocationURI,
 			ExtensionValues:  e.RunInvocationURI,
 		})
 	}
 	if len(e.SourceRepositoryVisibilityAtSigning) != 0 {
-		exts = append(exts, OIDMatcher{
+		exts = append(exts, OIDExtension{
 			ObjectIdentifier: OIDSourceRepositoryVisibilityAtSigning,
 			ExtensionValues:  e.SourceRepositoryVisibilityAtSigning,
 		})
 	}
 
-	return exts, nil
+	return exts
 }
 
-// MergeOIDMatchers groups all OID matchers from OIDMatchers, FulcioExtensions, and CustomOIDs into one slice of OIDMatchers
-func MergeOIDMatchers(oidMatchers []OIDMatcher, fulcioExtensions FulcioExtensions, customExtensions []CustomExtension) ([]OIDMatcher, error) {
-	fulcioOIDMatchers, err := fulcioExtensions.RenderFulcioOIDMatchers()
-	if err != nil {
-		return nil, fmt.Errorf("error rendering OID matchers from Fulcio OID extensions: %w", err)
-	}
+// RenderOIDMatchers groups all OID matchers from OIDExtensions, FulcioExtensions, and CustomExtensions into one slice of OIDMatchers
+func (oidMatchers OIDMatchers) RenderOIDMatchers() ([]OIDExtension, error) {
+	fulcioOIDMatchers := oidMatchers.FulcioExtensions.RenderFulcioOIDMatchers()
 	// map of all OID extensions to all associated matching extension values
 	oidMap := make(map[string]map[string]bool)
 	// dedup OID extensions and associated values through one mapping
-	for _, oidMatcher := range oidMatchers {
+	for _, oidMatcher := range oidMatchers.OIDExtensions {
 		oidMatcherString := oidMatcher.ObjectIdentifier.String()
 		oidMap[oidMatcherString] = make(map[string]bool)
 		for _, extValue := range oidMatcher.ExtensionValues {
@@ -348,7 +352,7 @@ func MergeOIDMatchers(oidMatchers []OIDMatcher, fulcioExtensions FulcioExtension
 			oidMap[oidMatcherString][extValue] = true
 		}
 	}
-	for _, customOID := range customExtensions {
+	for _, customOID := range oidMatchers.CustomExtensions {
 		customOIDString := customOID.ObjectIdentifier
 		oidMap[customOIDString] = make(map[string]bool)
 		for _, extValue := range customOID.ExtensionValues {
@@ -357,7 +361,7 @@ func MergeOIDMatchers(oidMatchers []OIDMatcher, fulcioExtensions FulcioExtension
 	}
 
 	// convert map into list of OIDMatchers
-	var allMatchers []OIDMatcher
+	var allMatchers []OIDExtension
 	for oidExtension, extValueMap := range oidMap {
 		parsedOID, err := ParseObjectIdentifier(oidExtension)
 		if err != nil {
@@ -367,7 +371,7 @@ func MergeOIDMatchers(oidMatchers []OIDMatcher, fulcioExtensions FulcioExtension
 		for extValue := range extValueMap {
 			extValues = append(extValues, extValue)
 		}
-		allMatchers = append(allMatchers, OIDMatcher{
+		allMatchers = append(allMatchers, OIDExtension{
 			ObjectIdentifier: parsedOID,
 			ExtensionValues:  extValues,
 		})
