@@ -33,7 +33,7 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
 	subject := logEntry.X509Cert.Subject.String()
 	matchedEntries := []*identity.LogEntry{}
 	for _, monitoredSub := range monitoredSubjects {
