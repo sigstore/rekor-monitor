@@ -22,7 +22,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
@@ -969,72 +968,6 @@ func TestGetPrevCurrentCheckpoints(t *testing.T) {
 
 	if currentCheckpoint.Checkpoint.String() != expectedCheckpoint.Checkpoint.String() {
 		t.Errorf("expected current checkpoint %s, received %s", expectedCheckpoint.Checkpoint, currentCheckpoint.Checkpoint)
-	}
-}
-
-func mockCertificateWithExtension(oid asn1.ObjectIdentifier, value string) (*x509.Certificate, error) {
-	extValue, err := asn1.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	cert := &x509.Certificate{
-		Extensions: []pkix.Extension{
-			{
-				Id:       oid,
-				Critical: false,
-				Value:    extValue,
-			},
-		},
-	}
-	return cert, nil
-}
-
-// Test when OID is present but the value does not match
-func TestOIDDoesNotMatch(t *testing.T) {
-	cert, err := mockCertificateWithExtension(asn1.ObjectIdentifier{2, 5, 29, 17}, "test cert value")
-	if err != nil {
-		t.Errorf("Expected nil got %v", err)
-	}
-	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
-	extensionValues := []string{"wrong value"}
-
-	matches, _, _, err := oidMatchesPolicy(cert, oid, extensionValues)
-	if matches || err != nil {
-		t.Errorf("Expected false without error, got %v, error %v", matches, err)
-	}
-}
-
-// Test when OID is not present in the certificate
-func TestOIDNotPresent(t *testing.T) {
-	cert := &x509.Certificate{} // No extensions
-	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
-	extensionValues := []string{"wrong value"}
-
-	matches, _, _, err := oidMatchesPolicy(cert, oid, extensionValues)
-	if matches || err != nil {
-		t.Errorf("Expected false with nil, got %v, error %v", matches, err)
-	}
-}
-
-// Test when OID is present and matches value
-func TestOIDMatchesValue(t *testing.T) {
-	cert, err := mockCertificateWithExtension(asn1.ObjectIdentifier{2, 5, 29, 17}, "test cert value")
-	if err != nil {
-		t.Errorf("Expected nil got %v", err)
-	}
-	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
-	extValueString := "test cert value"
-	extensionValues := []string{extValueString}
-
-	matches, matchedOID, extValue, err := oidMatchesPolicy(cert, oid, extensionValues)
-	if !matches || err != nil {
-		t.Errorf("Expected true, got %v, error %v", matches, err)
-	}
-	if matchedOID.String() != oid.String() {
-		t.Errorf("Expected oid to equal 2.5.29.17, got %s", matchedOID.String())
-	}
-	if extValue != extValueString {
-		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
 	}
 }
 

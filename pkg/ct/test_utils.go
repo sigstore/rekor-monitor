@@ -19,6 +19,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	google_asn1 "github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509"
+	google_pkix "github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 const (
@@ -50,4 +54,21 @@ func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
 			t.Fatal(err)
 		}
 	})
+}
+
+func mockCertificateWithExtension(oid google_asn1.ObjectIdentifier, value string) (*x509.Certificate, error) {
+	extValue, err := google_asn1.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	cert := &x509.Certificate{
+		Extensions: []google_pkix.Extension{
+			{
+				Id:       oid,
+				Critical: false,
+				Value:    extValue,
+			},
+		},
+	}
+	return cert, nil
 }

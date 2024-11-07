@@ -21,7 +21,10 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+
+	"github.com/google/certificate-transparency-go/asn1"
 )
 
 func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
@@ -32,9 +35,9 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
 	subject := logEntry.X509Cert.Subject.String()
-	foundEntries := []*identity.LogEntry{}
+	matchedEntries := []*identity.LogEntry{}
 	for _, monitoredSub := range monitoredSubjects {
 		regex, err := regexp.Compile(monitoredSub)
 		if err != nil {
@@ -42,12 +45,34 @@ func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*iden
 		}
 		matches := regex.FindAllString(subject, -1)
 		for _, match := range matches {
-			foundEntries = append(foundEntries, &identity.LogEntry{
+			matchedEntries = append(matchedEntries, &identity.LogEntry{
 				Index:       logEntry.Index,
 				CertSubject: match,
 			})
 		}
 	}
 
-	return foundEntries, nil
+	return matchedEntries, nil
+}
+
+func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]*identity.LogEntry, error) {
+	matchedEntries := []*identity.LogEntry{}
+	cert := logEntry.X509Cert
+	for _, monitoredOID := range monitoredOIDMatchers {
+		// must cast encoding/asn1 objectIdentifier to google/certificate-transparency-go fork of asn1.ObjectIdentifier
+		oidIntArray := []int(monitoredOID.ObjectIdentifier)
+		matchingOID := asn1.ObjectIdentifier(oidIntArray)
+		match, _, extValue, err := OIDMatchesPolicy(cert, matchingOID, monitoredOID.ExtensionValues)
+		if err != nil {
+			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
+		}
+		if match {
+			matchedEntries = append(matchedEntries, &identity.LogEntry{
+				Index:          logEntry.Index,
+				OIDExtension:   monitoredOID.ObjectIdentifier,
+				ExtensionValue: extValue,
+			})
+		}
+	}
+	return matchedEntries, nil
 }
