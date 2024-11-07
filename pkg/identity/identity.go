@@ -15,12 +15,21 @@
 package identity
 
 import (
+	"crypto/x509"
 	"encoding/asn1"
 	"encoding/json"
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+)
+
+var (
+	certExtensionOIDCIssuer   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
 
 // CertificateIdentity holds a certificate subject and an optional list of identity issuers
@@ -180,4 +189,99 @@ func MonitoredValuesExist(mvs MonitoredValues) bool {
 		return true
 	}
 	return false
+}
+
+// getExtension gets a certificate extension by OID where the extension value is an
+// ASN.1-encoded string
+func getExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	for _, ext := range cert.Extensions {
+		if !ext.Id.Equal(oid) {
+			continue
+		}
+		var extValue string
+		rest, err := asn1.Unmarshal(ext.Value, &extValue)
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
+		if len(rest) != 0 {
+			return "", fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+		}
+		return extValue, nil
+	}
+	return "", nil
+}
+
+// getDeprecatedExtension gets a certificate extension by OID where the extension value is a raw string
+func getDeprecatedExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(oid) {
+			return string(ext.Value), nil
+		}
+	}
+	return "", nil
+}
+
+// OIDMatchesPolicy returns if a certificate contains both a given OID field and a matching value associated with that field
+// if true, it returns the OID extension and extension value that were matched on
+func OIDMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, asn1.ObjectIdentifier, string, error) {
+	extValue, err := getExtension(cert, oid)
+	if err != nil {
+		return false, nil, "", fmt.Errorf("error getting extension value: %w", err)
+	}
+	if extValue == "" {
+		return false, nil, "", nil
+	}
+
+	for _, extensionValue := range extensionValues {
+		if extValue == extensionValue {
+			return true, oid, extValue, nil
+		}
+	}
+
+	return false, nil, "", nil
+}
+
+// CertMatchesPolicy returns true if a certificate contains a given subject and optionally a given issuer
+// expectedSub and expectedIssuers can be regular expressions
+// CertMatchesPolicy also returns the matched subject and issuer on success
+func CertMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssuers []string) (bool, string, string, error) {
+	sans := cryptoutils.GetSubjectAlternateNames(cert)
+	var issuer string
+	var err error
+	issuer, err = getExtension(cert, certExtensionOIDCIssuerV2)
+	if err != nil || issuer == "" {
+		// fallback to deprecated issuer extension
+		issuer, err = getDeprecatedExtension(cert, certExtensionOIDCIssuer)
+		if err != nil || issuer == "" {
+			return false, "", "", err
+		}
+	}
+	subjectMatches := false
+	regex, err := regexp.Compile(expectedSub)
+	if err != nil {
+		return false, "", "", fmt.Errorf("malformed subject regex: %w", err)
+	}
+	matchedSub := ""
+	for _, sub := range sans {
+		if regex.MatchString(sub) {
+			subjectMatches = true
+			matchedSub = sub
+		}
+	}
+	// allow any issuer
+	if len(expectedIssuers) == 0 {
+		return subjectMatches, matchedSub, issuer, nil
+	}
+
+	issuerMatches := false
+	for _, expectedIss := range expectedIssuers {
+		regex, err := regexp.Compile(expectedIss)
+		if err != nil {
+			return false, "", "", fmt.Errorf("malformed issuer regex: %w", err)
+		}
+		if regex.MatchString(issuer) {
+			issuerMatches = true
+		}
+	}
+	return subjectMatches && issuerMatches, matchedSub, issuer, nil
 }
