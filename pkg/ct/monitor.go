@@ -35,9 +35,9 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]identity.LogEntry, error) {
 	subject := logEntry.X509Cert.Subject.String()
-	matchedEntries := []*identity.LogEntry{}
+	matchedEntries := []identity.LogEntry{}
 	for _, monitoredSub := range monitoredSubjects {
 		regex, err := regexp.Compile(monitoredSub)
 		if err != nil {
@@ -45,7 +45,7 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*
 		}
 		matches := regex.FindAllString(subject, -1)
 		for _, match := range matches {
-			matchedEntries = append(matchedEntries, &identity.LogEntry{
+			matchedEntries = append(matchedEntries, identity.LogEntry{
 				Index:       logEntry.Index,
 				CertSubject: match,
 			})
@@ -55,8 +55,8 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*
 	return matchedEntries, nil
 }
 
-func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]*identity.LogEntry, error) {
-	matchedEntries := []*identity.LogEntry{}
+func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
+	matchedEntries := []identity.LogEntry{}
 	cert := logEntry.X509Cert
 	for _, monitoredOID := range monitoredOIDMatchers {
 		// must cast encoding/asn1 objectIdentifier to google/certificate-transparency-go fork of asn1.ObjectIdentifier
@@ -67,12 +67,43 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
 		}
 		if match {
-			matchedEntries = append(matchedEntries, &identity.LogEntry{
+			matchedEntries = append(matchedEntries, identity.LogEntry{
 				Index:          logEntry.Index,
 				OIDExtension:   monitoredOID.ObjectIdentifier,
 				ExtensionValue: extValue,
 			})
 		}
+	}
+	return matchedEntries, nil
+}
+
+func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
+	matchedEntries := []identity.LogEntry{}
+	for _, entry := range logEntries {
+		matchedCertSubjectEntries, err := ScanEntryCertSubject(entry, mvs.Subjects)
+		if err != nil {
+			return nil, err
+		}
+		matchedEntries = append(matchedEntries, matchedCertSubjectEntries...)
+
+		matchedOIDEntries, err := ScanEntryOIDExtensions(entry, mvs.OIDMatchers)
+		if err != nil {
+			return nil, err
+		}
+		matchedEntries = append(matchedEntries, matchedOIDEntries...)
+	}
+
+	return matchedEntries, nil
+}
+
+func IdentitySearch(client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
+	retrievedEntries, err := GetCTLogEntries(client, startIndex, endIndex)
+	if err != nil {
+		return nil, err
+	}
+	matchedEntries, err := MatchedIndices(retrievedEntries, mvs)
+	if err != nil {
+		return nil, err
 	}
 	return matchedEntries, nil
 }

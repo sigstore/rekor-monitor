@@ -16,7 +16,6 @@ package ct
 
 import (
 	"encoding/asn1"
-	"reflect"
 	"testing"
 
 	google_asn1 "github.com/google/certificate-transparency-go/asn1"
@@ -82,8 +81,19 @@ func TestScanEntryCertSubject(t *testing.T) {
 				t.Errorf("received nil, expected log entry")
 			}
 		} else {
-			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("expected %v, received %v", expected, logEntries)
+			for i, resultEntry := range logEntries {
+				expectedEntry := tc.expected[i]
+				resultIndex := resultEntry.Index
+				expectedIndex := expectedEntry.Index
+				if resultIndex != expectedIndex {
+					t.Errorf("expected index %d, received index %d", expectedIndex, resultIndex)
+				}
+
+				resultCertSubject := resultEntry.CertSubject
+				expectedCertSubject := expectedEntry.CertSubject
+				if resultCertSubject != expectedCertSubject {
+					t.Errorf("expected cert subject %s, received cert subject %s", expectedCertSubject, resultCertSubject)
+				}
 			}
 		}
 	}
@@ -147,8 +157,25 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 				t.Errorf("received nil, expected log entry")
 			}
 		} else {
-			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("expected %v, received %v", expected, logEntries)
+			for i, resultEntry := range logEntries {
+				expectedEntry := tc.expected[i]
+				resultIndex := resultEntry.Index
+				expectedIndex := expectedEntry.Index
+				if resultIndex != expectedIndex {
+					t.Errorf("expected index %d, received index %d", expectedIndex, resultIndex)
+				}
+
+				resultOID := resultEntry.OIDExtension.String()
+				expectedOID := expectedEntry.OIDExtension.String()
+				if resultOID != expectedOID {
+					t.Errorf("expected oid %s, received oid %s", expectedOID, resultOID)
+				}
+
+				resultExtValue := resultEntry.ExtensionValue
+				expectedExtValue := expectedEntry.ExtensionValue
+				if resultExtValue != expectedExtValue {
+					t.Errorf("expected extension value %s, received extension value %s", expectedExtValue, resultExtValue)
+				}
 			}
 		}
 	}

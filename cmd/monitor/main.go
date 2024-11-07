@@ -20,16 +20,21 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
+	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
+	rekor_client "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/util"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
@@ -49,6 +54,7 @@ func main() {
 	// Command-line flags that are parameters to the verifier job
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
+	fulcio := flag.Bool("fulcio", true, "whether to monitor an instance of a Fulcio CT log")
 	flag.Parse()
 
 	if configFilePath == nil {
@@ -66,11 +72,6 @@ func main() {
 		log.Fatalf("error parsing identities: %v", err)
 	}
 
-	rekorClient, err := client.GetRekorClient(config.ServerURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH))))
-	if err != nil {
-		log.Fatalf("getting Rekor client: %v", err)
-	}
-
 	if config.ServerURL == "" {
 		config.ServerURL = publicRekorServerURL
 	}
@@ -83,6 +84,20 @@ func main() {
 	if config.Interval == nil {
 		defaultInterval := time.Hour
 		config.Interval = &defaultInterval
+	}
+
+	var fulcioClient *ctclient.LogClient
+	var rekorClient *rekor_client.Rekor
+	if *fulcio {
+		fulcioClient, err = ctclient.New(config.ServerURL, http.DefaultClient, jsonclient.Options{})
+		if err != nil {
+			log.Fatalf("getting Fulcio client: %v", err)
+		}
+	} else {
+		rekorClient, err = client.GetRekorClient(config.ServerURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH))))
+		if err != nil {
+			log.Fatalf("getting Rekor client: %v", err)
+		}
 	}
 
 	ticker := time.NewTicker(*config.Interval)
@@ -136,11 +151,18 @@ func main() {
 			OIDMatchers:           allOIDMatchers,
 		}
 
-		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-			return
+		if *fulcio {
+			_, err = ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+			}
+		} else {
+			// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
+			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+				return
+			}
 		}
 
 		if *once || inputEndIndex != nil {
