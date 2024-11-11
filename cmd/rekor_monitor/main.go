@@ -55,7 +55,6 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
-	flag.Parse()
 
 	if *configFilePath == "" && *configYamlInput == "" {
 		log.Fatalf("empty configuration input")
@@ -85,15 +84,8 @@ func main() {
 		}
 	}
 
-	if config.ServerURL == "" {
-		config.ServerURL = publicRekorServerURL
-	}
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = outputIdentitiesFileName
-	}
-	if config.Interval == nil {
-		defaultInterval := time.Hour
-		config.Interval = &defaultInterval
 	}
 
 	err := rekor.VerifyConsistencyCheckInputs(interval, &config.LogInfoFile, once)
@@ -137,7 +129,7 @@ func main() {
 		fmt.Printf("Monitoring subject %s\n", sub)
 	}
 
-	ticker := time.NewTicker(*config.Interval)
+	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
 	// To get an immediate first tick

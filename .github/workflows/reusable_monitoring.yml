@@ -81,7 +81,7 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/rekor_consistency --file ${{ env.LOG_FILE }} --once=${{ inputs.once }} --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}"
+      - run: go run ./cmd/rekor_monitor --config ${{ inputs.config }} --file ${{ env.LOG_FILE }} --once=${{ inputs.once }} --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}"
       - name: Upload checkpoint
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
@@ -90,8 +90,6 @@ jobs:
           retention-days: ${{ inputs.artifact_retention_days }}
       - name: Log new checkpoints
         run: cat ${{ env.LOG_FILE }}
-      - name: Run identity monitor
-        run: go run ./cmd/rekor_monitor --config ${{ inputs.config }} --once=${{ inputs.once }}
 
   if-succeeded:
     runs-on: ubuntu-latest
