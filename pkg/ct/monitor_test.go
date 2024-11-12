@@ -34,7 +34,7 @@ const (
 	organizationName = "test-org"
 )
 
-func TestScanEntrySubject(t *testing.T) {
+func TestScanEntryCertSubject(t *testing.T) {
 	testCases := map[string]struct {
 		inputEntry    ct.LogEntry
 		inputSubjects []identity.CertificateIdentity
@@ -91,7 +91,7 @@ func TestScanEntrySubject(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		logEntries, err := ScanEntrySubject(tc.inputEntry, tc.inputSubjects)
+		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
 		if err != nil {
 			t.Errorf("received error scanning entry for subjects: %v", err)
 		}

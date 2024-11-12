@@ -32,18 +32,10 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-<<<<<<< HEAD
 func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
 	matchedEntries := []identity.LogEntry{}
 	for _, monitoredCertID := range monitoredCertIDs {
 		match, sub, iss, err := identity.CertMatchesPolicy(logEntry.X509Cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
-=======
-func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
-	subject := logEntry.X509Cert.Subject.String()
-	matchedEntries := []*identity.LogEntry{}
-	for _, monitoredSub := range monitoredSubjects {
-		regex, err := regexp.Compile(monitoredSub)
->>>>>>> 425f8bd (refactor extension functions to support x509 and google_x509)
 		if err != nil {
 			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
 		} else if match {
