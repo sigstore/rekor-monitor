@@ -33,20 +33,40 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]*identity.LogEntry, error) {
 	subject := logEntry.X509Cert.Subject.String()
+	certIssuer := logEntry.X509Cert.Issuer.String()
 	matchedEntries := []*identity.LogEntry{}
-	for _, monitoredSub := range monitoredSubjects {
-		regex, err := regexp.Compile(monitoredSub)
+	for _, monitoredCertID := range monitoredCertIDs {
+		regex, err := regexp.Compile(monitoredCertID.CertSubject)
 		if err != nil {
-			return nil, fmt.Errorf("error compiling regex: %v", err)
+			return nil, fmt.Errorf("error compiling regex for subject: %v", err)
 		}
+
+		expectedIssuers := monitoredCertID.Issuers
+
 		matches := regex.FindAllString(subject, -1)
 		for _, match := range matches {
-			matchedEntries = append(matchedEntries, &identity.LogEntry{
-				Index:       logEntry.Index,
-				CertSubject: match,
-			})
+			if len(expectedIssuers) > 0 {
+				for _, expectedIssuer := range expectedIssuers {
+					regex, err := regexp.Compile(expectedIssuer)
+					if err != nil {
+						return nil, fmt.Errorf("error compiling regex for issuer: %v", err)
+					}
+					if regex.MatchString(certIssuer) {
+						matchedEntries = append(matchedEntries, &identity.LogEntry{
+							Index:       logEntry.Index,
+							CertSubject: match,
+							Issuer:      expectedIssuer,
+						})
+					}
+				}
+			} else {
+				matchedEntries = append(matchedEntries, &identity.LogEntry{
+					Index:       logEntry.Index,
+					CertSubject: match,
+				})
+			}
 		}
 	}
 
