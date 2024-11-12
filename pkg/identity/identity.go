@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -25,6 +26,9 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+
+	google_asn1 "github.com/google/certificate-transparency-go/asn1"
+	google_x509 "github.com/google/certificate-transparency-go/x509"
 )
 
 var (
@@ -193,37 +197,68 @@ func MonitoredValuesExist(mvs MonitoredValues) bool {
 
 // getExtension gets a certificate extension by OID where the extension value is an
 // ASN.1-encoded string
-func getExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
-	for _, ext := range cert.Extensions {
-		if !ext.Id.Equal(oid) {
-			continue
+func getExtension[Certificate *x509.Certificate | *google_x509.Certificate](certificate Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	switch cert := any(certificate).(type) {
+	case *x509.Certificate:
+		for _, ext := range cert.Extensions {
+			if !ext.Id.Equal(oid) {
+				continue
+			}
+			var extValue string
+			rest, err := asn1.Unmarshal(ext.Value, &extValue)
+			if err != nil {
+				return "", fmt.Errorf("%w", err)
+			}
+			if len(rest) != 0 {
+				return "", fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+			}
+			return extValue, nil
 		}
-		var extValue string
-		rest, err := asn1.Unmarshal(ext.Value, &extValue)
-		if err != nil {
-			return "", fmt.Errorf("%w", err)
+		return "", nil
+	case *google_x509.Certificate:
+		for _, ext := range cert.Extensions {
+			if !ext.Id.Equal((google_asn1.ObjectIdentifier)(oid)) {
+				continue
+			}
+			var extValue string
+			rest, err := asn1.Unmarshal(ext.Value, &extValue)
+			if err != nil {
+				return "", fmt.Errorf("%w", err)
+			}
+			if len(rest) != 0 {
+				return "", fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+			}
+			return extValue, nil
 		}
-		if len(rest) != 0 {
-			return "", fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
-		}
-		return extValue, nil
+		return "", nil
 	}
-	return "", nil
+	return "", errors.New("certificate was neither x509 nor google_x509")
 }
 
 // getDeprecatedExtension gets a certificate extension by OID where the extension value is a raw string
-func getDeprecatedExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) (string, error) {
-	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(oid) {
-			return string(ext.Value), nil
+func getDeprecatedExtension[Certificate *x509.Certificate | *google_x509.Certificate](certificate Certificate, oid asn1.ObjectIdentifier) (string, error) {
+	switch cert := any(certificate).(type) {
+	case *x509.Certificate:
+		for _, ext := range cert.Extensions {
+			if ext.Id.Equal(oid) {
+				return string(ext.Value), nil
+			}
 		}
+		return "", nil
+	case *google_x509.Certificate:
+		for _, ext := range cert.Extensions {
+			if ext.Id.Equal((google_asn1.ObjectIdentifier)(oid)) {
+				return string(ext.Value), nil
+			}
+		}
+		return "", nil
 	}
-	return "", nil
+	return "", errors.New("certificate was neither x509 nor google_x509")
 }
 
 // OIDMatchesPolicy returns if a certificate contains both a given OID field and a matching value associated with that field
 // if true, it returns the OID extension and extension value that were matched on
-func OIDMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, asn1.ObjectIdentifier, string, error) {
+func OIDMatchesPolicy[Certificate *x509.Certificate | *google_x509.Certificate](cert Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, asn1.ObjectIdentifier, string, error) {
 	extValue, err := getExtension(cert, oid)
 	if err != nil {
 		return false, nil, "", fmt.Errorf("error getting extension value: %w", err)
@@ -231,13 +266,11 @@ func OIDMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, extensi
 	if extValue == "" {
 		return false, nil, "", nil
 	}
-
 	for _, extensionValue := range extensionValues {
 		if extValue == extensionValue {
 			return true, oid, extValue, nil
 		}
 	}
-
 	return false, nil, "", nil
 }
 

@@ -23,6 +23,9 @@ import (
 	"strings"
 	"testing"
 
+	google_asn1 "github.com/google/certificate-transparency-go/asn1"
+	google_x509 "github.com/google/certificate-transparency-go/x509"
+	google_pkix "github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 )
 
@@ -370,6 +373,35 @@ func TestOIDMatchesValue(t *testing.T) {
 	extValueString := "test cert value"
 	extensionValues := []string{extValueString}
 
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if !matches || err != nil {
+		t.Errorf("Expected true, got %v, error %v", matches, err)
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected oid to equal 2.5.29.17, got %s", matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test when OID is present and matches value
+func TestGoogleOIDMatchesValue(t *testing.T) {
+	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
+	extValueString := "test cert value"
+	extensionValues := []string{extValueString}
+	marshalledExtValue, err := google_asn1.Marshal(extValueString)
+	if err != nil {
+		t.Errorf("error marshalling extension value: %v", err)
+	}
+	cert := &google_x509.Certificate{
+		Extensions: []google_pkix.Extension{
+			{
+				Id:    google_asn1.ObjectIdentifier{2, 5, 29, 17},
+				Value: marshalledExtValue,
+			},
+		},
+	}
 	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, extensionValues)
 	if !matches || err != nil {
 		t.Errorf("Expected true, got %v, error %v", matches, err)

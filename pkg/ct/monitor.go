@@ -23,8 +23,6 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-
-	"github.com/google/certificate-transparency-go/asn1"
 )
 
 func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
@@ -35,7 +33,7 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
+func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
 	subject := logEntry.X509Cert.Subject.String()
 	matchedEntries := []*identity.LogEntry{}
 	for _, monitoredSub := range monitoredSubjects {
@@ -59,10 +57,7 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	matchedEntries := []*identity.LogEntry{}
 	cert := logEntry.X509Cert
 	for _, monitoredOID := range monitoredOIDMatchers {
-		// must cast encoding/asn1 objectIdentifier to google/certificate-transparency-go fork of asn1.ObjectIdentifier
-		oidIntArray := []int(monitoredOID.ObjectIdentifier)
-		matchingOID := asn1.ObjectIdentifier(oidIntArray)
-		match, _, extValue, err := OIDMatchesPolicy(cert, matchingOID, monitoredOID.ExtensionValues)
+		match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 		if err != nil {
 			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
 		}

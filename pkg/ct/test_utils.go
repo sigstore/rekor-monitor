@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	google_asn1 "github.com/google/certificate-transparency-go/asn1"
-	"github.com/google/certificate-transparency-go/x509"
+	google_x509 "github.com/google/certificate-transparency-go/x509"
 	google_pkix "github.com/google/certificate-transparency-go/x509/pkix"
 )
 
@@ -56,12 +56,12 @@ func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
 	})
 }
 
-func mockCertificateWithExtension(oid google_asn1.ObjectIdentifier, value string) (*x509.Certificate, error) {
+func mockCertificateWithExtension(oid google_asn1.ObjectIdentifier, value string) (*google_x509.Certificate, error) {
 	extValue, err := google_asn1.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
-	cert := &x509.Certificate{
+	cert := &google_x509.Certificate{
 		Extensions: []google_pkix.Extension{
 			{
 				Id:       oid,
