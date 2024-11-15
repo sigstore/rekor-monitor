@@ -138,10 +138,18 @@ func main() {
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
+			foundEntries, err := ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 				return
+			}
+
+			notificationPool := notifications.CreateNotificationPool(config)
+
+			err = notifications.TriggerNotifications(notificationPool, foundEntries)
+			if err != nil {
+				// continue running consistency check if notifications fail to trigger
+				fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
 			}
 		}
 
@@ -152,5 +160,4 @@ func main() {
 		config.StartIndex = config.EndIndex
 		config.EndIndex = nil
 	}
-
 }
