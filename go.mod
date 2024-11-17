@@ -14,7 +14,7 @@ require (
 	github.com/sigstore/rekor v1.3.6
 	github.com/sigstore/sigstore v1.8.10
 	github.com/transparency-dev/merkle v0.0.2
-	github.com/wneessen/go-mail v0.5.1
+	github.com/wneessen/go-mail v0.5.2
 	golang.org/x/mod v0.22.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
