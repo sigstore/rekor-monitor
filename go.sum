@@ -147,8 +147,8 @@ github.com/migueleliasweb/go-github-mock v1.1.0 h1:GKaOBPsrPGkAKgtfuWY8MclS1xR6M
 github.com/migueleliasweb/go-github-mock v1.1.0/go.mod h1:pYe/XlGs4BGMfRY4vmeixVsODHnVDDhJ9zoi0qzSMHc=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
-github.com/mocktools/go-smtp-mock/v2 v2.3.1 h1:wq75NDSsOy5oHo/gEQQT0fRRaYKRqr1IdkjhIPXxagM=
-github.com/mocktools/go-smtp-mock/v2 v2.3.1/go.mod h1:h9AOf/IXLSU2m/1u4zsjtOM/WddPwdOUBz56dV9f81M=
+github.com/mocktools/go-smtp-mock/v2 v2.3.3 h1:hM3AEVq0hr/nzCZOoIS+6ZHMb/vTqogjUaOG78Em42Q=
+github.com/mocktools/go-smtp-mock/v2 v2.3.3/go.mod h1:h9AOf/IXLSU2m/1u4zsjtOM/WddPwdOUBz56dV9f81M=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
