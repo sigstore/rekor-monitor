@@ -19,9 +19,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -47,59 +45,5 @@ func TestGetLogVerifier(t *testing.T) {
 	pubkey, _ := verifier.PublicKey()
 	if err := cryptoutils.EqualKeys(key.Public(), pubkey); err != nil {
 		t.Fatalf("expected equal keys: %v", err)
-	}
-}
-
-func TestVerifyConsistencyCheckInputs(t *testing.T) {
-	interval := 5 * time.Minute
-	logInfoFile := "./test/example_log_info_file_path.txt"
-	once := true
-	verifyConsistencyCheckInputTests := map[string]struct {
-		interval      *time.Duration
-		logInfoFile   *string
-		once          *bool
-		expectedError error
-	}{
-		"successful verification": {
-			interval:      &interval,
-			logInfoFile:   &logInfoFile,
-			once:          &once,
-			expectedError: nil,
-		},
-		"fail --interval verification": {
-			interval:      nil,
-			logInfoFile:   &logInfoFile,
-			once:          &once,
-			expectedError: errors.New("--interval flag equal to nil"),
-		},
-		"fail --file verification": {
-			interval:      &interval,
-			logInfoFile:   nil,
-			once:          &once,
-			expectedError: errors.New("--file flag equal to nil"),
-		},
-		"fail --once verification": {
-			interval:      &interval,
-			logInfoFile:   &logInfoFile,
-			once:          nil,
-			expectedError: errors.New("--once flag equal to nil"),
-		},
-		"empty case": {
-			interval:      nil,
-			logInfoFile:   nil,
-			once:          nil,
-			expectedError: errors.New("--interval flag equal to nil"),
-		},
-	}
-
-	for verifyConsistencyCheckInputTestCaseName, verifyConsistencyCheckInputTestCase := range verifyConsistencyCheckInputTests {
-		interval := verifyConsistencyCheckInputTestCase.interval
-		logInfoFile := verifyConsistencyCheckInputTestCase.logInfoFile
-		once := verifyConsistencyCheckInputTestCase.once
-		expectedError := verifyConsistencyCheckInputTestCase.expectedError
-		err := VerifyConsistencyCheckInputs(interval, logInfoFile, once)
-		if (err == nil && expectedError != nil) || (err != nil && expectedError != nil && err.Error() != expectedError.Error()) {
-			t.Errorf("%s: expected error %v, received error %v", verifyConsistencyCheckInputTestCaseName, expectedError, err)
-		}
 	}
 }

@@ -125,15 +125,7 @@ func main() {
 		inputEndIndex := config.EndIndex
 
 		var logInfo *models.LogInfo
-		if config.StartIndex == nil || config.EndIndex == nil {
-			logInfo, err = rekor.GetLogInfo(context.Background(), rekorClient)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error getting log info: %v", err)
-				return
-			}
-		}
-
-		err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+		logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
 			return
