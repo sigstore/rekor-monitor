@@ -93,7 +93,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 	}
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
-		SenderEmailAddress:    "example_sender@mail.com",
+		SenderEmailAddress:    "example-sender@mail.com",
 		SMTPHostURL:           "127.0.0.1",
 		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
@@ -107,7 +107,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	server := smtpmock.New(smtpmock.ConfigurationAttr{
 		HostAddress:               "127.0.0.1",
-		BlacklistedMailfromEmails: []string{"example_sender@mail.com"},
+		BlacklistedMailfromEmails: []string{"example-sender@mail.com"},
 	})
 	if err := server.Start(); err != nil {
 		t.Errorf("error starting server: %v", err)
@@ -124,7 +124,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	}
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
-		SenderEmailAddress:    "example_sender@mail.com",
+		SenderEmailAddress:    "example-sender@mail.com",
 		SMTPHostURL:           "127.0.0.1",
 		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
