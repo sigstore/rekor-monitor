@@ -52,17 +52,10 @@ func main() {
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
+	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
-
-	if *configFilePath == "" && *configYamlInput == "" {
-		log.Fatalf("empty configuration input")
-	}
-
-	if *configFilePath != "" && *configYamlInput != "" {
-		log.Fatalf("only input one of configuration file path or yaml input")
-	}
 
 	var config notifications.IdentityMonitorConfiguration
 
@@ -86,11 +79,6 @@ func main() {
 
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = outputIdentitiesFileName
-	}
-
-	err := rekor.VerifyConsistencyCheckInputs(interval, &config.LogInfoFile, once)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
@@ -145,10 +133,16 @@ func main() {
 			}
 		}
 
+		err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
+			return
+		}
+
 		if config.StartIndex == nil {
-			if config.LogInfoFile != "" {
+			if *logInfoFile != "" {
 				var prevCheckpoint *util.SignedCheckpoint
-				prevCheckpoint, err = file.ReadLatestCheckpoint(config.LogInfoFile)
+				prevCheckpoint, err = file.ReadLatestCheckpoint(*logInfoFile)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "reading checkpoint log: %v", err)
 					return
@@ -157,13 +151,12 @@ func main() {
 				checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
 				config.StartIndex = &checkpointStartIndex
 			} else {
-				defaultStartIndex := 0
-				config.StartIndex = &defaultStartIndex
+				fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
+				return
 			}
 		}
 
 		if config.EndIndex == nil {
-
 			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
@@ -176,11 +169,6 @@ func main() {
 
 		if *config.StartIndex >= *config.EndIndex {
 			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-		}
-
-		err = rekor.RunConsistencyCheck(rekorClient, verifier, config.LogInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
 			return
 		}
 
