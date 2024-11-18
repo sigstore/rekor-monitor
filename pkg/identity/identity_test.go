@@ -15,12 +15,17 @@
 package identity
 
 import (
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
+	google_asn1 "github.com/google/certificate-transparency-go/asn1"
+	google_x509 "github.com/google/certificate-transparency-go/x509"
+	google_pkix "github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 )
 
@@ -311,5 +316,134 @@ func TestCreateIdentitiesList(t *testing.T) {
 		if !reflect.DeepEqual(result, expected) {
 			t.Errorf("expected %v, received %v", expected, result)
 		}
+	}
+}
+
+func mockCertificateWithExtension(oid asn1.ObjectIdentifier, value string) (*x509.Certificate, error) {
+	extValue, err := asn1.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	cert := &x509.Certificate{
+		Extensions: []pkix.Extension{
+			{
+				Id:       oid,
+				Critical: false,
+				Value:    extValue,
+			},
+		},
+	}
+	return cert, nil
+}
+
+// Test when OID is present but the value does not match
+func TestOIDDoesNotMatch(t *testing.T) {
+	cert, err := mockCertificateWithExtension(asn1.ObjectIdentifier{2, 5, 29, 17}, "test cert value")
+	if err != nil {
+		t.Errorf("Expected nil got %v", err)
+	}
+	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
+	extensionValues := []string{"wrong value"}
+
+	matches, _, _, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if matches || err != nil {
+		t.Errorf("Expected false without error, got %v, error %v", matches, err)
+	}
+}
+
+// Test when OID is not present in the certificate
+func TestOIDNotPresent(t *testing.T) {
+	cert := &x509.Certificate{} // No extensions
+	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
+	extensionValues := []string{"wrong value"}
+
+	matches, _, _, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if matches || err != nil {
+		t.Errorf("Expected false with nil, got %v, error %v", matches, err)
+	}
+}
+
+// Test when OID is present and matches value
+func TestOIDMatchesValue(t *testing.T) {
+	cert, err := mockCertificateWithExtension(asn1.ObjectIdentifier{2, 5, 29, 17}, "test cert value")
+	if err != nil {
+		t.Errorf("Expected nil got %v", err)
+	}
+	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
+	extValueString := "test cert value"
+	extensionValues := []string{extValueString}
+
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if !matches || err != nil {
+		t.Errorf("Expected true, got %v, error %v", matches, err)
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected oid to equal 2.5.29.17, got %s", matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test when OID is present and matches value
+func TestGoogleOIDMatchesValue(t *testing.T) {
+	oid := asn1.ObjectIdentifier{2, 5, 29, 17}
+	extValueString := "test cert value"
+	extensionValues := []string{extValueString}
+	marshalledExtValue, err := google_asn1.Marshal(extValueString)
+	if err != nil {
+		t.Errorf("error marshalling extension value: %v", err)
+	}
+	cert := &google_x509.Certificate{
+		Extensions: []google_pkix.Extension{
+			{
+				Id:    google_asn1.ObjectIdentifier{2, 5, 29, 17},
+				Value: marshalledExtValue,
+			},
+		},
+	}
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if !matches || err != nil {
+		t.Errorf("Expected true, got %v, error %v", matches, err)
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected oid to equal 2.5.29.17, got %s", matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected string to equal 'test cert value', got %s", extValue)
+	}
+}
+
+// Test when cert is present but the value does not match
+func TestCertDoesNotMatch(t *testing.T) {
+	emailAddr := "test@address.com"
+	cert := &x509.Certificate{
+		EmailAddresses: []string{emailAddr},
+	}
+	matches, _, _, err := CertMatchesPolicy(cert, "", []string{})
+	if matches || err != nil {
+		t.Errorf("Expected false without error, got %v, error %v", matches, err)
+	}
+}
+
+// Test when cert is present but the value does not match
+func TestCertMatches(t *testing.T) {
+	emailAddr := "test@address.com"
+	issuer := "test-issuer"
+	cert := &x509.Certificate{
+		EmailAddresses: []string{emailAddr},
+		Extensions: []pkix.Extension{
+			{
+				Id:    certExtensionOIDCIssuer,
+				Value: []byte(issuer),
+			},
+		},
+	}
+	matches, receivedSub, receivedIssuer, err := CertMatchesPolicy(cert, emailAddr, []string{issuer})
+	if !matches || err != nil {
+		t.Errorf("Expected true without error, got %v, error %v", matches, err)
+	}
+	if receivedSub != emailAddr || receivedIssuer != issuer {
+		t.Errorf("expected subject %s and issuer %s, received subject %s and issuer %s", emailAddr, issuer, receivedSub, receivedIssuer)
 	}
 }
