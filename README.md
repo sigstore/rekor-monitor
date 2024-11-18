@@ -75,7 +75,7 @@ jobs:
       file_issue: true # Strongly recommended: Files an issue on monitoring failure
       artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
       config: |
-        monitoredValues: |
+        monitoredValues:
           certIdentities:
             - certSubject: user@domain\.com
             - certSubject: otheruser@domain\.com
