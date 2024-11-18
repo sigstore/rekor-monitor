@@ -18,10 +18,8 @@ import (
 	"context"
 	"crypto"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -92,29 +90,15 @@ func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedChec
 	return prevCheckpoint, nil
 }
 
-// VerifyConsistencyCheckInputs verifies that the input flag values to the rekor-monitor workflow are not nil.
-func VerifyConsistencyCheckInputs(interval *time.Duration, logInfoFile *string, once *bool) error {
-	if interval == nil {
-		return errors.New("--interval flag equal to nil")
-	}
-	if logInfoFile == nil {
-		return errors.New("--file flag equal to nil")
-	}
-	if once == nil {
-		return errors.New("--once flag equal to nil")
-	}
-	return nil
-}
-
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) error {
+func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) (*models.LogInfo, error) {
 	logInfo, err := GetLogInfo(context.Background(), rekorClient)
 	if err != nil {
-		return fmt.Errorf("failed to get log info: %v", err)
+		return nil, fmt.Errorf("failed to get log info: %v", err)
 	}
 	checkpoint, err := verifyLatestCheckpointSignature(logInfo, verifier)
 	if err != nil {
-		return fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
+		return nil, fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
 	}
 
 	fi, err := os.Stat(logInfoFile)
@@ -123,7 +107,7 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	if err == nil && fi.Size() != 0 {
 		prevCheckpoint, err = verifyCheckpointConsistency(logInfoFile, checkpoint, *logInfo.TreeID, rekorClient, verifier)
 		if err != nil {
-			return fmt.Errorf("failed to verify previous checkpoint: %v", err)
+			return nil, fmt.Errorf("failed to verify previous checkpoint: %v", err)
 		}
 
 	}
@@ -141,8 +125,8 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	// to persist the last checkpoint.
 	// Delete old checkpoints to avoid the log growing indefinitely
 	if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
-		return fmt.Errorf("failed to delete old checkpoints: %v", err)
+		return nil, fmt.Errorf("failed to delete old checkpoints: %v", err)
 	}
 
-	return nil
+	return logInfo, nil
 }
