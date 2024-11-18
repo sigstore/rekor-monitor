@@ -3,9 +3,13 @@
 Rekor Log Monitor provides an easy-to-use monitor to verify log consistency,
 that the log is immutability and append-only. Monitoring is critical to
 the transparency log ecosystem, as logs are tamper-evident but not tamper-proof.
+Rekor Log Monitor also provides a monitor to search for identities within a log,
+and send a list of found identities via various notification platforms.
+
+## Consistency check
 
 To run, create a GitHub Actions workflow that uses the
-[reusable monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/reusable_monitoring.yml).
+[consistency check workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/consistency_check.yml).
 It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow:
@@ -46,6 +50,10 @@ Please read [this](https://github.com/google/re2/wiki/Syntax) for syntax referen
 Note: The log monitor only starts monitoring from the latest checkpoint. If you want to search previous
 entries, you will need to query the log.
 
+To run, create a GitHub Actions workflow that uses the
+[identity monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/identity_monitor.yml).
+It is recommended to run the log monitor every hour for optimal performance.
+
 Example workflow below:
 
 ```
@@ -66,26 +74,27 @@ jobs:
     with:
       file_issue: true # Strongly recommended: Files an issue on monitoring failure
       artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
-      identities: |
-        certIdentities:
-          - certSubject: user@domain\.com
-          - certSubject: otheruser@domain\.com
-            issuers:
-              - https://accounts\.google\.com
-              - https://github\.com/login
-          - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
-            issuers:
-              - https://token\.actions\.githubusercontent\.com
-        subjects:
-          - subject@domain\.com
-        fingerprints:
-          - A0B1C2D3E4F5
-        fulcioExtensions:
-          build-config-uri:
-            - https://example.com/owner/repository/build-config.yml
-        customExtensions:
-          - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-            extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+      config: |
+        monitoredValues: |
+          certIdentities:
+            - certSubject: user@domain\.com
+            - certSubject: otheruser@domain\.com
+              issuers:
+                - https://accounts\.google\.com
+                - https://github\.com/login
+            - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+              issuers:
+                - https://token\.actions\.githubusercontent\.com
+          subjects:
+            - subject@domain\.com
+          fingerprints:
+            - A0B1C2D3E4F5
+          fulcioExtensions:
+            build-config-uri:
+              - https://example.com/owner/repository/build-config.yml
+          customExtensions:
+            - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+              extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
 In this example, the monitor will log:

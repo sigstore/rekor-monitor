@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# NOTE: This GHA should not be run concurrently.
-
-# TODO: Write identities to issues when found
-
 name: Rekor Monitoring Template
 
 on:
@@ -30,9 +26,14 @@ on:
         required: false
         type: number
         default: 14
-      identities:
-        description: 'multiline yaml of certificate subjects and issuers, key subjects, and fingerprints. For certificates, if no issuers are specified, match any OIDC provider'
+      once:
+        description: 'whether to run the identity monitor once or periodically'
+        default: true
         required: false
+        type: boolean
+      config:
+        description: 'multiline yaml of configuration settings for identity monitor run'
+        required: true
         type: string
 
 permissions:
@@ -54,6 +55,10 @@ jobs:
       - name: Detect the repository and ref
         id: detect
         uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow-js@5a775b367a56d5bd118a224a811bba288150a563 # v2.0.0
+    # NOTE: This GHA should not be run concurrently.
+    concurrency:
+      group: rekor-consistency-check
+      cancel-in-progress: true
 
   monitor:
     runs-on: ubuntu-latest
@@ -76,7 +81,7 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/rekor_consistency --file ${{ env.LOG_FILE }} --once --monitored-values "${{ inputs.identities }}" --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}"
+      - run: go run ./cmd/rekor_monitor --config ${{ inputs.config }} --file ${{ env.LOG_FILE }} --once=${{ inputs.once }} --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}"
       - name: Upload checkpoint
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:

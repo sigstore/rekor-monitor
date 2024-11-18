@@ -69,7 +69,6 @@ type IdentityMonitorConfiguration struct {
 	StartIndex                *int                       `yaml:"startIndex"`
 	EndIndex                  *int                       `yaml:"endIndex"`
 	MonitoredValues           ConfigMonitoredValues      `yaml:"monitoredValues"`
-	ServerURL                 string                     `yaml:"serverURL"`
 	OutputIdentitiesFile      string                     `yaml:"outputIdentities"`
 	LogInfoFile               string                     `yaml:"logInfoFile"`
 	IdentityMetadataFile      *string                    `yaml:"identityMetadataFile"`
@@ -77,7 +76,6 @@ type IdentityMonitorConfiguration struct {
 	EmailNotificationSMTP     *EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  *MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
 	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
-	Interval                  *time.Duration             `yaml:"interval"`
 }
 
 func CreateNotificationPool(config IdentityMonitorConfiguration) []NotificationPlatform {
