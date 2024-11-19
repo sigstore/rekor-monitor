@@ -56,12 +56,13 @@ func TestScanEntryCertSubject(t *testing.T) {
 			inputEntry: ct.LogEntry{
 				Index: 1,
 				X509Cert: &x509.Certificate{
-					Subject: pkix.Name{
-						CommonName:   subjectName,
-						Organization: []string{organizationName},
-					},
-					Issuer: pkix.Name{
-						CommonName: issuerName,
+					DNSNames:       []string{subjectName},
+					EmailAddresses: []string{organizationName},
+					Extensions: []pkix.Extension{
+						{
+							Id:    google_asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+							Value: []byte(issuerName),
+						},
 					},
 				},
 			},
@@ -80,7 +81,8 @@ func TestScanEntryCertSubject(t *testing.T) {
 					CertSubject: subjectName,
 					Issuer:      issuerName},
 				{Index: 1,
-					CertSubject: organizationName},
+					CertSubject: organizationName,
+					Issuer:      issuerName},
 			},
 		},
 	}
