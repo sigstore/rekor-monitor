@@ -28,7 +28,6 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
-	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
@@ -125,21 +124,15 @@ func main() {
 		inputEndIndex := config.EndIndex
 
 		var logInfo *models.LogInfo
-		logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+		var prevCheckpoint *util.SignedCheckpoint
+		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
 			return
 		}
 
 		if config.StartIndex == nil {
-			if *logInfoFile != "" {
-				var prevCheckpoint *util.SignedCheckpoint
-				prevCheckpoint, err = file.ReadLatestCheckpoint(*logInfoFile)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "reading checkpoint log: %v", err)
-					return
-				}
-
+			if prevCheckpoint != nil {
 				checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
 				config.StartIndex = &checkpointStartIndex
 			} else {
@@ -164,11 +157,12 @@ func main() {
 			return
 		}
 
-		// TODO: This should subsequently read from the identity metadata file to fetch the latest index.
-		_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-			return
+		if identity.MonitoredValuesExist(monitoredValues) {
+			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+				return
+			}
 		}
 
 		if *once || inputEndIndex != nil {
