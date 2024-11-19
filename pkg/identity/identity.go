@@ -16,6 +16,7 @@ package identity
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/json"
 	"errors"
@@ -274,11 +275,60 @@ func OIDMatchesPolicy[Certificate *x509.Certificate | *google_x509.Certificate](
 	return false, nil, "", nil
 }
 
+// getSubjectAlternateNames extracts all subject alternative names from
+// the certificate, including email addresses, DNS, IP addresses, URIs, and OtherName SANs
+// duplicate of cryptoutils function GetSubjectAlternateNames to match in case of google_x509 fork certificate
+func getSubjectAlternateNames[Certificate *x509.Certificate | *google_x509.Certificate](certificate Certificate) []string {
+	sans := []string{}
+	switch cert := any(certificate).(type) {
+	case *x509.Certificate:
+		sans = append(sans, cert.DNSNames...)
+		sans = append(sans, cert.EmailAddresses...)
+		for _, ip := range cert.IPAddresses {
+			sans = append(sans, ip.String())
+		}
+		for _, uri := range cert.URIs {
+			sans = append(sans, uri.String())
+		}
+		// ignore error if there's no OtherName SAN
+		otherName, _ := cryptoutils.UnmarshalOtherNameSAN(cert.Extensions)
+		if len(otherName) > 0 {
+			sans = append(sans, otherName)
+		}
+		return sans
+	case *google_x509.Certificate:
+		sans = append(sans, cert.DNSNames...)
+		sans = append(sans, cert.EmailAddresses...)
+		for _, ip := range cert.IPAddresses {
+			sans = append(sans, ip.String())
+		}
+		for _, uri := range cert.URIs {
+			sans = append(sans, uri.String())
+		}
+		// ignore error if there's no OtherName SAN
+		pkixExts := []pkix.Extension{}
+		for _, googleExt := range cert.Extensions {
+			pkixExt := pkix.Extension{
+				Id:       (asn1.ObjectIdentifier)(googleExt.Id),
+				Critical: googleExt.Critical,
+				Value:    googleExt.Value,
+			}
+			pkixExts = append(pkixExts, pkixExt)
+		}
+		otherName, _ := cryptoutils.UnmarshalOtherNameSAN(pkixExts)
+		if len(otherName) > 0 {
+			sans = append(sans, otherName)
+		}
+		return sans
+	}
+	return sans
+}
+
 // CertMatchesPolicy returns true if a certificate contains a given subject and optionally a given issuer
 // expectedSub and expectedIssuers can be regular expressions
 // CertMatchesPolicy also returns the matched subject and issuer on success
-func CertMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssuers []string) (bool, string, string, error) {
-	sans := cryptoutils.GetSubjectAlternateNames(cert)
+func CertMatchesPolicy[Certificate *x509.Certificate | *google_x509.Certificate](cert Certificate, expectedSub string, expectedIssuers []string) (bool, string, string, error) {
+	sans := getSubjectAlternateNames(cert)
 	var issuer string
 	var err error
 	issuer, err = getExtension(cert, certExtensionOIDCIssuerV2)
