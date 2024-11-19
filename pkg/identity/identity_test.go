@@ -447,24 +447,3 @@ func TestCertMatches(t *testing.T) {
 		t.Errorf("expected subject %s and issuer %s, received subject %s and issuer %s", emailAddr, issuer, receivedSub, receivedIssuer)
 	}
 }
-
-func TestGoogleCertMatches(t *testing.T) {
-	emailAddr := "test@address.com"
-	issuer := "test-issuer"
-	cert := &google_x509.Certificate{
-		EmailAddresses: []string{emailAddr},
-		Extensions: []google_pkix.Extension{
-			{
-				Id:    (google_asn1.ObjectIdentifier)(certExtensionOIDCIssuer),
-				Value: []byte(issuer),
-			},
-		},
-	}
-	matches, receivedSub, receivedIssuer, err := CertMatchesPolicy(cert, emailAddr, []string{issuer})
-	if !matches || err != nil {
-		t.Errorf("Expected true without error, got %v, error %v", matches, err)
-	}
-	if receivedSub != emailAddr || receivedIssuer != issuer {
-		t.Errorf("expected subject %s and issuer %s, received subject %s and issuer %s", emailAddr, issuer, receivedSub, receivedIssuer)
-	}
-}

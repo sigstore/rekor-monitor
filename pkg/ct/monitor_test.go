@@ -30,14 +30,13 @@ import (
 
 const (
 	subjectName      = "test-subject"
-	issuerName       = "test-issuer"
 	organizationName = "test-org"
 )
 
-func TestScanEntryCertSubject(t *testing.T) {
+func TestScanEntrySubject(t *testing.T) {
 	testCases := map[string]struct {
 		inputEntry    ct.LogEntry
-		inputSubjects []identity.CertificateIdentity
+		inputSubjects []string
 		expected      []*identity.LogEntry
 	}{
 		"no matching subject": {
@@ -49,7 +48,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 					},
 				},
 			},
-			inputSubjects: []identity.CertificateIdentity{},
+			inputSubjects: []string{},
 			expected:      []*identity.LogEntry{},
 		},
 		"matching subject": {
@@ -60,25 +59,12 @@ func TestScanEntryCertSubject(t *testing.T) {
 						CommonName:   subjectName,
 						Organization: []string{organizationName},
 					},
-					Issuer: pkix.Name{
-						CommonName: issuerName,
-					},
 				},
 			},
-			inputSubjects: []identity.CertificateIdentity{
-				{
-					CertSubject: subjectName,
-					Issuers:     []string{issuerName},
-				},
-				{
-					CertSubject: organizationName,
-					Issuers:     []string{},
-				},
-			},
+			inputSubjects: []string{subjectName, organizationName},
 			expected: []*identity.LogEntry{
 				{Index: 1,
-					CertSubject: subjectName,
-					Issuer:      issuerName},
+					CertSubject: subjectName},
 				{Index: 1,
 					CertSubject: organizationName},
 			},
@@ -86,7 +72,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
+		logEntries, err := ScanEntrySubject(tc.inputEntry, tc.inputSubjects)
 		if err != nil {
 			t.Errorf("received error scanning entry for subjects: %v", err)
 		}
