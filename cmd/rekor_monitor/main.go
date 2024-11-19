@@ -123,6 +123,8 @@ func main() {
 	for ; ; <-ticker.C {
 		inputEndIndex := config.EndIndex
 
+		// TODO: Handle Rekor sharding
+		// https://github.com/sigstore/rekor-monitor/issues/57
 		var logInfo *models.LogInfo
 		var prevCheckpoint *util.SignedCheckpoint
 		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)

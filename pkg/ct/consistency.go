@@ -76,10 +76,10 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a certificate transparency log.
-func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) error {
+func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
 	currentSTH, err := logClient.GetSTH(context.Background())
 	if err != nil {
-		return fmt.Errorf("error fetching latest STH: %v", err)
+		return nil, nil, fmt.Errorf("error fetching latest STH: %v", err)
 	}
 
 	fi, err := os.Stat(logInfoFile)
@@ -88,15 +88,15 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) erro
 	if err == nil && fi.Size() != 0 {
 		prevSTH, err = verifyCertificateTransparencyConsistency(logInfoFile, logClient, currentSTH)
 		if err != nil {
-			return fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
+			return nil, nil, fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
 		}
 	}
 
 	if prevSTH == nil || prevSTH.TreeSize != currentSTH.TreeSize {
 		if err := file.WriteCTSignedTreeHead(currentSTH, logInfoFile); err != nil {
-			return fmt.Errorf("failed to write checkpoint: %v", err)
+			return nil, nil, fmt.Errorf("failed to write checkpoint: %v", err)
 		}
 	}
 
-	return nil
+	return prevSTH, currentSTH, nil
 }

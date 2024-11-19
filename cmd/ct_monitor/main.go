@@ -16,7 +16,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -31,15 +30,14 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
-	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"gopkg.in/yaml.v2"
 )
 
 // Default values for monitoring job parameters
 const (
-	publicRekorServerURL     = "https://rekor.sigstore.dev"
-	logInfoFileName          = "logInfo.txt"
-	outputIdentitiesFileName = "identities.txt"
+	publicCTServerURL        = "https://ctfe.sigstore.dev/2022"
+	logInfoFileName          = "ctLogInfo.txt"
+	outputIdentitiesFileName = "ctIdentities.txt"
 )
 
 // This main function performs a periodic identity search.
@@ -49,17 +47,10 @@ func main() {
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
-	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
+	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
+	serverURL := flag.String("url", publicCTServerURL, "URL to the rekor server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	flag.Parse()
-
-	if *configFilePath == "" && *configYamlInput == "" {
-		log.Fatalf("empty configuration input")
-	}
-
-	if *configFilePath != "" && *configYamlInput != "" {
-		log.Fatalf("only input one of configuration file path or yaml input")
-	}
 
 	var config notifications.IdentityMonitorConfiguration
 
@@ -94,8 +85,6 @@ func main() {
 
 	monitoredValues := identity.MonitoredValues{
 		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
-		Subjects:              config.MonitoredValues.Subjects,
-		Fingerprints:          config.MonitoredValues.Fingerprints,
 		OIDMatchers:           allOIDMatchers,
 	}
 
@@ -120,24 +109,17 @@ func main() {
 	for ; ; <-ticker.C {
 		inputEndIndex := config.EndIndex
 
-		var currentSTH *ctgo.SignedTreeHead
-		if config.StartIndex == nil || config.EndIndex == nil {
-			currentSTH, err = fulcioClient.GetSTH(context.Background())
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error getting signed tree head: %v", err)
-				return
-			}
+		// TODO: Handle Rekor sharding
+		// https://github.com/sigstore/rekor-monitor/issues/57
+		var prevSTH *ctgo.SignedTreeHead
+		prevSTH, currentSTH, err := ct.RunConsistencyCheck(fulcioClient, *logInfoFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to successfully complete consistency check: %v", err)
+			return
 		}
 
 		if config.StartIndex == nil {
-			if config.LogInfoFile != "" {
-				var prevSTH *ctgo.SignedTreeHead
-				prevSTH, err = file.ReadLatestCTSignedTreeHead(config.LogInfoFile)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "reading checkpoint log: %v", err)
-					return
-				}
-
+			if prevSTH != nil {
 				checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 				config.StartIndex = &checkpointStartIndex
 			} else {
@@ -155,16 +137,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
 		}
 
-		_, err = ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-			return
-		}
-
-		err = ct.RunConsistencyCheck(fulcioClient, config.LogInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to successfully complete consistency check: %v", err)
-			return
+		if identity.MonitoredValuesExist(monitoredValues) {
+			_, err = ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+				return
+			}
 		}
 
 		if *once || inputEndIndex != nil {
