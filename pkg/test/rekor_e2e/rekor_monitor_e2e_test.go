@@ -178,12 +178,15 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error getting log verifier: %v", err)
 	}
 
-	logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	prevCheckpoint, logInfo, err := rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
 	if logInfo == nil {
 		t.Errorf("first consistency check did not return log info")
+	}
+	if prevCheckpoint != nil {
+		t.Errorf("first consistency check should not have returned checkpoint")
 	}
 
 	configRenderedOIDMatchers, err := configMonitoredValues.OIDMatchers.RenderOIDMatchers()
@@ -221,7 +224,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error creating log entry: %v", err)
 	}
 
-	logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
@@ -231,6 +234,9 @@ func TestIdentitySearch(t *testing.T) {
 	}
 	if checkpoint.Size != 2 {
 		t.Errorf("expected checkpoint size of 2, received size %d", checkpoint.Size)
+	}
+	if prevCheckpoint.Size != 1 {
+		t.Errorf("expected previous checkpoint size of 1, received size %d", prevCheckpoint.Size)
 	}
 
 	_, err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)

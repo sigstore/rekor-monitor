@@ -91,14 +91,14 @@ func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedChec
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
-func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) (*models.LogInfo, error) {
+func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier, logInfoFile string) (*util.SignedCheckpoint, *models.LogInfo, error) {
 	logInfo, err := GetLogInfo(context.Background(), rekorClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get log info: %v", err)
+		return nil, nil, fmt.Errorf("failed to get log info: %v", err)
 	}
 	checkpoint, err := verifyLatestCheckpointSignature(logInfo, verifier)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
+		return nil, nil, fmt.Errorf("failed to verify signature of latest checkpoint: %v", err)
 	}
 
 	fi, err := os.Stat(logInfoFile)
@@ -107,7 +107,7 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	if err == nil && fi.Size() != 0 {
 		prevCheckpoint, err = verifyCheckpointConsistency(logInfoFile, checkpoint, *logInfo.TreeID, rekorClient, verifier)
 		if err != nil {
-			return nil, fmt.Errorf("failed to verify previous checkpoint: %v", err)
+			return nil, nil, fmt.Errorf("failed to verify previous checkpoint: %v", err)
 		}
 
 	}
@@ -125,8 +125,8 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	// to persist the last checkpoint.
 	// Delete old checkpoints to avoid the log growing indefinitely
 	if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
-		return nil, fmt.Errorf("failed to delete old checkpoints: %v", err)
+		return nil, nil, fmt.Errorf("failed to delete old checkpoints: %v", err)
 	}
 
-	return logInfo, nil
+	return prevCheckpoint, logInfo, nil
 }
