@@ -156,10 +156,6 @@ jobs:
           - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
             issuers:
               - https://token\.actions\.githubusercontent\.com
-        subjects:
-          - subject@domain\.com
-        fingerprints:
-          - A0B1C2D3E4F5
         fulcioExtensions:
           build-config-uri:
             - https://example.com/owner/repository/build-config.yml
