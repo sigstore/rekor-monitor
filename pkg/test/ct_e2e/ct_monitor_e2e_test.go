@@ -26,6 +26,7 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/sigstore/rekor-monitor/pkg/ct"
+	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 )
 
 func TestCTConsistencyCheck(t *testing.T) {
-	fulcioClient, err := ctclient.New("http://localhost:8080/testlog", http.DefaultClient, jsonclient.Options{})
+	fulcioClient, err := ctclient.New("http://127.0.0.1:8080/testlog", http.DefaultClient, jsonclient.Options{})
 	if err != nil {
 		t.Errorf("error instantiating ct client: %v", err)
 	}
@@ -50,8 +51,20 @@ func TestCTConsistencyCheck(t *testing.T) {
 	tempLogInfoFileName := tempLogInfoFile.Name()
 	defer os.Remove(tempLogInfoFileName)
 
-	err = ct.RunConsistencyCheck(fulcioClient, tempLogInfoFileName)
+	_, _, err = ct.RunConsistencyCheck(fulcioClient, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("failed to successfully complete consistency check: %v", err)
+	}
+
+	_, err = ct.IdentitySearch(fulcioClient, 0, 1, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: "test-cert-subject",
+				Issuers:     []string{},
+			},
+		},
+	})
+	if err != nil {
+		t.Errorf("failed to successfully complete identity search: %v", err)
 	}
 }
