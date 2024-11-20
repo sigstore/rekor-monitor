@@ -30,13 +30,14 @@ import (
 
 const (
 	subjectName      = "test-subject"
+	issuerName       = "test-issuer"
 	organizationName = "test-org"
 )
 
-func TestScanEntrySubject(t *testing.T) {
+func TestScanEntryCertSubject(t *testing.T) {
 	testCases := map[string]struct {
 		inputEntry    ct.LogEntry
-		inputSubjects []string
+		inputSubjects []identity.CertificateIdentity
 		expected      []*identity.LogEntry
 	}{
 		"no matching subject": {
@@ -48,31 +49,46 @@ func TestScanEntrySubject(t *testing.T) {
 					},
 				},
 			},
-			inputSubjects: []string{},
+			inputSubjects: []identity.CertificateIdentity{},
 			expected:      []*identity.LogEntry{},
 		},
 		"matching subject": {
 			inputEntry: ct.LogEntry{
 				Index: 1,
 				X509Cert: &x509.Certificate{
-					Subject: pkix.Name{
-						CommonName:   subjectName,
-						Organization: []string{organizationName},
+					DNSNames:       []string{subjectName},
+					EmailAddresses: []string{organizationName},
+					Extensions: []pkix.Extension{
+						{
+							Id:    google_asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+							Value: []byte(issuerName),
+						},
 					},
 				},
 			},
-			inputSubjects: []string{subjectName, organizationName},
+			inputSubjects: []identity.CertificateIdentity{
+				{
+					CertSubject: subjectName,
+					Issuers:     []string{issuerName},
+				},
+				{
+					CertSubject: organizationName,
+					Issuers:     []string{},
+				},
+			},
 			expected: []*identity.LogEntry{
 				{Index: 1,
-					CertSubject: subjectName},
+					CertSubject: subjectName,
+					Issuer:      issuerName},
 				{Index: 1,
-					CertSubject: organizationName},
+					CertSubject: organizationName,
+					Issuer:      issuerName},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
-		logEntries, err := ScanEntrySubject(tc.inputEntry, tc.inputSubjects)
+		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
 		if err != nil {
 			t.Errorf("received error scanning entry for subjects: %v", err)
 		}

@@ -17,7 +17,6 @@ package ct
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -33,23 +32,20 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 	return entries, nil
 }
 
-func ScanEntrySubject(logEntry ct.LogEntry, monitoredSubjects []string) ([]*identity.LogEntry, error) {
-	subject := logEntry.X509Cert.Subject.String()
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]*identity.LogEntry, error) {
 	matchedEntries := []*identity.LogEntry{}
-	for _, monitoredSub := range monitoredSubjects {
-		regex, err := regexp.Compile(monitoredSub)
+	for _, monitoredCertID := range monitoredCertIDs {
+		match, sub, iss, err := identity.CertMatchesPolicy(logEntry.X509Cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 		if err != nil {
-			return nil, fmt.Errorf("error compiling regex: %v", err)
-		}
-		matches := regex.FindAllString(subject, -1)
-		for _, match := range matches {
+			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
+		} else if match {
 			matchedEntries = append(matchedEntries, &identity.LogEntry{
+				CertSubject: sub,
+				Issuer:      iss,
 				Index:       logEntry.Index,
-				CertSubject: match,
 			})
 		}
 	}
-
 	return matchedEntries, nil
 }
 
