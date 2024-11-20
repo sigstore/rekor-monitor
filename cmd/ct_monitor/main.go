@@ -1,5 +1,5 @@
 //
-// Copyright 2021 The Sigstore Authors.
+// Copyright 2024 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,44 +16,40 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
+	ctgo "github.com/google/certificate-transparency-go"
+	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
-	"github.com/sigstore/rekor-monitor/pkg/rekor"
-	"github.com/sigstore/rekor/pkg/client"
-	"github.com/sigstore/rekor/pkg/generated/models"
-	"github.com/sigstore/rekor/pkg/util"
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/release-utils/version"
 )
 
 // Default values for monitoring job parameters
 const (
-	publicRekorServerURL     = "https://rekor.sigstore.dev"
-	outputIdentitiesFileName = "identities.txt"
-	logInfoFileName          = "logInfo.txt"
+	publicCTServerURL        = "https://ctfe.sigstore.dev/2022"
+	logInfoFileName          = "ctLogInfo.txt"
+	outputIdentitiesFileName = "ctIdentities.txt"
 )
 
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
 func main() {
-	// Command-line flags that are parameters to the verifier job
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
-	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
 	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
+	serverURL := flag.String("url", publicCTServerURL, "URL to the rekor server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
-	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
 
 	var config notifications.IdentityMonitorConfiguration
@@ -76,18 +72,10 @@ func main() {
 		}
 	}
 
-	if config.OutputIdentitiesFile == "" {
-		config.OutputIdentitiesFile = outputIdentitiesFileName
-	}
-
-	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
+	var fulcioClient *ctclient.LogClient
+	fulcioClient, err := ctclient.New(*serverURL, http.DefaultClient, jsonclient.Options{})
 	if err != nil {
-		log.Fatalf("getting Rekor client: %v", err)
-	}
-
-	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
-	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("getting Fulcio client: %v", err)
 	}
 
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
@@ -97,8 +85,6 @@ func main() {
 
 	monitoredValues := identity.MonitoredValues{
 		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
-		Subjects:              config.MonitoredValues.Subjects,
-		Fingerprints:          config.MonitoredValues.Fingerprints,
 		OIDMatchers:           allOIDMatchers,
 	}
 
@@ -125,42 +111,34 @@ func main() {
 
 		// TODO: Handle Rekor sharding
 		// https://github.com/sigstore/rekor-monitor/issues/57
-		var logInfo *models.LogInfo
-		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+		var prevSTH *ctgo.SignedTreeHead
+		prevSTH, currentSTH, err := ct.RunConsistencyCheck(fulcioClient, *logInfoFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
+			fmt.Fprintf(os.Stderr, "failed to successfully complete consistency check: %v", err)
 			return
 		}
 
 		if config.StartIndex == nil {
-			if prevCheckpoint != nil {
-				checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
+			if prevSTH != nil {
+				checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 				config.StartIndex = &checkpointStartIndex
 			} else {
-				fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
-				return
+				defaultStartIndex := 0
+				config.StartIndex = &defaultStartIndex
 			}
 		}
 
 		if config.EndIndex == nil {
-			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
-				return
-			}
-
-			checkpointEndIndex := rekor.GetCheckpointIndex(logInfo, checkpoint)
+			checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
 			config.EndIndex = &checkpointEndIndex
 		}
 
 		if *config.StartIndex >= *config.EndIndex {
 			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-			return
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+			_, err = ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 				return
@@ -174,4 +152,5 @@ func main() {
 		config.StartIndex = config.EndIndex
 		config.EndIndex = nil
 	}
+
 }

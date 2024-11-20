@@ -17,6 +17,7 @@ package ct
 import (
 	"context"
 	"fmt"
+	"os"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -33,10 +34,10 @@ AaYalIJmBZ8yyezPjTqhxrKBpMnaocVtLJBI1eM3uXnQzQGAJdJ4gs9Fyw==
 -----END PUBLIC KEY-----`
 )
 
-func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) error {
+func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
 	prevSTH, err := file.ReadLatestCTSignedTreeHead(logInfoFile)
 	if err != nil {
-		return fmt.Errorf("error reading checkpoint: %v", err)
+		return nil, fmt.Errorf("error reading checkpoint: %v", err)
 	}
 
 	if logClient.Verifier == nil {
@@ -44,7 +45,7 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 		pubKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(ctfe2022PubKey))
 
 		if err != nil {
-			return fmt.Errorf("error loading public key: %v", err)
+			return nil, fmt.Errorf("error loading public key: %v", err)
 		}
 		logClient.Verifier = &ct.SignatureVerifier{
 			PubKey: pubKey,
@@ -53,23 +54,49 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 
 	err = logClient.VerifySTHSignature(*prevSTH)
 	if err != nil {
-		return fmt.Errorf("error verifying previous STH signature: %v", err)
+		return nil, fmt.Errorf("error verifying previous STH signature: %v", err)
 	}
 	err = logClient.VerifySTHSignature(*signedTreeHead)
 	if err != nil {
-		return fmt.Errorf("error verifying current STH signature: %v", err)
+		return nil, fmt.Errorf("error verifying current STH signature: %v", err)
 	}
 
 	first := prevSTH.TreeSize
 	second := signedTreeHead.TreeSize
 	pf, err := logClient.GetSTHConsistency(context.Background(), first, second)
 	if err != nil {
-		return fmt.Errorf("error getting consistency proof: %v", err)
+		return nil, fmt.Errorf("error getting consistency proof: %v", err)
 	}
 
 	if err := proof.VerifyConsistency(rfc6962.DefaultHasher, first, second, pf, prevSTH.SHA256RootHash[:], signedTreeHead.SHA256RootHash[:]); err != nil {
-		return fmt.Errorf("error verifying consistency: %v", err)
+		return nil, fmt.Errorf("error verifying consistency: %v", err)
 	}
 
-	return nil
+	return prevSTH, nil
+}
+
+// RunConsistencyCheck periodically verifies the root hash consistency of a certificate transparency log.
+func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
+	currentSTH, err := logClient.GetSTH(context.Background())
+	if err != nil {
+		return nil, nil, fmt.Errorf("error fetching latest STH: %v", err)
+	}
+
+	fi, err := os.Stat(logInfoFile)
+	// File containing previous checkpoints exists
+	var prevSTH *ct.SignedTreeHead
+	if err == nil && fi.Size() != 0 {
+		prevSTH, err = verifyCertificateTransparencyConsistency(logInfoFile, logClient, currentSTH)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
+		}
+	}
+
+	if prevSTH == nil || prevSTH.TreeSize != currentSTH.TreeSize {
+		if err := file.WriteCTSignedTreeHead(currentSTH, logInfoFile); err != nil {
+			return nil, nil, fmt.Errorf("failed to write checkpoint: %v", err)
+		}
+	}
+
+	return prevSTH, currentSTH, nil
 }
