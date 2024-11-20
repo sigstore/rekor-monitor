@@ -187,9 +187,9 @@ type CustomExtension struct {
 
 // OIDMatchers holds all FulcioExtensions, OIDMatchers, and CustomExtensions
 type OIDMatchers struct {
-	OIDExtensions    []OIDExtension
-	FulcioExtensions FulcioExtensions
-	CustomExtensions []CustomExtension
+	OIDExtensions    []OIDExtension    `yaml:"oidExtensions"`
+	FulcioExtensions FulcioExtensions  `yaml:"fulcioExtensions"`
+	CustomExtensions []CustomExtension `yaml:"customExtensions"`
 }
 
 func (e FulcioExtensions) RenderFulcioOIDMatchers() []OIDExtension {
