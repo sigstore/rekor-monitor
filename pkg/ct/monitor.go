@@ -87,7 +87,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 	return matchedEntries, nil
 }
 
-func IdentitySearch(client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
+func IdentitySearch(client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
 	retrievedEntries, err := GetCTLogEntries(client, startIndex, endIndex)
 	if err != nil {
 		return nil, err
@@ -96,5 +96,7 @@ func IdentitySearch(client *ctclient.LogClient, startIndex int, endIndex int, mv
 	if err != nil {
 		return nil, err
 	}
-	return matchedEntries, nil
+	identities := identity.CreateIdentitiesList(mvs)
+	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
+	return monitoredIdentities, nil
 }

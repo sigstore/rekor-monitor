@@ -120,6 +120,50 @@ Upcoming features:
 * Support for other identities
    * CI identity values in Fulcio certificates
 
+## Certificate transparency log monitoring
+
+Certificate transparency log instances can also be monitored. To run, create a GitHub Actions workflow that uses the
+[reusable certificate transparency log monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/ct_reusable_monitoring.yml).
+It is recommended to run the log monitor every hour for optimal performance.
+
+Example workflow below:
+
+```
+name: Fulcio log and identity monitor
+on:
+  schedule:
+    - cron: '0 * * * *' # every hour
+
+permissions: read-all
+
+jobs:
+  run_consistency_proof:
+    permissions:
+      contents: read # Needed to checkout repositories
+      issues: write # Needed if you set "file_issue: true"
+      id-token: write # Needed to detect the current reusable repository and ref
+    uses: sigstore/rekor-monitor/.github/workflows/reusable_monitoring.yaml@main
+    with:
+      file_issue: true # Strongly recommended: Files an issue on monitoring failure
+      artifact_retention_days: 14 # Optional, default is 14: Must be longer than the cron job frequency
+      identities: |
+        certIdentities:
+          - certSubject: user@domain\.com
+          - certSubject: otheruser@domain\.com
+            issuers:
+              - https://accounts\.google\.com
+              - https://github\.com/login
+          - certSubject: https://github\.com/actions/starter-workflows/blob/main/\.github/workflows/lint\.yaml@.*
+            issuers:
+              - https://token\.actions\.githubusercontent\.com
+        fulcioExtensions:
+          build-config-uri:
+            - https://example.com/owner/repository/build-config.yml
+        customExtensions:
+          - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+            extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+```
+
 ## Security
 
 Please report any vulnerabilities following Sigstore's [security process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
