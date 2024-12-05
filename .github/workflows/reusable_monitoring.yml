@@ -72,7 +72,7 @@ jobs:
         with:
           go-version: '1.23'
       - name: Download artifact
-        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
+        uses: dawidd6/action-download-artifact@80620a5d27ce0ae443b965134db88467fc607b43 # v7
         with:
           name: ${{ env.UPLOADED_LOG_NAME }}
         # Skip on first run since there will be no checkpoint
