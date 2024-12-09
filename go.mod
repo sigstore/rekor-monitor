@@ -7,7 +7,7 @@ require (
 	github.com/go-openapi/swag v0.23.0
 	github.com/google/certificate-transparency-go v1.3.0
 	github.com/google/go-github/v65 v65.0.0
-	github.com/mailgun/mailgun-go/v4 v4.19.1
+	github.com/mailgun/mailgun-go/v4 v4.20.5
 	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mocktools/go-smtp-mock/v2 v2.4.0
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
