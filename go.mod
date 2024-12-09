@@ -1,6 +1,8 @@
 module github.com/sigstore/rekor-monitor
 
-go 1.23
+go 1.23.2
+
+toolchain go1.23.4
 
 require (
 	github.com/go-openapi/runtime v0.28.0
@@ -11,7 +13,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mocktools/go-smtp-mock/v2 v2.4.0
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
-	github.com/sigstore/rekor v1.3.6
+	github.com/sigstore/rekor v1.3.7
 	github.com/sigstore/sigstore v1.8.10
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/wneessen/go-mail v0.5.2
@@ -30,7 +32,7 @@ require (
 	github.com/cyberphone/json-canonicalization v0.0.0-20220623050100-57a0ce2678a7 // indirect
 	github.com/danieljoos/wincred v1.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
 	github.com/go-chi/chi/v5 v5.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
@@ -72,7 +74,7 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
@@ -82,15 +84,15 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.6.0 // indirect
+	github.com/spf13/cast v1.7.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.18.2 // indirect
+	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
-	github.com/veraison/go-cose v1.2.1 // indirect
+	github.com/veraison/go-cose v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zalando/go-keyring v0.2.3 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
