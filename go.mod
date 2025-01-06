@@ -19,7 +19,7 @@ require (
 	github.com/wneessen/go-mail v0.5.2
 	golang.org/x/mod v0.22.0
 	gopkg.in/yaml.v2 v2.4.0
-	sigs.k8s.io/release-utils v0.8.5
+	sigs.k8s.io/release-utils v0.9.0
 )
 
 require (
