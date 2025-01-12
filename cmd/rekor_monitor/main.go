@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -119,59 +121,68 @@ func main() {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	// To get an immediate first tick
-	for ; ; <-ticker.C {
-		inputEndIndex := config.EndIndex
+	for {
+		select {
+		case <-ticker.C:
+			inputEndIndex := config.EndIndex
 
-		// TODO: Handle Rekor sharding
-		// https://github.com/sigstore/rekor-monitor/issues/57
-		var logInfo *models.LogInfo
-		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
-		}
-
-		if config.StartIndex == nil {
-			if prevCheckpoint != nil {
-				checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
-				config.StartIndex = &checkpointStartIndex
-			} else {
-				fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
-				return
-			}
-		}
-
-		if config.EndIndex == nil {
-			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
+			// TODO: Handle Rekor sharding
+			// https://github.com/sigstore/rekor-monitor/issues/57
+			var logInfo *models.LogInfo
+			var prevCheckpoint *util.SignedCheckpoint
+			prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
+				fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
 				return
 			}
 
-			checkpointEndIndex := rekor.GetCheckpointIndex(logInfo, checkpoint)
-			config.EndIndex = &checkpointEndIndex
-		}
+			if config.StartIndex == nil {
+				if prevCheckpoint != nil {
+					checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
+					config.StartIndex = &checkpointStartIndex
+				} else {
+					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
+					return
+				}
+			}
 
-		if *config.StartIndex >= *config.EndIndex {
-			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-			return
-		}
+			if config.EndIndex == nil {
+				checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
+					return
+				}
 
-		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+				checkpointEndIndex := rekor.GetCheckpointIndex(logInfo, checkpoint)
+				config.EndIndex = &checkpointEndIndex
+			}
+
+			if *config.StartIndex >= *config.EndIndex {
+				fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
 				return
 			}
-		}
 
-		if *once || inputEndIndex != nil {
+			if identity.MonitoredValuesExist(monitoredValues) {
+				_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+					return
+				}
+			}
+
+			if *once || inputEndIndex != nil {
+				return
+			}
+
+			config.StartIndex = config.EndIndex
+			config.EndIndex = nil
+
+		case <-signalChan:
+			fmt.Fprintf(os.Stderr, "received signal, exiting")
 			return
 		}
-
-		config.StartIndex = config.EndIndex
-		config.EndIndex = nil
 	}
 }
