@@ -27,12 +27,13 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
-	"github.com/sigstore/rekor/pkg/util"
+	rekorutils "github.com/sigstore/rekor/pkg/util"
 
 	// required imports to call init methods
 	_ "github.com/sigstore/rekor/pkg/types/alpine/v0.0.1"
@@ -271,7 +272,7 @@ func extractAllIdentities(verifiers []pki.PublicKey) ([]string, []*x509.Certific
 }
 
 // GetCheckpointIndex fetches the index of a checkpoint and returns it.
-func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoint) int {
+func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *rekorutils.SignedCheckpoint) int {
 	// Get log size of inactive shards
 	totalSize := 0
 	for _, s := range logInfo.InactiveShards {
@@ -283,10 +284,19 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 }
 
 func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+	resp, err := util.Retry(context.Background(), func() (interface{}, error) {
+		entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+		if err != nil {
+			return nil, fmt.Errorf("error getting entries by index range: %v", err)
+		}
+		return entries, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
+
+	entries := resp.([]models.LogEntry)
+
 	idEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
 		return nil, fmt.Errorf("error finding log indices: %v", err)
