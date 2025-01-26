@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
@@ -73,11 +74,13 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 		p := entries.NewSearchLogQueryParamsWithContext(ctx)
 		p.SetEntry(&slq)
 
-		resp, err := rekorClient.Entries.SearchLogQuery(p)
+		resp, err := util.Retry(ctx, func() (any, error) {
+			return rekorClient.Entries.SearchLogQuery(p)
+		})
 		if err != nil {
 			return nil, err
 		}
-		logEntries = append(logEntries, resp.Payload...)
+		logEntries = append(logEntries, resp.(*entries.SearchLogQueryOK).Payload...)
 	}
 	return logEntries, nil
 }

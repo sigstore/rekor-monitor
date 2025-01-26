@@ -27,7 +27,6 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -284,18 +283,10 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *rekorutils.SignedCh
 }
 
 func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	resp, err := util.Retry(context.Background(), func() (interface{}, error) {
-		entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
-		if err != nil {
-			return nil, fmt.Errorf("error getting entries by index range: %v", err)
-		}
-		return entries, nil
-	})
+	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
-
-	entries := resp.([]models.LogEntry)
 
 	idEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {

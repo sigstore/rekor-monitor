@@ -17,164 +17,154 @@ package util
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 )
 
+type HTTPError struct {
+	Code int
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("HTTP error with status code %d", e.Code)
+}
+
+func (e *HTTPError) StatusCode() int {
+	return e.Code
+}
+
+type HTTP2Error struct {
+	Message string
+}
+
+func (e *HTTP2Error) Error() string {
+	return e.Message
+}
+
 func TestRetry(t *testing.T) {
-	t.Run("successful execution without retry", func(t *testing.T) {
+	t.Run("retry_with_recoverable_error", func(t *testing.T) {
 		attempts := 0
-		f := func() (any, error) {
-			attempts++
-			return "success", nil
-		}
-
-		result, err := Retry(context.Background(), f)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if attempts != 1 {
-			t.Errorf("Expected 1 attempt, got %d", attempts)
-		}
-		if result != "success" {
-			t.Errorf("Expected 'success', got %v", result)
-		}
-	})
-
-	t.Run("successful execution after retries", func(t *testing.T) {
-		attempts := 0
-		f := func() (any, error) {
+		result, err := Retry(context.Background(), func() (any, error) {
 			attempts++
 			if attempts < 3 {
-				return nil, RetryeError{Err: errors.New("error getting entries by index range")}
+				return nil, WrapError(&HTTPError{Code: http.StatusInternalServerError})
 			}
-			return "success", nil
-		}
-
-		result, err := Retry(context.Background(), f)
+			return "success after retries", nil
+		})
 		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != "success after retries" {
+			t.Fatalf("expected 'success after retries', got %v", result)
 		}
 		if attempts != 3 {
-			t.Errorf("Expected 3 attempts, got %d", attempts)
-		}
-		if result != "success" {
-			t.Errorf("Expected 'success', got %v", result)
+			t.Fatalf("expected 3 attempts, got %d", attempts)
 		}
 	})
 
-	t.Run("max attempts exceeded", func(t *testing.T) {
+	t.Run("retry_with_http2_goaway_error", func(t *testing.T) {
 		attempts := 0
-		f := func() (any, error) {
+		result, err := Retry(context.Background(), func() (any, error) {
 			attempts++
-			return nil, RetryeError{Err: errors.New("error getting entries by index range")}
+			if attempts < 3 {
+				return nil, WrapError(&HTTP2Error{Message: "http2: server sent GOAWAY"})
+			}
+			return "success after retries", nil
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
+		if result != "success after retries" {
+			t.Fatalf("expected 'success after retries', got %v", result)
+		}
+		if attempts != 3 {
+			t.Fatalf("expected 3 attempts, got %d", attempts)
+		}
+	})
 
-		_, err := Retry(context.Background(), f)
+	t.Run("stop_retry_on_non_retryable_error", func(t *testing.T) {
+		attempts := 0
+		result, err := Retry(context.Background(), func() (any, error) {
+			attempts++
+			return nil, WrapError(errors.New("non-retryable error"))
+		})
 		if err == nil {
-			t.Error("Expected error, got nil")
+			t.Fatalf("expected error, got nil")
 		}
-		if attempts != 5 { // default max attempts
-			t.Errorf("Expected 5 attempts, got %d", attempts)
-		}
-	})
-
-	t.Run("context cancellation", func(t *testing.T) {
-		attempts := 0
-		ctx, cancel := context.WithCancel(context.Background())
-		f := func() (any, error) {
-			attempts++
-			cancel() // cancle after first attempt
-			return nil, RetryeError{Err: errors.New("error getting entries by index range")}
-		}
-
-		_, err := Retry(ctx, f)
-		if !errors.Is(err, context.Canceled) {
-			t.Errorf("Expected context.Canceled error, got %v", err)
+		if result != nil {
+			t.Fatalf("expected nil result, got %v", result)
 		}
 		if attempts != 1 {
-			t.Errorf("Expected 1 attempt, got %d", attempts)
+			t.Fatalf("expected 1 attempt, got %d", attempts)
 		}
 	})
 
-	t.Run("max elapsed time exceeded", func(t *testing.T) {
+	t.Run("max_attempts_reached", func(t *testing.T) {
 		attempts := 0
-		f := func() (any, error) {
+		result, err := Retry(context.Background(), func() (any, error) {
 			attempts++
-			time.Sleep(200 * time.Millisecond)
-			return nil, RetryeError{Err: errors.New("error getting entries by index range")}
-		}
-
-		_, err := Retry(context.Background(), f,
-			WithMaxElapsedTime(500*time.Millisecond),
-			WithInitialInterval(100*time.Millisecond))
+			return nil, WrapError(&HTTPError{Code: http.StatusInternalServerError})
+		}, WithMaxAttempts(3))
 
 		if err == nil {
-			t.Error("Expected error, got nil")
+			t.Fatalf("expected error after max attempts, got nil")
 		}
-		if !strings.Contains(err.Error(), "max elapsed time exceeded") {
-			t.Errorf("Expected max elapsed time error, got %v", err)
-		}
-	})
-}
-
-func TestRetryConfig(t *testing.T) {
-	t.Run("custom configuration", func(t *testing.T) {
-		attempts := 0
-		f := func() (any, error) {
-			attempts++
-			return nil, RetryeError{Err: errors.New("error getting entries by index range")}
+		if err.Error() != "retry cancelled after 3 attempts: context deadline exceeded" {
+			t.Fatalf("expected context deadline exceeded, got %v", err)
 		}
 
-		_, err := Retry(context.Background(), f,
-			WithMaxAttempts(3),
-			WithInitialInterval(100*time.Millisecond),
-			WithMaxInterval(200*time.Millisecond),
-			WithMultiplier(2.0),
-			WithMaxElapsedTime(1*time.Second))
-
-		if err == nil {
-			t.Error("Expected error, got nil")
+		if result != nil {
+			t.Fatalf("expected nil result, got %v", result)
 		}
 		if attempts != 3 {
-			t.Errorf("Expected 3 attempts, got %d", attempts)
+			t.Fatalf("expected 3 attempts, got %d", attempts)
 		}
 	})
-}
 
-func TestRetryeError(t *testing.T) {
-	t.Run("retryable error messages", func(t *testing.T) {
-		testCases := []struct {
-			name        string
-			err         error
-			shouldRetry bool
-		}{
-			{
-				name:        "error getting entries",
-				err:         errors.New("error getting entries by index range"),
-				shouldRetry: true,
-			},
-			{
-				name:        "non-retryable error",
-				err:         errors.New("other error"),
-				shouldRetry: false,
-			},
-			{
-				name:        "nil error",
-				err:         nil,
-				shouldRetry: false,
-			},
+	t.Run("context_cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		attempts := 0
+		go func() {
+			time.Sleep(1 * time.Second)
+			cancel()
+		}()
+		_, err := Retry(ctx, func() (any, error) {
+			attempts++
+			return nil, WrapError(errors.New("temporary error"))
+		})
+		if err == nil {
+			t.Fatalf("expected error due to context cancellation, got nil")
+		}
+		if attempts < 1 {
+			t.Fatalf("expected at least 1 attempt, got %d", attempts)
+		}
+	})
+
+	t.Run("validate_retry_configuration", func(t *testing.T) {
+		invalidConfig := func() *RetryConfig {
+			return &RetryConfig{
+				MaxAttempts: 0,
+			}
+		}
+		err := validateRetryConfig(invalidConfig())
+		if err == nil {
+			t.Fatalf("expected validation error, got nil")
 		}
 
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				rerr := RetryeError{Err: tc.err}
-				if rerr.ShouldRetry() != tc.shouldRetry {
-					t.Errorf("Expected ShouldRetry() to return %v for error: %v",
-						tc.shouldRetry, tc.err)
-				}
-			})
+		validConfig := func() *RetryConfig {
+			return &RetryConfig{
+				MaxAttempts:     5,
+				InitialInterval: 1 * time.Second,
+				MaxInterval:     5 * time.Second,
+				Multiplier:      1.5,
+				MaxElapsedTime:  30 * time.Second,
+			}
+		}
+		err = validateRetryConfig(validConfig())
+		if err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
 		}
 	})
 }

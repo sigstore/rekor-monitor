@@ -16,7 +16,9 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -39,34 +41,30 @@ func DefaultRetryConfig() *RetryConfig {
 	}
 }
 
-type RetryableError interface {
-	ShouldRetry() bool
-}
-
-type RetryeError struct {
+type RetryError struct {
 	Err error
 }
 
-func (r RetryeError) Error() string {
+func (r RetryError) Error() string {
 	return r.Err.Error()
 }
 
-func (r RetryeError) ShouldRetry() bool {
+func (r RetryError) ShouldRetry() bool {
 	if r.Err == nil {
 		return false
 	}
 
-	// add all specific error messages that should trigger retry
-	retryableErrors := []string{
-		"error getting entries by index range",
+	if httpErr, ok := r.Err.(interface{ StatusCode() int }); ok {
+		statusCode := httpErr.StatusCode()
+		return statusCode >= 500 || statusCode == http.StatusTooManyRequests
 	}
 
-	errMsg := r.Err.Error()
-	for _, msg := range retryableErrors {
-		if strings.Contains(errMsg, msg) {
+	if http2Err, ok := r.Err.(interface{ Error() string }); ok {
+		if strings.Contains(http2Err.Error(), "http2: server sent GOAWAY") {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -74,14 +72,19 @@ func WrapError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return RetryeError{Err: err}
+	return RetryError{Err: err}
 }
 
-// Retry will call the provided function until it returns without an error or the context is cancelled.
+// Retry executes the provided function with retry logic based on the configuration.
+// It stops on success, unrecoverable errors, context cancellation, or exceeding the retry limits.
 func Retry(ctx context.Context, f func() (any, error), opts ...func(*RetryConfig)) (any, error) {
 	config := DefaultRetryConfig()
 	for _, opt := range opts {
 		opt(config)
+	}
+
+	if err := validateRetryConfig(config); err != nil {
+		return nil, fmt.Errorf("invalid retry configuration: %w", err)
 	}
 
 	var lastErr error
@@ -89,34 +92,28 @@ func Retry(ctx context.Context, f func() (any, error), opts ...func(*RetryConfig
 	currentInterval := config.InitialInterval
 
 	for attempt := 1; attempt <= config.MaxAttempts; attempt++ {
-		if time.Since(startTime) > config.MaxElapsedTime {
-			if lastErr != nil {
-				return nil, fmt.Errorf("max elapsed time exceeded after %d attempts, last error: %w",
-					attempt-1, lastErr)
-			}
-			return nil, fmt.Errorf("max elapsed time exceeded after %d attempts", attempt-1)
+		if config.MaxElapsedTime > 0 && time.Since(startTime) > config.MaxElapsedTime {
+			return nil, fmt.Errorf("max elapsed time exceeded after %d attempts, last error: %w", attempt-1, lastErr)
 		}
 
-		resp, err := f()
+		result, err := f()
 		if err == nil {
-			return resp, nil
+			return result, nil
 		}
 
 		lastErr = err
 
-		if retryableErr, ok := err.(RetryableError); ok {
-			if !retryableErr.ShouldRetry() {
-				return nil, err
-			}
+		if retryableErr, ok := err.(RetryError); ok && !retryableErr.ShouldRetry() {
+			return nil, fmt.Errorf("non-retryable error encountered after %d attempts: %w", attempt, err)
 		}
 
 		if attempt == config.MaxAttempts {
-			return nil, fmt.Errorf("max attempts (%d) reached, last error: %w", config.MaxAttempts, err)
+			return nil, fmt.Errorf("retry cancelled after %d attempts: %w", attempt, context.DeadlineExceeded)
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("retry cancelled after %d attempts: %w", attempt, ctx.Err())
 		case <-time.After(currentInterval):
 			currentInterval = time.Duration(float64(currentInterval) * config.Multiplier)
 			if currentInterval > config.MaxInterval {
@@ -125,9 +122,29 @@ func Retry(ctx context.Context, f func() (any, error), opts ...func(*RetryConfig
 		}
 	}
 
-	return nil, fmt.Errorf("unexpected state")
+	return nil, fmt.Errorf("retry logic exited unexpectedly, last error: %w", lastErr)
 }
 
+func validateRetryConfig(config *RetryConfig) error {
+	if config.MaxAttempts <= 0 {
+		return errors.New("MaxAttempts must be greater than zero")
+	}
+	if config.InitialInterval <= 0 {
+		return errors.New("InitialInterval must be greater than zero")
+	}
+	if config.MaxInterval <= 0 {
+		return errors.New("MaxInterval must be greater than zero")
+	}
+	if config.Multiplier <= 1 {
+		return errors.New("multiplier must be greater than one")
+	}
+	if config.MaxElapsedTime <= 0 {
+		return errors.New("MaxElapsedTime must be greater than zero")
+	}
+	return nil
+}
+
+// WithMaxAttempts sets the maximum number of retry attempts.
 func WithMaxAttempts(attempts int) func(*RetryConfig) {
 	return func(c *RetryConfig) {
 		if attempts > 0 {
@@ -136,6 +153,7 @@ func WithMaxAttempts(attempts int) func(*RetryConfig) {
 	}
 }
 
+// WithInitialInterval sets the initial interval between retries.
 func WithInitialInterval(interval time.Duration) func(*RetryConfig) {
 	return func(c *RetryConfig) {
 		if interval > 0 {
@@ -144,6 +162,7 @@ func WithInitialInterval(interval time.Duration) func(*RetryConfig) {
 	}
 }
 
+// WithMaxInterval sets the maximum interval between retries.
 func WithMaxInterval(interval time.Duration) func(*RetryConfig) {
 	return func(c *RetryConfig) {
 		if interval > 0 {
@@ -152,6 +171,7 @@ func WithMaxInterval(interval time.Duration) func(*RetryConfig) {
 	}
 }
 
+// WithMultiplier sets the backoff multiplier for exponential backoff.
 func WithMultiplier(multiplier float64) func(*RetryConfig) {
 	return func(c *RetryConfig) {
 		if multiplier > 1 {
@@ -160,6 +180,7 @@ func WithMultiplier(multiplier float64) func(*RetryConfig) {
 	}
 }
 
+// WithMaxElapsedTime sets the maximum time allowed for retries.
 func WithMaxElapsedTime(duration time.Duration) func(*RetryConfig) {
 	return func(c *RetryConfig) {
 		if duration > 0 {
