@@ -29,10 +29,14 @@ import (
 // GetPublicKey fetches the current public key from Rekor
 func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error) {
 	p := pubkey.NewGetPublicKeyParamsWithContext(ctx)
-	pubkeyResp, err := rekorClient.Pubkey.GetPublicKey(p)
+	resp, err := util.Retry(ctx, func() (any, error) {
+		return rekorClient.Pubkey.GetPublicKey(p)
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	pubkeyResp := resp.(*pubkey.GetPublicKeyOK)
 	return []byte(pubkeyResp.Payload), nil
 }
 
@@ -40,10 +44,15 @@ func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error
 func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
 	p := tlog.NewGetLogInfoParamsWithContext(ctx)
 
-	logInfoResp, err := rekorClient.Tlog.GetLogInfo(p)
+	resp, err := util.Retry(ctx, func() (any, error) {
+		return rekorClient.Tlog.GetLogInfo(p)
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	logInfoResp := resp.(*tlog.GetLogInfoOK)
+
 	return logInfoResp.GetPayload(), nil
 }
 

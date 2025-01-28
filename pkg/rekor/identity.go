@@ -32,7 +32,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
 	"github.com/sigstore/rekor/pkg/types"
-	rekorutils "github.com/sigstore/rekor/pkg/util"
+	"github.com/sigstore/rekor/pkg/util"
 
 	// required imports to call init methods
 	_ "github.com/sigstore/rekor/pkg/types/alpine/v0.0.1"
@@ -271,7 +271,7 @@ func extractAllIdentities(verifiers []pki.PublicKey) ([]string, []*x509.Certific
 }
 
 // GetCheckpointIndex fetches the index of a checkpoint and returns it.
-func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *rekorutils.SignedCheckpoint) int {
+func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoint) int {
 	// Get log size of inactive shards
 	totalSize := 0
 	for _, s := range logInfo.InactiveShards {
