@@ -287,6 +287,7 @@ func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, mon
 	if err != nil {
 		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
+
 	idEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
 		return nil, fmt.Errorf("error finding log indices: %v", err)

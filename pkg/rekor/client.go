@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
@@ -28,10 +29,14 @@ import (
 // GetPublicKey fetches the current public key from Rekor
 func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error) {
 	p := pubkey.NewGetPublicKeyParamsWithContext(ctx)
-	pubkeyResp, err := rekorClient.Pubkey.GetPublicKey(p)
+	resp, err := util.Retry(ctx, func() (any, error) {
+		return rekorClient.Pubkey.GetPublicKey(p)
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	pubkeyResp := resp.(*pubkey.GetPublicKeyOK)
 	return []byte(pubkeyResp.Payload), nil
 }
 
@@ -39,10 +44,15 @@ func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error
 func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
 	p := tlog.NewGetLogInfoParamsWithContext(ctx)
 
-	logInfoResp, err := rekorClient.Tlog.GetLogInfo(p)
+	resp, err := util.Retry(ctx, func() (any, error) {
+		return rekorClient.Tlog.GetLogInfo(p)
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	logInfoResp := resp.(*tlog.GetLogInfoOK)
+
 	return logInfoResp.GetPayload(), nil
 }
 
@@ -73,11 +83,13 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 		p := entries.NewSearchLogQueryParamsWithContext(ctx)
 		p.SetEntry(&slq)
 
-		resp, err := rekorClient.Entries.SearchLogQuery(p)
+		resp, err := util.Retry(ctx, func() (any, error) {
+			return rekorClient.Entries.SearchLogQuery(p)
+		})
 		if err != nil {
 			return nil, err
 		}
-		logEntries = append(logEntries, resp.Payload...)
+		logEntries = append(logEntries, resp.(*entries.SearchLogQueryOK).Payload...)
 	}
 	return logEntries, nil
 }
