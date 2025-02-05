@@ -22,7 +22,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	sigstore_tuf "github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
@@ -41,12 +41,21 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 	}
 
 	if logClient.Verifier == nil {
-		// TODO: this public key is currently hardcoded- should be fetched from TUF repository instead
-		pubKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(ctfe2022PubKey))
 
+		client, err := sigstore_tuf.DefaultClient()
 		if err != nil {
-			return nil, fmt.Errorf("error loading public key: %v", err)
+			return nil, fmt.Errorf("error creating TUF client: %v", err)
 		}
+
+		if err := client.Refresh(); err != nil {
+			return nil, fmt.Errorf("error refreshing TUF metadata: %v", err)
+		}
+
+		pubKey, err := client.GetTarget("ctfe2022PubKey")
+		if err != nil {
+			return nil, fmt.Errorf("error fetching public key: %v", err)
+		}
+
 		logClient.Verifier = &ct.SignatureVerifier{
 			PubKey: pubKey,
 		}

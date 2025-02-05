@@ -15,10 +15,13 @@
 package rekor
 
 import (
+	"bytes"
 	"context"
 	"crypto"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
@@ -26,26 +29,124 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
+// TrustRootConfig for trust roots (aka custom roots)
+type TrustRootConfig struct {
+	CustomRoots []*x509.Certificate
+}
+
 // GetLogVerifier creates a verifier from the log's public key
-// TODO: Fetch the public key from TUF
-func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor) (signature.Verifier, error) {
-	pemPubKey, err := GetPublicKey(ctx, rekorClient)
+func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor, trustRootConfig *TrustRootConfig) (signature.Verifier, error) {
+	trustedRoots, err := fetchTrustedRoots(trustRootConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get trusted roots: %v", err)
 	}
-	pubKey, err := cryptoutils.UnmarshalPEMToPublicKey(pemPubKey)
+
+	certChain, err := getCertificateChain(ctx, rekorClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get certificate chain: %v", err)
 	}
+
+	if err := verifyCertificateChain(certChain, trustedRoots); err != nil {
+		return nil, fmt.Errorf("certificate chain verification failed: %v", err)
+	}
+
+	// Extract and create verifier
+	pubKey := certChain[0].PublicKey
 	verifier, err := signature.LoadVerifier(pubKey, crypto.SHA256)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load verifier: %v", err)
 	}
+
 	return verifier, nil
+}
+
+func fetchTrustedRoots(config *TrustRootConfig) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+
+	defaultRoots, err := root.FetchTrustedRoot()
+	if err != nil {
+		log.Printf("Warning: Failed to fetch trusted roots: %v", err)
+	}
+
+	fulcioCAs := defaultRoots.FulcioCertificateAuthorities()
+	if len(fulcioCAs) == 0 {
+		log.Println("Warning: No Fulcio CAs found in TUF metadata")
+	}
+
+	for _, ca := range fulcioCAs {
+		if fulcioCa, ok := ca.(*root.FulcioCertificateAuthority); ok {
+			if fulcioCa.Root != nil {
+				certPool.AddCert(fulcioCa.Root)
+			}
+			for _, intermediateCert := range fulcioCa.Intermediates {
+				certPool.AddCert(intermediateCert)
+			}
+		}
+	}
+
+	// for custom roots (if any)
+	if len(config.CustomRoots) > 0 {
+		for _, rootCert := range config.CustomRoots {
+			certPool.AddCert(rootCert)
+		}
+	}
+
+	return certPool, nil
+}
+
+func verifyCertificateChain(certChain []*x509.Certificate, trustedRoots *x509.CertPool) error {
+	if len(certChain) == 0 {
+		return fmt.Errorf("empty certificate chain")
+	}
+
+	intermediates := x509.NewCertPool()
+	for _, cert := range certChain[1:] { //skipp the first cert as it is the leaf cert
+		intermediates.AddCert(cert)
+	}
+
+	// using intermediate CAs to verify the chain of trust so that we can support intermediate CAs and it won't fail
+	// should we? or should we just use the root CAs? let me know
+	opts := x509.VerifyOptions{
+		Roots:         trustedRoots,
+		Intermediates: intermediates,
+	}
+
+	verifiedChains, err := certChain[0].Verify(opts)
+	if err != nil {
+		return fmt.Errorf("certificate chain verification failed: %v", err)
+	}
+
+	for _, chain := range verifiedChains {
+		rootCert := chain[len(chain)-1]
+		if trustedRoots.Subjects() != nil {
+			for _, subject := range trustedRoots.Subjects() {
+				if bytes.Equal(rootCert.RawSubject, subject) {
+					return nil
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("certificate chain does not terminate at a trusted root")
+}
+
+func getCertificateChain(ctx context.Context, rekorClient *client.Rekor) ([]*x509.Certificate, error) {
+	pemPubKey, err := GetPublicKey(ctx, rekorClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public key: %v", err)
+	}
+
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pemPubKey)
+	if err != nil || len(certs) == 0 {
+		return nil, fmt.Errorf("failed to parse certificates: %v", err)
+	}
+
+	return certs, nil
 }
 
 // ReadLatestCheckpoint fetches the latest checkpoint from log info fetched from Rekor.
