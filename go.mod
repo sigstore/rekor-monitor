@@ -15,6 +15,7 @@ require (
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.9
 	github.com/sigstore/sigstore v1.8.12
+	github.com/sigstore/sigstore-go v0.7.0
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/wneessen/go-mail v0.6.1
 	golang.org/x/mod v0.22.0
@@ -31,6 +32,8 @@ require (
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20220623050100-57a0ce2678a7 // indirect
 	github.com/danieljoos/wincred v1.2.0 // indirect
+	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
+	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
@@ -82,6 +85,8 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.9.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
+	github.com/sigstore/protobuf-specs v0.3.3 // indirect
+	github.com/sigstore/timestamp-authority v1.2.4 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
@@ -90,6 +95,7 @@ require (
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.0.2 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/veraison/go-cose v1.3.0 // indirect
@@ -109,6 +115,7 @@ require (
 	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/protobuf v1.36.4 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
