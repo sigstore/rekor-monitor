@@ -110,62 +110,64 @@ func main() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	// To get an immediate first tick
+	// To get an immediate first tick, for-select is at the end of the loop
 	for {
+		inputEndIndex := config.EndIndex
+
+		// TODO: Handle Rekor sharding
+		// https://github.com/sigstore/rekor-monitor/issues/57
+		var prevSTH *ctgo.SignedTreeHead
+		prevSTH, currentSTH, err := ct.RunConsistencyCheck(fulcioClient, *logInfoFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to successfully complete consistency check: %v", err)
+			return
+		}
+
+		if config.StartIndex == nil {
+			if prevSTH != nil {
+				checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
+				config.StartIndex = &checkpointStartIndex
+			} else {
+				defaultStartIndex := 0
+				config.StartIndex = &defaultStartIndex
+			}
+		}
+
+		if config.EndIndex == nil {
+			checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
+			config.EndIndex = &checkpointEndIndex
+		}
+
+		if *config.StartIndex >= *config.EndIndex {
+			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
+		}
+
+		if identity.MonitoredValuesExist(monitoredValues) {
+			foundEntries, err := ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+				return
+			}
+
+			notificationPool := notifications.CreateNotificationPool(config)
+
+			err = notifications.TriggerNotifications(notificationPool, foundEntries)
+			if err != nil {
+				// continue running consistency check if notifications fail to trigger
+				fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
+			}
+		}
+
+		if *once || inputEndIndex != nil {
+			return
+		}
+
+		config.StartIndex = config.EndIndex
+		config.EndIndex = nil
+
 		select {
 		case <-ticker.C:
-			inputEndIndex := config.EndIndex
-
-			// TODO: Handle Rekor sharding
-			// https://github.com/sigstore/rekor-monitor/issues/57
-			var prevSTH *ctgo.SignedTreeHead
-			prevSTH, currentSTH, err := ct.RunConsistencyCheck(fulcioClient, *logInfoFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete consistency check: %v", err)
-				return
-			}
-
-			if config.StartIndex == nil {
-				if prevSTH != nil {
-					checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
-					config.StartIndex = &checkpointStartIndex
-				} else {
-					defaultStartIndex := 0
-					config.StartIndex = &defaultStartIndex
-				}
-			}
-
-			if config.EndIndex == nil {
-				checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
-				config.EndIndex = &checkpointEndIndex
-			}
-
-			if *config.StartIndex >= *config.EndIndex {
-				fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-			}
-
-			if identity.MonitoredValuesExist(monitoredValues) {
-				foundEntries, err := ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-					return
-				}
-
-				notificationPool := notifications.CreateNotificationPool(config)
-
-				err = notifications.TriggerNotifications(notificationPool, foundEntries)
-				if err != nil {
-					// continue running consistency check if notifications fail to trigger
-					fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
-				}
-			}
-
-			if *once || inputEndIndex != nil {
-				return
-			}
-
-			config.StartIndex = config.EndIndex
-			config.EndIndex = nil
+			continue
 		case <-signalChan:
 			fmt.Fprintf(os.Stderr, "received signal, exiting")
 			return
