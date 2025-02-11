@@ -42,10 +42,6 @@ const (
 	outputIdentitiesFileName = "ctIdentities.txt"
 )
 
-var (
-	privateCTServerURL string
-)
-
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
@@ -54,7 +50,7 @@ func main() {
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
-	serverURL := flag.String("url", privateCTServerURL, "URL to the rekor server that is to be monitored")
+	serverURL := flag.String("url", publicCTServerURL, "URL to the rekor server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	flag.Parse()
 
@@ -76,11 +72,6 @@ func main() {
 		if err := yaml.Unmarshal([]byte(*configYamlInput), &config); err != nil {
 			log.Fatalf("error parsing identities: %v", err)
 		}
-	}
-
-	if *serverURL == "" {
-		fmt.Println("No server URL provided, using default public CT server URL")
-		*serverURL = publicCTServerURL
 	}
 
 	var fulcioClient *ctclient.LogClient

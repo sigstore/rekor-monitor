@@ -44,10 +44,6 @@ const (
 	logInfoFileName          = "logInfo.txt"
 )
 
-var (
-	privateRekorServerURL string
-)
-
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
@@ -56,7 +52,7 @@ func main() {
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
-	serverURL := flag.String("url", privateRekorServerURL, "URL to the rekor server that is to be monitored")
+	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
 	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
@@ -84,11 +80,6 @@ func main() {
 
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = outputIdentitiesFileName
-	}
-
-	if *serverURL == "" {
-		fmt.Println("No server URL provided, using default public Rekor server URL")
-		*serverURL = publicRekorServerURL
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
