@@ -35,6 +35,10 @@ on:
         description: 'multiline yaml of configuration settings for identity monitor run'
         required: false
         type: string
+      url:
+        description: 'Optional URL to pass to the monitor'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -83,7 +87,13 @@ jobs:
         run: cat ${{ env.LOG_FILE }}
         # Skip on first run
         continue-on-error: true
-      - run: go run ./cmd/rekor_monitor --file ${{ env.LOG_FILE }} --once=${{ inputs.once }} --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}" --config "${{ inputs.config }}"
+      - run: |
+          go run ./cmd/rekor_monitor \
+            --file ${{ env.LOG_FILE }} \
+            --once=${{ inputs.once }} \
+            --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}" \
+            --config "${{ inputs.config }}" \
+            ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
       - name: Upload checkpoint
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
