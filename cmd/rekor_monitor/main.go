@@ -124,6 +124,8 @@ func main() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
+	identityUpdated := make(chan struct{})
+	initialRun := true
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
 		inputEndIndex := config.EndIndex
@@ -132,10 +134,22 @@ func main() {
 		// https://github.com/sigstore/rekor-monitor/issues/57
 		var logInfo *models.LogInfo
 		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
+
+		if initialRun {
+			prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
+				return
+			}
+			initialRun = false
+		} else {
+			if _, ok := <-identityUpdated; ok {
+				prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
+					return
+				}
+			}
 		}
 
 		if config.StartIndex == nil {
@@ -165,11 +179,16 @@ func main() {
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-				return
-			}
+			go func() {
+				_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+					close(identityUpdated)
+					return
+				}
+				identityUpdated <- struct{}{}
+			}()
+			<-identityUpdated
 		}
 
 		if *once || inputEndIndex != nil {
