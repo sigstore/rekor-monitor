@@ -19,13 +19,18 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
@@ -34,69 +39,296 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-// TrustRootConfig for trust roots (aka custom roots)
+// TrustRootConfig defines the set of trusted roots for certificate verification
 type TrustRootConfig struct {
-	CustomRoots []*x509.Certificate
+	CustomRoots   []*x509.Certificate
+	UseTUFDefault bool
 }
 
-// GetLogVerifier creates a verifier from the log's public key
-func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor, trustRootConfig *TrustRootConfig) (signature.Verifier, error) {
-	trustedRoots, err := fetchTrustedRoots(trustRootConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get trusted roots: %v", err)
+var certPoolMutex sync.Mutex
+
+// GetTrustedRoots builds a CertPool from the configured trusted roots
+func GetTrustedRoots(ctx context.Context, config *TrustRootConfig, rekorClient *client.Rekor) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+
+	if config.UseTUFDefault {
+		defaultRoots, err := root.FetchTrustedRoot()
+		if err != nil {
+			log.Printf("Critical: Failed to fetch TUF trusted roots: %v", err)
+			return nil, fmt.Errorf("failed to fetch TUF trusted roots: %v", err)
+		}
+
+		fulcioCAs := defaultRoots.FulcioCertificateAuthorities()
+		if len(fulcioCAs) == 0 {
+			log.Println("Warning: No Fulcio CAs found in TUF metadata")
+		}
+
+		for _, ca := range fulcioCAs {
+			if fulcioCa, ok := ca.(*root.FulcioCertificateAuthority); ok {
+				if fulcioCa.Root != nil {
+					certPool.AddCert(fulcioCa.Root)
+				}
+				for _, intermediateCert := range fulcioCa.Intermediates {
+					certPool.AddCert(intermediateCert)
+				}
+			}
+		}
 	}
 
-	certChain, err := getCertificateChain(ctx, rekorClient)
+	if len(config.CustomRoots) > 0 {
+		for _, rootCert := range config.CustomRoots {
+			if !isValidRoot(rootCert) {
+				log.Printf("Warning: Skipping invalid custom root: %v", rootCert.Subject.CommonName)
+				continue
+			}
+			certPoolMutex.Lock()
+			certPool.AddCert(rootCert)
+			certPoolMutex.Unlock()
+		}
+	}
+
+	if len(certPool.Subjects()) == 0 {
+		return nil, fmt.Errorf("no valid trusted roots configured")
+	}
+
+	return certPool, nil
+}
+
+// GetLogVerifier creates a verifier from the log's public key, ensuring it chains to trusted roots
+func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor, trustedRoots *x509.CertPool) (signature.Verifier, error) {
+	certChain, err := getCertificateChain(rekorClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate chain: %v", err)
 	}
 
-	if err := verifyCertificateChain(certChain, trustedRoots); err != nil {
-		return nil, fmt.Errorf("certificate chain verification failed: %v", err)
+	if len(certChain) == 0 {
+		return nil, fmt.Errorf("empty certificate chain")
 	}
 
-	// Extract and create verifier
+	if err := verifyCertificateChain(certChain, trustedRoots); err != nil {
+		return nil, fmt.Errorf("certificate chain does not chain to a trusted root: %v", err)
+	}
+
 	pubKey := certChain[0].PublicKey
 	verifier, err := signature.LoadVerifier(pubKey, crypto.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load verifier: %v", err)
 	}
-
 	return verifier, nil
 }
 
-func fetchTrustedRoots(config *TrustRootConfig) (*x509.CertPool, error) {
-	certPool := x509.NewCertPool()
+// VerifyLogEntryCertChain verifies that a log entry's certificate chain chains up to a trusted root
+func VerifyLogEntryCertChain(entry models.LogEntryAnon, certPool *x509.CertPool) bool {
+	certChain := extractCertChain(entry)
+	if len(certChain) == 0 {
+		logIndex := "<nil>"
+		if entry.LogIndex != nil {
+			logIndex = fmt.Sprintf("%d", *entry.LogIndex)
+		}
+		log.Printf("No certificate chain found in log entry: %s", logIndex)
+		return false
+	}
 
-	defaultRoots, err := root.FetchTrustedRoot()
+	cert, err := x509.ParseCertificate(certChain[0])
 	if err != nil {
-		log.Printf("Warning: Failed to fetch trusted roots: %v", err)
-	}
-
-	fulcioCAs := defaultRoots.FulcioCertificateAuthorities()
-	if len(fulcioCAs) == 0 {
-		log.Println("Warning: No Fulcio CAs found in TUF metadata")
-	}
-
-	for _, ca := range fulcioCAs {
-		if fulcioCa, ok := ca.(*root.FulcioCertificateAuthority); ok {
-			if fulcioCa.Root != nil {
-				certPool.AddCert(fulcioCa.Root)
-			}
-			for _, intermediateCert := range fulcioCa.Intermediates {
-				certPool.AddCert(intermediateCert)
-			}
+		logIndex := "<nil>"
+		if entry.LogIndex != nil {
+			logIndex = fmt.Sprintf("%d", *entry.LogIndex)
 		}
+		log.Printf("Failed to parse end-entity certificate for entry %s: %v", logIndex, err)
+		return false
 	}
 
-	// for custom roots (if any)
-	if len(config.CustomRoots) > 0 {
-		for _, rootCert := range config.CustomRoots {
-			certPool.AddCert(rootCert)
+	intermediates := x509.NewCertPool()
+	for _, der := range certChain[1:] {
+		inter, err := x509.ParseCertificate(der)
+		if err != nil {
+			logIndex := "<nil>"
+			if entry.LogIndex != nil {
+				logIndex = fmt.Sprintf("%d", *entry.LogIndex)
+			}
+			log.Printf("Failed to parse intermediate certificate for entry %s: %v", logIndex, err)
+			return false
 		}
+		intermediates.AddCert(inter)
 	}
 
-	return certPool, nil
+	opts := x509.VerifyOptions{
+		Roots:         certPool,
+		Intermediates: intermediates,
+		CurrentTime:   time.Now(),
+	}
+
+	if _, err := cert.Verify(opts); err != nil {
+		logIndex := "<nil>"
+		if entry.LogIndex != nil {
+			logIndex = fmt.Sprintf("%d", *entry.LogIndex)
+		}
+		log.Printf("Certificate chain verification failed for entry %s: %v", logIndex, err)
+		return false
+	}
+	return true
+}
+
+func extractCertChain(entry models.LogEntryAnon) [][]byte {
+	if entry.Body == nil {
+		return [][]byte{}
+	}
+
+	bodyStr, ok := entry.Body.(string)
+	if !ok {
+		log.Printf("Failed to convert body to string")
+		return [][]byte{}
+	}
+
+	decodedBody, err := base64.StdEncoding.DecodeString(bodyStr)
+	if err != nil {
+		log.Printf("Failed to decode base64 body: %v", err)
+		return [][]byte{}
+	}
+
+	var rekord models.Rekord
+	if err := json.Unmarshal(decodedBody, &rekord); err != nil {
+		log.Printf("Failed to unmarshal rekord body: %v", err)
+		return [][]byte{}
+	}
+
+	if rekord.APIVersion == nil || rekord.Spec == nil {
+		return [][]byte{}
+	}
+
+	if *rekord.APIVersion != "0.0.1" {
+		log.Printf("Unsupported rekord API version: %s", *rekord.APIVersion)
+		return [][]byte{}
+	}
+
+	specBytes, err := json.Marshal(rekord.Spec)
+	if err != nil {
+		log.Printf("Failed to marshal spec: %v", err)
+		return [][]byte{}
+	}
+
+	var rekordSpec models.RekordV001Schema
+	if err := json.Unmarshal(specBytes, &rekordSpec); err != nil {
+		log.Printf("Failed to unmarshal rekord spec: %v", err)
+		return [][]byte{}
+	}
+
+	if rekordSpec.Signature != nil && rekordSpec.Signature.PublicKey != nil && rekordSpec.Signature.PublicKey.Content != nil {
+		return [][]byte{*rekordSpec.Signature.PublicKey.Content}
+	}
+
+	return [][]byte{}
+}
+
+func ProcessLogEntries(ctx context.Context, config *TrustRootConfig, rekorClient *client.Rekor) error {
+	certPool, err := GetTrustedRoots(ctx, config, rekorClient)
+	if err != nil {
+		return fmt.Errorf("failed to get trusted roots: %v", err)
+	}
+
+	logVerifier, err := GetLogVerifier(ctx, rekorClient, certPool)
+	if err != nil {
+		return fmt.Errorf("failed to get log verifier: %v", err)
+	}
+
+	params := &entries.GetLogEntryByIndexParams{
+		Context:  ctx,
+		LogIndex: 0,
+	}
+	entries, err := rekorClient.Entries.GetLogEntryByIndex(params)
+	if err != nil {
+		return fmt.Errorf("failed to fetch log entries: %v", err)
+	}
+
+	for _, entry := range entries.Payload {
+		logIndex := "<nil>"
+		if entry.LogIndex != nil {
+			logIndex = fmt.Sprintf("%d", *entry.LogIndex)
+		}
+
+		if !VerifyLogEntryCertChain(entry, certPool) {
+			log.Printf("Skipping log entry %s due to invalid certificate chain", logIndex)
+			continue
+		}
+
+		bodyStr, ok := entry.Body.(string)
+		if !ok {
+			log.Printf("Failed to convert body to string for entry %s", logIndex)
+			continue
+		}
+
+		decodedBody, err := base64.StdEncoding.DecodeString(bodyStr)
+		if err != nil {
+			log.Printf("Failed to decode base64 body for entry %s: %v", logIndex, err)
+			continue
+		}
+
+		var rekord models.Rekord
+		if err := json.Unmarshal(decodedBody, &rekord); err != nil {
+			log.Printf("Failed to unmarshal rekord body for entry %s: %v", logIndex, err)
+			continue
+		}
+
+		specBytes, err := json.Marshal(rekord.Spec)
+		if err != nil {
+			log.Printf("Failed to marshal spec for entry %s: %v", logIndex, err)
+			continue
+		}
+
+		var rekordSpec models.RekordV001Schema
+		if err := json.Unmarshal(specBytes, &rekordSpec); err != nil {
+			log.Printf("Failed to unmarshal rekord spec for entry %s: %v", logIndex, err)
+			continue
+		}
+
+		if rekordSpec.Signature == nil || rekordSpec.Signature.Content == nil || rekordSpec.Data == nil || rekordSpec.Data.Content == nil {
+			log.Printf("Missing signature or data in entry %s", logIndex)
+			continue
+		}
+
+		signatureBytes := *rekordSpec.Signature.Content
+		signedData := rekordSpec.Data.Content
+
+		h := crypto.SHA256.New()
+		h.Write(signedData)
+		hashedData := h.Sum(nil)
+
+		// Verify the signature
+		err = logVerifier.VerifySignature(bytes.NewReader(hashedData), bytes.NewReader(signatureBytes))
+		if err != nil {
+			log.Printf("Signature verification failed for entry %s: %v", logIndex, err)
+			continue
+		}
+
+		log.Printf("Successfully verified signature for log entry %s", logIndex)
+	}
+
+	return nil
+}
+
+func isValidRoot(cert *x509.Certificate) bool {
+	if !cert.IsCA || !cert.BasicConstraintsValid {
+		log.Printf("Root certificate is not a valid CA: %v", cert.Subject.CommonName)
+		return false
+	}
+
+	if time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
+		log.Printf("Root certificate expired or not yet valid: %v", cert.Subject.CommonName)
+		return false
+	}
+
+	if !isSelfSigned(cert) {
+		log.Printf("Root certificate is not self-signed: %v", cert.Subject.CommonName)
+		return false
+	}
+
+	return true
+}
+
+func isSelfSigned(cert *x509.Certificate) bool {
+	err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+	return err == nil
 }
 
 func verifyCertificateChain(certChain []*x509.Certificate, trustedRoots *x509.CertPool) error {
@@ -104,48 +336,39 @@ func verifyCertificateChain(certChain []*x509.Certificate, trustedRoots *x509.Ce
 		return fmt.Errorf("empty certificate chain")
 	}
 
+	leafCert := certChain[0]
 	intermediates := x509.NewCertPool()
-	for _, cert := range certChain[1:] { //skipp the first cert as it is the leaf cert
+	for _, cert := range certChain[1:] {
 		intermediates.AddCert(cert)
 	}
 
-	// using intermediate CAs to verify the chain of trust so that we can support intermediate CAs and it won't fail
-	// should we? or should we just use the root CAs? let me know
 	opts := x509.VerifyOptions{
 		Roots:         trustedRoots,
 		Intermediates: intermediates,
+		CurrentTime:   time.Now(),
 	}
 
-	verifiedChains, err := certChain[0].Verify(opts)
+	_, err := leafCert.Verify(opts)
 	if err != nil {
 		return fmt.Errorf("certificate chain verification failed: %v", err)
 	}
-
-	for _, chain := range verifiedChains {
-		rootCert := chain[len(chain)-1]
-		if trustedRoots.Subjects() != nil {
-			for _, subject := range trustedRoots.Subjects() {
-				if bytes.Equal(rootCert.RawSubject, subject) {
-					return nil
-				}
-			}
-		}
-	}
-
-	return fmt.Errorf("certificate chain does not terminate at a trusted root")
+	return nil
 }
 
-func getCertificateChain(ctx context.Context, rekorClient *client.Rekor) ([]*x509.Certificate, error) {
-	pemPubKey, err := GetPublicKey(ctx, rekorClient)
+func getCertificateChain(rekorClient *client.Rekor) ([]*x509.Certificate, error) {
+	if rekorClient == nil || rekorClient.Pubkey == nil {
+		return nil, fmt.Errorf("invalid rekor client or pubkey client")
+	}
+
+	resp, err := rekorClient.Pubkey.GetPublicKey(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public key: %v", err)
 	}
 
-	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pemPubKey)
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM([]byte(resp.Payload))
 	if err != nil || len(certs) == 0 {
 		return nil, fmt.Errorf("failed to parse certificates: %v", err)
 	}
-
 	return certs, nil
 }
 
