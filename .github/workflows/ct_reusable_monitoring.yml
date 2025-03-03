@@ -50,7 +50,7 @@ jobs:
     steps:
       - name: Detect the repository and ref
         id: detect
-        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow-js@5a775b367a56d5bd118a224a811bba288150a563 # v2.0.0
+        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow-js@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     # NOTE: This GHA should not be run concurrently.
     concurrency:
       group: certificate-transparency-monitor
