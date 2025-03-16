@@ -232,76 +232,79 @@ func ProcessLogEntries(ctx context.Context, config *TrustRootConfig, rekorClient
 		return fmt.Errorf("failed to get log verifier: %v", err)
 	}
 
-	params := &entries.GetLogEntryByIndexParams{
-		Context:  ctx,
-		LogIndex: 0,
-	}
-	entries, err := rekorClient.Entries.GetLogEntryByIndex(params)
-	if err != nil {
-		return fmt.Errorf("failed to fetch log entries: %v", err)
-	}
+	logIndex := int64(0)
+	batchSize := int64(100)
 
-	for _, entry := range entries.Payload {
-		logIndex := "<nil>"
-		if entry.LogIndex != nil {
-			logIndex = fmt.Sprintf("%d", *entry.LogIndex)
+	for {
+		params := &entries.GetLogEntryByIndexParams{
+			Context:  ctx,
+			LogIndex: logIndex,
 		}
-
-		if !VerifyLogEntryCertChain(entry, certPool) {
-			log.Printf("Skipping log entry %s due to invalid certificate chain", logIndex)
-			continue
-		}
-
-		bodyStr, ok := entry.Body.(string)
-		if !ok {
-			log.Printf("Failed to convert body to string for entry %s", logIndex)
-			continue
-		}
-
-		decodedBody, err := base64.StdEncoding.DecodeString(bodyStr)
+		entries, err := rekorClient.Entries.GetLogEntryByIndex(params)
 		if err != nil {
-			log.Printf("Failed to decode base64 body for entry %s: %v", logIndex, err)
-			continue
+			return fmt.Errorf("failed to fetch log entries at index %d: %v", logIndex, err)
 		}
 
-		var rekord models.Rekord
-		if err := json.Unmarshal(decodedBody, &rekord); err != nil {
-			log.Printf("Failed to unmarshal rekord body for entry %s: %v", logIndex, err)
-			continue
+		if len(entries.Payload) == 0 {
+			break
 		}
 
-		specBytes, err := json.Marshal(rekord.Spec)
-		if err != nil {
-			log.Printf("Failed to marshal spec for entry %s: %v", logIndex, err)
-			continue
+		for _, entry := range entries.Payload {
+			logIndexStr := "<nil>"
+			if entry.LogIndex != nil {
+				logIndexStr = fmt.Sprintf("%d", *entry.LogIndex)
+			}
+
+			if !VerifyLogEntryCertChain(entry, certPool) {
+				return fmt.Errorf("skipping log entry %s due to invalid certificate chain", logIndexStr)
+
+			}
+
+			bodyStr, ok := entry.Body.(string)
+			if !ok {
+				return fmt.Errorf("failed to convert body to string for entry %s", logIndexStr)
+
+			}
+
+			decodedBody, err := base64.StdEncoding.DecodeString(bodyStr)
+			if err != nil {
+				return fmt.Errorf("failed to decode base64 body for entry %s: %v", logIndexStr, err)
+
+			}
+
+			var rekord models.Rekord
+			if err := json.Unmarshal(decodedBody, &rekord); err != nil {
+				return fmt.Errorf("failed to unmarshal rekord body for entry %s: %v", logIndexStr, err)
+
+			}
+
+			specBytes, err := json.Marshal(rekord.Spec)
+			if err != nil {
+				return fmt.Errorf("failed to marshal spec for entry %s: %v", logIndexStr, err)
+
+			}
+
+			var rekordSpec models.RekordV001Schema
+			if err := json.Unmarshal(specBytes, &rekordSpec); err != nil {
+				return fmt.Errorf("failed to unmarshal rekord spec for entry %s: %v", logIndexStr, err)
+
+			}
+
+			if rekordSpec.Signature == nil || rekordSpec.Signature.Content == nil || rekordSpec.Data == nil || rekordSpec.Data.Content == nil {
+				return fmt.Errorf("missing signature or data in entry %s", logIndexStr)
+			}
+
+			signatureBytes := []byte(*rekordSpec.Signature.Content)
+			signedData := []byte(rekordSpec.Data.Content)
+
+			err = logVerifier.VerifySignature(bytes.NewReader(signatureBytes), bytes.NewReader(signedData))
+			if err != nil {
+				return err
+			}
+			log.Printf("Successfully verified signature for log entry %s", logIndexStr)
 		}
 
-		var rekordSpec models.RekordV001Schema
-		if err := json.Unmarshal(specBytes, &rekordSpec); err != nil {
-			log.Printf("Failed to unmarshal rekord spec for entry %s: %v", logIndex, err)
-			continue
-		}
-
-		if rekordSpec.Signature == nil || rekordSpec.Signature.Content == nil || rekordSpec.Data == nil || rekordSpec.Data.Content == nil {
-			log.Printf("Missing signature or data in entry %s", logIndex)
-			continue
-		}
-
-		signatureBytes := *rekordSpec.Signature.Content
-		signedData := rekordSpec.Data.Content
-
-		h := crypto.SHA256.New()
-		h.Write(signedData)
-		hashedData := h.Sum(nil)
-
-		// Verify the signature
-		err = logVerifier.VerifySignature(bytes.NewReader(hashedData), bytes.NewReader(signatureBytes))
-		if err != nil {
-			log.Printf("Signature verification failed for entry %s: %v", logIndex, err)
-			continue
-		}
-
-		log.Printf("Successfully verified signature for log entry %s", logIndex)
+		logIndex += batchSize
 	}
 
 	return nil

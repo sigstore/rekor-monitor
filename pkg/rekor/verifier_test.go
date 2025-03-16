@@ -33,6 +33,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -602,4 +603,181 @@ func TestVerifyLogEntryCertChain(t *testing.T) {
 			}
 		})
 	}
+}
+
+func generateLeafCert(t *testing.T, rootKey *ecdsa.PrivateKey, rootCert *x509.Certificate) (*ecdsa.PrivateKey, []byte) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "valid.example.com"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+
+	certBytes, err := generateCert(template, rootCert, &key.PublicKey, rootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return key, certBytes
+}
+
+func createTestRekord(t *testing.T, certBytes []byte, signature []byte, data []byte) string {
+	spec := models.RekordV001Schema{
+		Signature: &models.RekordV001SchemaSignature{
+			Content: (*strfmt.Base64)(&signature),
+			PublicKey: &models.RekordV001SchemaSignaturePublicKey{
+				Content: (*strfmt.Base64)(&certBytes),
+			},
+		},
+		Data: &models.RekordV001SchemaData{
+			Content: strfmt.Base64(data),
+		},
+	}
+
+	rekord := models.Rekord{
+		APIVersion: strPtr("0.0.1"),
+		Spec:       spec,
+	}
+
+	bodyBytes, err := json.Marshal(rekord)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(bodyBytes)
+}
+
+type mockEntriesClient struct {
+	entries.ClientService
+	getLogEntryByIndexFunc func(params *entries.GetLogEntryByIndexParams) (*entries.GetLogEntryByIndexOK, error)
+}
+
+func (m *mockEntriesClient) GetLogEntryByIndex(params *entries.GetLogEntryByIndexParams, _ ...entries.ClientOption) (*entries.GetLogEntryByIndexOK, error) {
+	return m.getLogEntryByIndexFunc(params)
+}
+
+func TestProcessLogEntries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate root key: %v", err)
+	}
+	rootTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Trusted Root CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	rootCertBytes, err := generateCert(rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
+	if err != nil {
+		t.Fatalf("Failed to create root certificate: %v", err)
+	}
+	rootCert, err := x509.ParseCertificate(rootCertBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse root certificate: %v", err)
+	}
+
+	leafKey, leafCertBytes := generateLeafCert(t, rootKey, rootCert)
+
+	data := []byte("test payload for verification")
+
+	h := crypto.SHA256.New()
+	h.Write(data)
+	digest := h.Sum(nil)
+
+	r, s, err := ecdsa.Sign(rand.Reader, leafKey, digest)
+	if err != nil {
+		t.Fatalf("Failed to sign digest: %v", err)
+	}
+	sig := append(r.Bytes(), s.Bytes()...)
+
+	t.Logf("Signature length: %d bytes", len(sig))
+	if len(sig) == 0 || len(sig) > 132 || len(sig)%2 != 0 {
+		t.Fatalf("Generated signature does not meet IEEE P1363 requirements: length=%d", len(sig))
+	}
+
+	chainPEM := append(
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCertBytes}),
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCertBytes})...,
+	)
+
+	config := &TrustRootConfig{
+		CustomRoots:   []*x509.Certificate{rootCert},
+		UseTUFDefault: false,
+	}
+
+	tests := []struct {
+		name          string
+		setupClient   func() *client.Rekor
+		expectSuccess bool
+	}{
+		{
+			name: "valid certificate chain",
+			setupClient: func() *client.Rekor {
+				validBody := createTestRekord(t, leafCertBytes, sig, data)
+				return &client.Rekor{
+					Entries: &mockEntriesClient{
+						getLogEntryByIndexFunc: func(params *entries.GetLogEntryByIndexParams) (*entries.GetLogEntryByIndexOK, error) {
+							if params.LogIndex == 0 {
+								return &entries.GetLogEntryByIndexOK{
+									Payload: map[string]models.LogEntryAnon{
+										"1": {
+											Body:           validBody,
+											LogIndex:       ptrInt64(1),
+											IntegratedTime: ptrInt64(time.Now().Unix()),
+											Verification: &models.LogEntryAnonVerification{
+												InclusionProof: &models.InclusionProof{
+													LogIndex: ptrInt64(1),
+													RootHash: strPtr("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+													TreeSize: ptrInt64(2),
+													Hashes:   []string{"sha256:a1b2c3d4e5f6"},
+												},
+											},
+										},
+									},
+								}, nil
+							}
+							return &entries.GetLogEntryByIndexOK{Payload: map[string]models.LogEntryAnon{}}, nil
+						},
+					},
+					Pubkey: &mock.PubkeyClient{PEMPubKey: string(chainPEM)},
+				}
+			},
+			expectSuccess: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rekorClient := tc.setupClient()
+			err := ProcessLogEntries(context.Background(), config, rekorClient)
+
+			if tc.expectSuccess && err != nil {
+				t.Fatalf("Expected success but got error: %v", err)
+			}
+			if !tc.expectSuccess && err == nil {
+				t.Fatalf("Expected error but got success")
+			}
+		})
+	}
+}
+
+func ptrInt64(i int64) *int64 {
+	return &i
+}
+
+func strPtr(s string) *string {
+	return &s
 }
