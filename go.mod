@@ -6,7 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/go-openapi/runtime v0.28.0
-	github.com/go-openapi/swag v0.23.0
+	github.com/go-openapi/swag v0.23.1
 	github.com/google/certificate-transparency-go v1.3.1
 	github.com/google/go-github/v65 v65.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
@@ -67,7 +67,7 @@ require (
 	github.com/letsencrypt/boulder v0.0.0-20240620165639-de9c06129bec // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailgun/errors v0.4.0 // indirect
-	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
