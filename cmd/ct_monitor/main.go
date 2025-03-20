@@ -50,7 +50,7 @@ func main() {
 	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
-	serverURL := flag.String("url", publicCTServerURL, "URL to the rekor server that is to be monitored")
+	serverURL := flag.String("url", publicCTServerURL, "URL to the public CT server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	flag.Parse()
 
