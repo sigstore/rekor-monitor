@@ -1,8 +1,7 @@
 module github.com/sigstore/rekor-monitor
 
 go 1.23.2
-
-toolchain go1.23.4
+toolchain go1.24.1
 
 require (
 	github.com/go-openapi/runtime v0.28.0
@@ -19,7 +18,7 @@ require (
 	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/mod v0.24.0
 	gopkg.in/yaml.v2 v2.4.0
-	sigs.k8s.io/release-utils v0.11.0
+	sigs.k8s.io/release-utils v0.11.1
 )
 
 require (
@@ -86,8 +85,8 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/cobra v1.9.1 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
