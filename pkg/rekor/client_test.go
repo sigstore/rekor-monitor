@@ -153,7 +153,7 @@ func Test_min(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		m := min(tt.a, tt.b)
+		m := computeMin(tt.a, tt.b)
 		if m != tt.result {
 			t.Errorf("expected min value of %d for inputs(%d,%d), got %d", tt.result, tt.a, tt.b, m)
 		}
