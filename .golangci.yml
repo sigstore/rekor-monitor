@@ -21,6 +21,7 @@ linters:
     - gosec
     - misspell
     - revive
+    - unused
   exclusions:
     generated: lax
     presets:
