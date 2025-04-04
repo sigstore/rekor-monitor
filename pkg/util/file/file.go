@@ -95,7 +95,7 @@ func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, logInfoFile string) error {
 // WriteCheckpoint writes a signed checkpoint to the log file
 func WriteCheckpoint(checkpoint *util.SignedCheckpoint, logInfoFile string) error {
 	// Write latest checkpoint to file
-	s, err := checkpoint.SignedNote.MarshalText()
+	s, err := checkpoint.MarshalText()
 	if err != nil {
 		return fmt.Errorf("failed to marshal checkpoint: %w", err)
 	}
@@ -105,11 +105,8 @@ func WriteCheckpoint(checkpoint *util.SignedCheckpoint, logInfoFile string) erro
 		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
-	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
-	}
 	// Replace newlines to flatten checkpoint to single line
-	if _, err := file.WriteString(fmt.Sprintf("%s\n", strings.ReplaceAll(string(s), "\n", "\\n"))); err != nil {
+	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(s), "\n", "\\n")); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 	return nil
@@ -149,7 +146,7 @@ func DeleteOldCheckpoints(logInfoFile string) error {
 	defer file.Close()
 
 	for i := len(lines) - 100; i < len(lines); i++ {
-		if _, err := file.WriteString(fmt.Sprintf("%s\n", lines[i])); err != nil {
+		if _, err := fmt.Fprintf(file, "%s\n", lines[i]); err != nil {
 			return err
 		}
 	}
@@ -165,7 +162,7 @@ func WriteIdentity(idFile string, idEntry identity.LogEntry) error {
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(fmt.Sprintf("%s\n", idEntry.String())); err != nil {
+	if _, err := fmt.Fprintf(file, "%s\n", idEntry.String()); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 

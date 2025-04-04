@@ -72,8 +72,8 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 	var logEntries []models.LogEntry
 	for i := start + 1; i <= end; i += 10 {
 		var logIndices []*int64
-		min := min(i+10, end+1)
-		for j := i; j < min; j++ {
+		minVal := computeMin(i+10, end+1)
+		for j := i; j < minVal; j++ {
 			j := int64(j)
 			logIndices = append(logIndices, &j)
 		}
@@ -94,8 +94,8 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 	return logEntries, nil
 }
 
-// min calculates the minimum of two integers. Preferred over math.Min due to verbose type conversions
-func min(a, b int) int {
+// computeMin calculates the minimum of two integers. Preferred over math.Min due to verbose type conversions
+func computeMin(a, b int) int {
 	if a < b {
 		return a
 	}
