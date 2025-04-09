@@ -1,7 +1,7 @@
 # Rekor Log Monitor
 
 Rekor Log Monitor provides an easy-to-use monitor to verify log consistency,
-that the log is immutability and append-only. Monitoring is critical to
+that the log is immutable and append-only. Monitoring is critical to
 the transparency log ecosystem, as logs are tamper-evident but not tamper-proof.
 Rekor Log Monitor also provides a monitor to search for identities within a log,
 and send a list of found identities via various notification platforms.
