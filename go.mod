@@ -10,7 +10,7 @@ require (
 	github.com/google/certificate-transparency-go v1.3.1
 	github.com/google/go-github/v65 v65.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/migueleliasweb/go-github-mock v1.1.0
+	github.com/migueleliasweb/go-github-mock v1.3.0
 	github.com/mocktools/go-smtp-mock/v2 v2.4.0
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.10
@@ -48,7 +48,7 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-containerregistry v0.20.3 // indirect
-	github.com/google/go-github/v64 v64.0.0 // indirect
+	github.com/google/go-github/v71 v71.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/rpmpack v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
