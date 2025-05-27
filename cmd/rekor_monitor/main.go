@@ -128,7 +128,17 @@ func main() {
 			http.Handle("/metrics", promhttp.Handler())
 			portStr := strconv.Itoa(*monitorPort)
 			log.Printf("Starting Prometheus metrics server on :%s", portStr)
-			if err := http.ListenAndServe(":"+portStr, nil); err != nil {
+
+			server := &http.Server{
+				Addr:              ":" + portStr,
+				Handler:           nil,
+				ReadTimeout:       10 * time.Second,
+				WriteTimeout:      10 * time.Second,
+				IdleTimeout:       120 * time.Second,
+				ReadHeaderTimeout: 5 * time.Second,
+			}
+
+			if err := server.ListenAndServe(); err != nil {
 				log.Fatalf("Failed to start Prometheus metrics server: %v", err)
 			}
 		}()
