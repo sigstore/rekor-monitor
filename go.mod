@@ -11,7 +11,7 @@ require (
 	github.com/google/go-github/v65 v65.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/migueleliasweb/go-github-mock v1.3.0
-	github.com/mocktools/go-smtp-mock/v2 v2.4.0
+	github.com/mocktools/go-smtp-mock/v2 v2.5.0
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sigstore/rekor v1.3.10
 	github.com/sigstore/sigstore v1.9.4
