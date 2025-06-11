@@ -21,22 +21,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
+	"github.com/sigstore/rekor-monitor/pkg/server"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
@@ -60,26 +53,14 @@ var (
 	logInfoFile     = flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
 	interval        = flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString = flag.String("user-agent", "", "details to include in the user agent string")
-	runAsMonitor    = flag.Bool("run-as-monitor", false, "Enable this option to expose log consistency check results as Prometheus metrics on /metrics")
 	monitorPort     = flag.Int("monitor-port", 9464, "Port for the Prometheus metrics server")
-)
-
-var (
-	logIndexVerificationTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "log_index_verification_total",
-		Help: "Total number of log consistency check attempts.",
-	})
-	logIndexVerificationFailure = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "log_index_verification_failure",
-		Help: "Total number of failed log consistency check attempts.",
-	})
 )
 
 func handleError(msg string, err error) {
 	errWrap := errors.Join(errors.New(msg), err)
 	fmt.Fprint(os.Stderr, errWrap, "\n")
 
-	if runAsMonitor != nil && *runAsMonitor {
+	if !*once {
 		errStr := errWrap.Error()
 		// These specific messages are expected in normal operation and are not treated as consistency check failures.
 		// Therefore, they are excluded from Prometheus failure metrics.
@@ -87,7 +68,7 @@ func handleError(msg string, err error) {
 			strings.Contains(errStr, "no start index set and no log checkpoint") {
 			return
 		}
-		logIndexVerificationFailure.Inc()
+		server.IncLogIndexVerificationFailure()
 	} else {
 		os.Exit(1)
 	}
@@ -123,25 +104,10 @@ func main() {
 		config.OutputIdentitiesFile = outputIdentitiesFileName
 	}
 
-	if runAsMonitor != nil && *runAsMonitor {
-		go func() {
-			http.Handle("/metrics", promhttp.Handler())
-			portStr := strconv.Itoa(*monitorPort)
-			log.Printf("Starting Prometheus metrics server on :%s", portStr)
-
-			server := &http.Server{
-				Addr:              ":" + portStr,
-				Handler:           nil,
-				ReadTimeout:       10 * time.Second,
-				WriteTimeout:      10 * time.Second,
-				IdleTimeout:       120 * time.Second,
-				ReadHeaderTimeout: 5 * time.Second,
-			}
-
-			if err := server.ListenAndServe(); err != nil {
-				log.Fatalf("Failed to start Prometheus metrics server: %v", err)
-			}
-		}()
+	if !*once {
+		if err := server.StartMetricsServer(*monitorPort); err != nil {
+			log.Fatalf("Failed to start Prometheus metrics server: %v", err)
+		}
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
@@ -183,14 +149,9 @@ func main() {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
-		if runAsMonitor != nil && *runAsMonitor {
-			logIndexVerificationTotal.Inc()
-		}
+		server.IncLogIndexVerificationTotal()
 		inputEndIndex := config.EndIndex
 
 		// TODO: Handle Rekor sharding
@@ -200,7 +161,7 @@ func main() {
 		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
 		if err != nil {
 			handleError("error running consistency check", err)
-			if runAsMonitor != nil && *runAsMonitor {
+			if !*once {
 				goto waitForTick
 			}
 		}
@@ -211,7 +172,7 @@ func main() {
 				config.StartIndex = &checkpointStartIndex
 			} else {
 				handleError("no start index set and no log checkpoint", nil)
-				if runAsMonitor != nil && *runAsMonitor {
+				if !*once {
 					goto waitForTick
 				}
 			}
@@ -221,7 +182,7 @@ func main() {
 			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
 			if err != nil {
 				handleError("error reading checkpoint", err)
-				if runAsMonitor != nil && *runAsMonitor {
+				if !*once {
 					goto waitForTick
 				}
 			}
@@ -232,7 +193,7 @@ func main() {
 
 		if *config.StartIndex >= *config.EndIndex {
 			handleError(fmt.Sprintf("start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex), nil)
-			if runAsMonitor != nil && *runAsMonitor {
+			if !*once {
 				goto waitForTick
 			}
 		}
@@ -241,7 +202,7 @@ func main() {
 			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 			if err != nil {
 				handleError("failed to successfully complete identity search", err)
-				if runAsMonitor != nil && *runAsMonitor {
+				if !*once {
 					goto waitForTick
 				}
 			}
@@ -258,7 +219,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			continue
-		case <-signalChan:
+		case <-server.GetSignalChan():
 			fmt.Fprintf(os.Stderr, "received signal, exiting")
 			return
 		}
