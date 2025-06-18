@@ -107,4 +107,4 @@ bin/
 /logInfo.txt
 /identities.txt
 /mirroring
-/verifier
+/rekor_monitor
