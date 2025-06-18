@@ -14,12 +14,12 @@
 # limitations under the License.
 
 build:
-	go build ./cmd/verifier
+	go build ./cmd/rekor_monitor
 
 test:
 	go test ./...
 
 clean:
-	rm -f ./verifier
+	rm -f ./rekor_monitor
 
 .PHONY: build test clean
