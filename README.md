@@ -9,7 +9,7 @@ and send a list of found identities via various notification platforms.
 ## Consistency check
 
 To run, create a GitHub Actions workflow that uses the
-[consistency check workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/consistency_check.yml).
+[reusable monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/reusable_monitoring.yml).
 It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow:
@@ -51,7 +51,8 @@ Note: The log monitor only starts monitoring from the latest checkpoint. If you 
 entries, you will need to query the log.
 
 To run, create a GitHub Actions workflow that uses the
-[identity monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/identity_monitor.yml).
+[reusable monitoring workflow](https://github.com/sigstore/rekor-monitor/blob/main/.github/workflows/reusable_monitoring.yml).
+and passes the identities to monitor as part of the `config` input.
 It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow below:
