@@ -88,6 +88,44 @@ func TestScanEntryCertSubject(t *testing.T) {
 					Issuer:      issuerName},
 			},
 		},
+		"matching subject precertificate": {
+			inputEntry: ct.LogEntry{
+				Index: 1,
+				Precert: &ct.Precertificate{
+					TBSCertificate: &x509.Certificate{
+						DNSNames:       []string{subjectName},
+						EmailAddresses: []string{organizationName},
+						Extensions: []pkix.Extension{
+							{
+								Id:    google_asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+								Value: []byte(issuerName),
+							},
+						},
+						Issuer: pkix.Name{
+							CommonName: issuerName,
+						},
+					},
+				},
+			},
+			inputSubjects: []identity.CertificateIdentity{
+				{
+					CertSubject: subjectName,
+					Issuers:     []string{issuerName},
+				},
+				{
+					CertSubject: organizationName,
+					Issuers:     []string{},
+				},
+			},
+			expected: []identity.LogEntry{
+				{Index: 1,
+					CertSubject: subjectName,
+					Issuer:      issuerName},
+				{Index: 1,
+					CertSubject: organizationName,
+					Issuer:      issuerName},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -138,6 +176,27 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 			inputEntry: ct.LogEntry{
 				Index:    1,
 				X509Cert: cert,
+			},
+			inputOIDExtensions: []extensions.OIDExtension{
+				{
+					ObjectIdentifier: matchedAsn1OID,
+					ExtensionValues:  []string{extValueString},
+				},
+			},
+			expected: []identity.LogEntry{
+				{
+					Index:          1,
+					OIDExtension:   matchedAsn1OID,
+					ExtensionValue: extValueString,
+				},
+			},
+		},
+		"matching subject precertificate": {
+			inputEntry: ct.LogEntry{
+				Index: 1,
+				Precert: &ct.Precertificate{
+					TBSCertificate: cert,
+				},
 			},
 			inputOIDExtensions: []extensions.OIDExtension{
 				{

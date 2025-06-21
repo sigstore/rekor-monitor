@@ -33,9 +33,17 @@ func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int
 }
 
 func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
+	cert := logEntry.X509Cert
+	if cert == nil && logEntry.Precert != nil {
+		cert = logEntry.Precert.TBSCertificate
+	}
+
+	if cert == nil {
+		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
+	}
 	matchedEntries := []identity.LogEntry{}
 	for _, monitoredCertID := range monitoredCertIDs {
-		match, sub, iss, err := identity.CertMatchesPolicy(logEntry.X509Cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
+		match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 		if err != nil {
 			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
 		} else if match {
@@ -50,8 +58,15 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.Cert
 }
 
 func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
-	matchedEntries := []identity.LogEntry{}
 	cert := logEntry.X509Cert
+	if cert == nil && logEntry.Precert != nil {
+		cert = logEntry.Precert.TBSCertificate
+	}
+
+	if cert == nil {
+		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
+	}
+	matchedEntries := []identity.LogEntry{}
 	for _, monitoredOID := range monitoredOIDMatchers {
 		match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 		if err != nil {
