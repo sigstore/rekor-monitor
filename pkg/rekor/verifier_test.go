@@ -16,34 +16,60 @@ package rekor
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/hex"
 	"testing"
 
 	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor/pkg/generated/client"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/rekor/pkg/util"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"golang.org/x/mod/sumdb/note"
 )
 
 func TestGetLogVerifier(t *testing.T) {
-	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	pemKey, err := cryptoutils.MarshalPublicKeyToPEM(key.Public())
+	rootHash, _ := hex.DecodeString("1a341bc342ff4e567387de9789ab14000b147124317841489172419874198147")
+	sc, err := util.CreateSignedCheckpoint(util.Checkpoint{
+		Origin: "origin",
+		Size:   uint64(123),
+		Hash:   rootHash,
+	})
 	if err != nil {
-		t.Fatalf("unexpected error marshalling key: %v", err)
+		t.Fatal(err)
 	}
+	sc.Signatures = []note.Signature{{Name: "name", Hash: 1, Base64: "adbadbadb"}}
+
+	logInfo := &models.LogInfo{}
+	signedNoteString := sc.SignedNote.String()
+	logInfo.SignedTreeHead = &signedNoteString
+	treeSize := int64(1234)
+	logInfo.TreeSize = &treeSize
 
 	var mClient client.Rekor
-	mClient.Pubkey = &mock.PubkeyClient{
-		PEMPubKey: string(pemKey),
+	mClient.Tlog = &mock.TlogClient{
+		LogInfo: logInfo,
 	}
 
-	verifier, err := GetLogVerifier(context.Background(), &mClient)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	rekorLogs := make(map[string]*root.TransparencyLog)
+	rekorLogs["00000001"] = &root.TransparencyLog{HashFunc: crypto.SHA256, PublicKey: &key.PublicKey}
+	trustedRoot := mock.NewTrustedRoot(nil, rekorLogs)
+
+	verifier, err := GetLogVerifier(context.Background(), &mClient, trustedRoot)
 	if err != nil {
 		t.Fatalf("unexpected error getting log verifier: %v", err)
 	}
-	pubkey, _ := verifier.PublicKey()
-	if err := cryptoutils.EqualKeys(key.Public(), pubkey); err != nil {
-		t.Fatalf("expected equal keys: %v", err)
+
+	verifierPubKey, err := verifier.PublicKey()
+	if err != nil {
+		t.Fatalf("unexpected error getting public key from verifier: %v", err)
+	}
+
+	if !key.PublicKey.Equal(verifierPubKey) {
+		t.Fatalf("public keys were not equal")
 	}
 }

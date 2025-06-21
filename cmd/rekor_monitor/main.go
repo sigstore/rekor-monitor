@@ -33,6 +33,8 @@ import (
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -91,7 +93,17 @@ func main() {
 		log.Fatalf("getting Rekor client: %v", err)
 	}
 
-	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
+	tufClient, err := tuf.DefaultClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	trustedRoot, err := root.GetTrustedRoot(tufClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient, trustedRoot)
 	if err != nil {
 		log.Fatal(err)
 	}
