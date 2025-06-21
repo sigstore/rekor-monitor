@@ -17,19 +17,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
+	"github.com/sigstore/rekor-monitor/pkg/server"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
@@ -44,18 +44,40 @@ const (
 	logInfoFileName          = "logInfo.txt"
 )
 
+// Command-line flags that are parameters to the verifier job
+var (
+	configFilePath  = flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
+	configYamlInput = flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
+	once            = flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
+	serverURL       = flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
+	logInfoFile     = flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
+	interval        = flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
+	userAgentString = flag.String("user-agent", "", "details to include in the user agent string")
+	monitorPort     = flag.Int("monitor-port", 9464, "Port for the Prometheus metrics server")
+)
+
+func handleError(msg string, err error) {
+	errWrap := errors.Join(errors.New(msg), err)
+	fmt.Fprint(os.Stderr, errWrap, "\n")
+
+	if !*once {
+		errStr := errWrap.Error()
+		// These specific messages are expected in normal operation and are not treated as consistency check failures.
+		// Therefore, they are excluded from Prometheus failure metrics.
+		if strings.Contains(errStr, "consistency proofs can not be computed starting from an empty log") ||
+			strings.Contains(errStr, "no start index set and no log checkpoint") {
+			return
+		}
+		server.IncLogIndexVerificationFailure()
+	} else {
+		os.Exit(1)
+	}
+}
+
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
 func main() {
-	// Command-line flags that are parameters to the verifier job
-	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
-	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
-	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
-	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
-	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
-	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
-	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	flag.Parse()
 
 	var config notifications.IdentityMonitorConfiguration
@@ -80,6 +102,12 @@ func main() {
 
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = outputIdentitiesFileName
+	}
+
+	if !*once {
+		if err := server.StartMetricsServer(*monitorPort); err != nil {
+			log.Fatalf("Failed to start Prometheus metrics server: %v", err)
+		}
 	}
 
 	rekorClient, err := client.GetRekorClient(*serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))))
@@ -121,11 +149,9 @@ func main() {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
+		server.IncLogIndexVerificationTotal()
 		inputEndIndex := config.EndIndex
 
 		// TODO: Handle Rekor sharding
@@ -134,8 +160,10 @@ func main() {
 		var prevCheckpoint *util.SignedCheckpoint
 		prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, *logInfoFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
+			handleError("error running consistency check", err)
+			if !*once {
+				goto waitForTick
+			}
 		}
 
 		if config.StartIndex == nil {
@@ -143,16 +171,20 @@ func main() {
 				checkpointStartIndex := rekor.GetCheckpointIndex(logInfo, prevCheckpoint)
 				config.StartIndex = &checkpointStartIndex
 			} else {
-				fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
-				return
+				handleError("no start index set and no log checkpoint", nil)
+				if !*once {
+					goto waitForTick
+				}
 			}
 		}
 
 		if config.EndIndex == nil {
 			checkpoint, err := rekor.ReadLatestCheckpoint(logInfo)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
-				return
+				handleError("error reading checkpoint", err)
+				if !*once {
+					goto waitForTick
+				}
 			}
 
 			checkpointEndIndex := rekor.GetCheckpointIndex(logInfo, checkpoint)
@@ -160,15 +192,19 @@ func main() {
 		}
 
 		if *config.StartIndex >= *config.EndIndex {
-			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-			return
+			handleError(fmt.Sprintf("start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex), nil)
+			if !*once {
+				goto waitForTick
+			}
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
 			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-				return
+				handleError("failed to successfully complete identity search", err)
+				if !*once {
+					goto waitForTick
+				}
 			}
 		}
 
@@ -179,10 +215,11 @@ func main() {
 		config.StartIndex = config.EndIndex
 		config.EndIndex = nil
 
+	waitForTick:
 		select {
 		case <-ticker.C:
 			continue
-		case <-signalChan:
+		case <-server.GetSignalChan():
 			fmt.Fprintf(os.Stderr, "received signal, exiting")
 			return
 		}
