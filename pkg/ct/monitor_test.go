@@ -38,7 +38,8 @@ func TestScanEntryCertSubject(t *testing.T) {
 	testCases := map[string]struct {
 		inputEntry    ct.LogEntry
 		inputSubjects []identity.CertificateIdentity
-		expected      []identity.LogEntry
+		expectedVal   []identity.LogEntry
+		expectedErr   bool
 	}{
 		"no matching subject": {
 			inputEntry: ct.LogEntry{
@@ -50,7 +51,8 @@ func TestScanEntryCertSubject(t *testing.T) {
 				},
 			},
 			inputSubjects: []identity.CertificateIdentity{},
-			expected:      []identity.LogEntry{},
+			expectedVal:   []identity.LogEntry{},
+			expectedErr:   false,
 		},
 		"matching subject": {
 			inputEntry: ct.LogEntry{
@@ -79,7 +81,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 					Issuers:     []string{},
 				},
 			},
-			expected: []identity.LogEntry{
+			expectedVal: []identity.LogEntry{
 				{Index: 1,
 					CertSubject: subjectName,
 					Issuer:      issuerName},
@@ -87,6 +89,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 					CertSubject: organizationName,
 					Issuer:      issuerName},
 			},
+			expectedErr: false,
 		},
 		"matching subject precertificate": {
 			inputEntry: ct.LogEntry{
@@ -117,7 +120,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 					Issuers:     []string{},
 				},
 			},
-			expected: []identity.LogEntry{
+			expectedVal: []identity.LogEntry{
 				{Index: 1,
 					CertSubject: subjectName,
 					Issuer:      issuerName},
@@ -125,22 +128,31 @@ func TestScanEntryCertSubject(t *testing.T) {
 					CertSubject: organizationName,
 					Issuer:      issuerName},
 			},
+			expectedErr: false,
+		},
+		"missing certs": {
+			inputEntry: ct.LogEntry{
+				Index: 1,
+			},
+			inputSubjects: []identity.CertificateIdentity{},
+			expectedVal:   nil,
+			expectedErr:   true,
 		},
 	}
 
-	for _, tc := range testCases {
+	for testName, tc := range testCases {
 		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
-		if err != nil {
-			t.Errorf("received error scanning entry for subjects: %v", err)
+		if err != nil && !tc.expectedErr {
+			t.Errorf("%s: received unexpected error scanning entry for subjects. Received \"%v\"", testName, err)
 		}
-		expected := tc.expected
+		expected := tc.expectedVal
 		if logEntries == nil {
 			if expected != nil {
-				t.Errorf("received nil, expected log entry")
+				t.Errorf("%s: received nil, expected log entry", testName)
 			}
 		} else {
 			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("expected %v, received %v", expected, logEntries)
+				t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
 			}
 		}
 	}
@@ -157,7 +169,8 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 	testCases := map[string]struct {
 		inputEntry         ct.LogEntry
 		inputOIDExtensions []extensions.OIDExtension
-		expected           []identity.LogEntry
+		expectedVal        []identity.LogEntry
+		expectedErr        bool
 	}{
 		"no matching subject": {
 			inputEntry: ct.LogEntry{
@@ -170,7 +183,8 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 					ExtensionValues:  []string{extValueString},
 				},
 			},
-			expected: []identity.LogEntry{},
+			expectedVal: []identity.LogEntry{},
+			expectedErr: false,
 		},
 		"matching subject": {
 			inputEntry: ct.LogEntry{
@@ -183,13 +197,14 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 					ExtensionValues:  []string{extValueString},
 				},
 			},
-			expected: []identity.LogEntry{
+			expectedVal: []identity.LogEntry{
 				{
 					Index:          1,
 					OIDExtension:   matchedAsn1OID,
 					ExtensionValue: extValueString,
 				},
 			},
+			expectedErr: false,
 		},
 		"matching subject precertificate": {
 			inputEntry: ct.LogEntry{
@@ -204,29 +219,43 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 					ExtensionValues:  []string{extValueString},
 				},
 			},
-			expected: []identity.LogEntry{
+			expectedVal: []identity.LogEntry{
 				{
 					Index:          1,
 					OIDExtension:   matchedAsn1OID,
 					ExtensionValue: extValueString,
 				},
 			},
+			expectedErr: false,
+		},
+		"missing certs": {
+			inputEntry: ct.LogEntry{
+				Index: 1,
+			},
+			inputOIDExtensions: []extensions.OIDExtension{
+				{
+					ObjectIdentifier: unmatchedAsn1OID,
+					ExtensionValues:  []string{extValueString},
+				},
+			},
+			expectedVal: nil,
+			expectedErr: true,
 		},
 	}
 
-	for _, tc := range testCases {
+	for testName, tc := range testCases {
 		logEntries, err := ScanEntryOIDExtensions(tc.inputEntry, tc.inputOIDExtensions)
-		if err != nil {
-			t.Errorf("received error scanning entry for oid extensions: %v", err)
+		if err != nil && !tc.expectedErr {
+			t.Errorf("%s: received unexpected error scanning entry for oid extensions. Received \"%v\"", testName, err)
 		}
-		expected := tc.expected
+		expected := tc.expectedVal
 		if logEntries == nil {
 			if expected != nil {
-				t.Errorf("received nil, expected log entry")
+				t.Errorf("%s: received nil, expected log entry", testName)
 			}
 		} else {
 			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("expected %v, received %v", expected, logEntries)
+				t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
 			}
 		}
 	}
