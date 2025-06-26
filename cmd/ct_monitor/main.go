@@ -56,6 +56,10 @@ func main() {
 
 	var config notifications.IdentityMonitorConfiguration
 
+	if *configFilePath != "" && *configYamlInput != "" {
+		log.Fatalf("error: only one of --config and --config-file should be specified")
+	}
+
 	if *configFilePath != "" {
 		readConfig, err := os.ReadFile(*configFilePath)
 		if err != nil {
