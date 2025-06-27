@@ -50,7 +50,7 @@ const (
 func main() {
 	// Command-line flags that are parameters to the verifier job
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
-	configYamlInput := flag.String("config", "", "path to yaml configuration file containing identity monitor settings")
+	configYamlInput := flag.String("config", "", "string with YAML configuration containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
 	logInfoFile := flag.String("file", logInfoFileName, "path to the initial log info checkpoint file to be read from")
@@ -59,6 +59,10 @@ func main() {
 	flag.Parse()
 
 	var config notifications.IdentityMonitorConfiguration
+
+	if *configFilePath != "" && *configYamlInput != "" {
+		log.Fatalf("error: only one of --config and --config-file should be specified")
+	}
 
 	if *configFilePath != "" {
 		readConfig, err := os.ReadFile(*configFilePath)
