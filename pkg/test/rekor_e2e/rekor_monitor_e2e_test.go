@@ -43,6 +43,8 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"sigs.k8s.io/release-utils/version"
 
 	hashedrekord_v001 "github.com/sigstore/rekor/pkg/types/hashedrekord/v0.0.1"
@@ -173,7 +175,17 @@ func TestIdentitySearch(t *testing.T) {
 		},
 	}
 
-	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
+	tufClient, err := tuf.DefaultClient()
+	if err != nil {
+		t.Errorf("error getting TUF client: %v", err)
+	}
+
+	trustedRoot, err := root.GetTrustedRoot(tufClient)
+	if err != nil {
+		t.Errorf("error getting Trusted Root: %v", err)
+	}
+
+	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient, trustedRoot)
 	if err != nil {
 		t.Errorf("error getting log verifier: %v", err)
 	}
