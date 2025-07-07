@@ -21,24 +21,9 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
-	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
 	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
 )
-
-// GetPublicKey fetches the current public key from Rekor
-func GetPublicKey(ctx context.Context, rekorClient *client.Rekor) ([]byte, error) {
-	p := pubkey.NewGetPublicKeyParamsWithContext(ctx)
-	resp, err := util.Retry(ctx, func() (any, error) {
-		return rekorClient.Pubkey.GetPublicKey(p)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	pubkeyResp := resp.(*pubkey.GetPublicKeyOK)
-	return []byte(pubkeyResp.Payload), nil
-}
 
 // GetLogInfo fetches the latest checkpoint for each log shard
 func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
