@@ -15,7 +15,7 @@ require (
 	github.com/sigstore/sigstore v1.9.5
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/wneessen/go-mail v0.6.2
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.26.0
 	gopkg.in/yaml.v2 v2.4.0
 	sigs.k8s.io/release-utils v0.11.1
 )
