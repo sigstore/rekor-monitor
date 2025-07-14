@@ -26,21 +26,6 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 )
 
-func TestGetPublicKey(t *testing.T) {
-	key := "hellokey"
-	var mClient client.Rekor
-	mClient.Pubkey = &mock.PubkeyClient{
-		PEMPubKey: key,
-	}
-	result, err := GetPublicKey(context.Background(), &mClient)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if string(result) != key {
-		t.Fatalf("expected key value: %v, got: %v", key, result)
-	}
-}
-
 func TestGetLogInfo(t *testing.T) {
 	logInfo := &models.LogInfo{}
 	treeSize := int64(1234)

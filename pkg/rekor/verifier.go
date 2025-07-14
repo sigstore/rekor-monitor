@@ -15,8 +15,9 @@
 package rekor
 
 import (
+	"bytes"
 	"context"
-	"crypto"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -26,22 +27,44 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 // GetLogVerifier creates a verifier from the log's public key
-// TODO: Fetch the public key from TUF
-func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor) (signature.Verifier, error) {
-	pemPubKey, err := GetPublicKey(ctx, rekorClient)
+func GetLogVerifier(ctx context.Context, rekorClient *client.Rekor, trustedRoot root.TrustedMaterial) (signature.Verifier, error) {
+	logInfo, err := GetLogInfo(ctx, rekorClient)
 	if err != nil {
 		return nil, err
 	}
-	pubKey, err := cryptoutils.UnmarshalPEMToPublicKey(pemPubKey)
+	latestCheckpoint, err := ReadLatestCheckpoint(logInfo)
 	if err != nil {
 		return nil, err
 	}
-	verifier, err := signature.LoadVerifier(pubKey, crypto.SHA256)
+	signatures := latestCheckpoint.Signatures
+	if len(signatures) == 0 {
+		return nil, fmt.Errorf("couldn't get signatures from checkpoint %v", latestCheckpoint)
+	}
+	keyID := make([]byte, 4)
+	binary.BigEndian.PutUint32(keyID, signatures[0].Hash)
+
+	var matchingLogInstance *root.TransparencyLog
+	rekorLogs := trustedRoot.RekorLogs()
+	for k, v := range rekorLogs {
+		logID, err := hex.DecodeString(k)
+		if err != nil {
+			return nil, err
+		}
+		if bytes.Equal(logID[:4], keyID) {
+			matchingLogInstance = v
+		}
+	}
+
+	if matchingLogInstance == nil {
+		return nil, fmt.Errorf("couldn't find matching log instance with keyID %v", keyID)
+	}
+
+	verifier, err := signature.LoadVerifier(matchingLogInstance.PublicKey, matchingLogInstance.HashFunc)
 	if err != nil {
 		return nil, err
 	}

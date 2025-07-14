@@ -22,17 +22,39 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 const (
-	ctfe2022PubKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEiPSlFi0CmFTfEjCUqF9HuCEcYXNK
-AaYalIJmBZ8yyezPjTqhxrKBpMnaocVtLJBI1eM3uXnQzQGAJdJ4gs9Fyw==
------END PUBLIC KEY-----`
+	ctfe2022KeyID = "dd3d306ac6c7113263191e1c99673702a24a5eb8de3cadff878a72802f29ee8e"
 )
+
+func getCTLogVerifier() (*ct.SignatureVerifier, error) {
+	client, err := tuf.DefaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	trustedRoot, err := root.GetTrustedRoot(client)
+	if err != nil {
+		return nil, err
+	}
+
+	ctLogs := trustedRoot.CTLogs()
+
+	if log, ok := ctLogs[ctfe2022KeyID]; ok {
+		verifier, err := ct.NewSignatureVerifier(log.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		return verifier, nil
+	}
+
+	return nil, fmt.Errorf("could not find certificate transparency log in trusted root")
+}
 
 func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
 	prevSTH, err := file.ReadLatestCTSignedTreeHead(logInfoFile)
@@ -41,15 +63,12 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 	}
 
 	if logClient.Verifier == nil {
-		// TODO: this public key is currently hardcoded- should be fetched from TUF repository instead
-		pubKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(ctfe2022PubKey))
+		verifier, err := getCTLogVerifier()
 
 		if err != nil {
 			return nil, fmt.Errorf("error loading public key: %v", err)
 		}
-		logClient.Verifier = &ct.SignatureVerifier{
-			PubKey: pubKey,
-		}
+		logClient.Verifier = verifier
 	}
 
 	err = logClient.VerifySTHSignature(*prevSTH)

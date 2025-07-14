@@ -108,3 +108,4 @@ bin/
 /identities.txt
 /mirroring
 /rekor_monitor
+/ct_monitor
