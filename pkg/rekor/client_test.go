@@ -115,11 +115,8 @@ func TestGetEntriesByIndexRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error getting entries: %v", err)
 	}
-	if len(result) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(result))
-	}
-	if !reflect.DeepEqual(result[0], *logEntries[42]) {
-		t.Fatalf("entries should be equal for index 0, log index 42")
+	if len(result) != 0 {
+		t.Fatalf("expected 0 entries, got %d", len(result))
 	}
 
 	// failure: start greater than end

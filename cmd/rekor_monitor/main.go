@@ -163,8 +163,8 @@ func main() {
 			config.EndIndex = &checkpointEndIndex
 		}
 
-		if *config.StartIndex >= *config.EndIndex {
-			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
+		if *config.StartIndex > *config.EndIndex {
+			fmt.Fprintf(os.Stderr, "start index %d must be less than or equal to end index %d", *config.StartIndex, *config.EndIndex)
 			return
 		}
 
