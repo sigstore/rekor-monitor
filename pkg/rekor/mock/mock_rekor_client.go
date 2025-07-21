@@ -16,6 +16,7 @@ package mock
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/go-openapi/runtime"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
 	"github.com/sigstore/rekor/pkg/generated/client/tlog"
 	"github.com/sigstore/rekor/pkg/generated/models"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 // EntriesClient is a client that implements entries.ClientService for Rekor
@@ -114,3 +116,35 @@ func (m *PubkeyClient) GetPublicKey(_ *pubkey.GetPublicKeyParams, _ ...pubkey.Cl
 }
 
 func (m *PubkeyClient) SetTransport(_ runtime.ClientTransport) {}
+
+type TrustedRoot struct {
+	ctLogs    map[string]*root.TransparencyLog
+	rekorLogs map[string]*root.TransparencyLog
+}
+
+func NewTrustedRoot(ctLogs map[string]*root.TransparencyLog, rekorLogs map[string]*root.TransparencyLog) *TrustedRoot {
+	return &TrustedRoot{
+		ctLogs:    ctLogs,
+		rekorLogs: rekorLogs,
+	}
+}
+
+func (tr *TrustedRoot) RekorLogs() map[string]*root.TransparencyLog {
+	return tr.rekorLogs
+}
+
+func (tr *TrustedRoot) CTLogs() map[string]*root.TransparencyLog {
+	return tr.ctLogs
+}
+
+func (tr *TrustedRoot) TimestampingAuthorities() []root.TimestampingAuthority {
+	return nil
+}
+
+func (tr *TrustedRoot) FulcioCertificateAuthorities() []root.CertificateAuthority {
+	return nil
+}
+
+func (tr *TrustedRoot) PublicKeyVerifier(string) (root.TimeConstrainedVerifier, error) {
+	return nil, fmt.Errorf("public key verifier not found")
+}
