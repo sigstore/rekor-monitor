@@ -17,7 +17,7 @@ require (
 	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/mod v0.26.0
 	gopkg.in/yaml.v2 v2.4.0
-	sigs.k8s.io/release-utils v0.11.1
+	sigs.k8s.io/release-utils v0.12.0
 )
 
 require (
@@ -103,10 +103,10 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
