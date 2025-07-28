@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -107,6 +108,11 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	if err == nil && fi.Size() != 0 {
 		prevCheckpoint, err = verifyCheckpointConsistency(logInfoFile, checkpoint, *logInfo.TreeID, rekorClient, verifier)
 		if err != nil {
+			if strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
+				fmt.Fprintf(os.Stderr, "previous checkpoint was from an empty log; deleting and restarting\n")
+				_ = os.Remove(logInfoFile)
+				return RunConsistencyCheck(rekorClient, verifier, logInfoFile)
+			}
 			return nil, nil, fmt.Errorf("failed to verify previous checkpoint: %v", err)
 		}
 
