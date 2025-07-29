@@ -37,8 +37,10 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/rekor"
 	"github.com/sigstore/rekor-monitor/pkg/test"
+	monitor_util "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
+	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -62,6 +64,19 @@ func TestIdentitySearch(t *testing.T) {
 	rekorClient, err := client.GetRekorClient(rekorURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH))))
 	if err != nil {
 		log.Fatalf("getting Rekor client: %v", err)
+	}
+
+	p := pubkey.NewGetPublicKeyParamsWithContext(context.Background())
+	keyResp, err := monitor_util.Retry(context.Background(), func() (any, error) {
+		return rekorClient.Pubkey.GetPublicKey(p)
+	})
+	if err != nil {
+		log.Fatalf("getting Rekor pub key: %v", err)
+	}
+	clientPemPubKey := []byte(keyResp.(*pubkey.GetPublicKeyOK).Payload)
+	clientPubKey, err := cryptoutils.UnmarshalPEMToPublicKey(clientPemPubKey)
+	if err != nil {
+		log.Fatalf("error parsing client public key: %v", err)
 	}
 
 	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 9}
@@ -173,7 +188,7 @@ func TestIdentitySearch(t *testing.T) {
 		},
 	}
 
-	verifier, err := rekor.GetLogVerifier(context.Background(), rekorClient)
+	verifier, err := signature.LoadVerifier(clientPubKey, crypto.SHA256)
 	if err != nil {
 		t.Errorf("error getting log verifier: %v", err)
 	}
