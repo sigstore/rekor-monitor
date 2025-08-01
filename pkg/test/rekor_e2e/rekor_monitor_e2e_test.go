@@ -35,7 +35,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
-	"github.com/sigstore/rekor-monitor/pkg/rekor"
+	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	monitor_util "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/client"
@@ -131,7 +131,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error creating log entry: %v", err)
 	}
 
-	logInfo, err := rekor.GetLogInfo(context.Background(), rekorClient)
+	logInfo, err := rekor_v1.GetLogInfo(context.Background(), rekorClient)
 	if err != nil {
 		t.Errorf("error getting log info: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error getting log verifier: %v", err)
 	}
 
-	prevCheckpoint, logInfo, err := rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	prevCheckpoint, logInfo, err := rekor_v1.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("first consistency check failed: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error creating log entry: %v", err)
 	}
 
-	prevCheckpoint, logInfo, err = rekor.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
+	prevCheckpoint, logInfo, err = rekor_v1.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected previous checkpoint size of 1, received size %d", prevCheckpoint.Size)
 	}
 
-	_, err = rekor.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)
+	_, err = rekor_v1.IdentitySearch(0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

@@ -29,7 +29,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-func TestReadLatestCheckpoint(t *testing.T) {
+func TestReadLatestCheckpointRekorV1(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "logfile")
 	root, _ := hex.DecodeString("1a341bc342ff4e567387de9789ab14000b147124317841489172419874198147")
 
@@ -53,7 +53,7 @@ func TestReadLatestCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := ReadLatestCheckpoint(f)
+	c, err := ReadLatestCheckpointRekorV1(f)
 	if err != nil {
 		t.Fatalf("error reading checkpoint: %v", err)
 	}
@@ -63,20 +63,20 @@ func TestReadLatestCheckpoint(t *testing.T) {
 	}
 
 	// failure: no log file
-	_, err = ReadLatestCheckpoint("empty")
+	_, err = ReadLatestCheckpointRekorV1("empty")
 	if err == nil || !strings.Contains(err.Error(), "no such file or directory") {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// failure: malformed note
 	os.WriteFile(f, []byte{1}, 0644)
-	_, err = ReadLatestCheckpoint(f)
+	_, err = ReadLatestCheckpointRekorV1(f)
 	if err == nil || !strings.Contains(err.Error(), "malformed note") {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 }
 
-func TestWriteAndRead(t *testing.T) {
+func TestWriteAndReadRekorV1(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "logfile")
 	root, _ := hex.DecodeString("1a341bc342ff4e567387de9789ab14000b147124317841489172419874198147")
 
@@ -91,10 +91,10 @@ func TestWriteAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteCheckpoint(sc, f); err != nil {
+	if err := WriteCheckpointRekorV1(sc, f); err != nil {
 		t.Fatalf("error writing checkpoint: %v", err)
 	}
-	c, err := ReadLatestCheckpoint(f)
+	c, err := ReadLatestCheckpointRekorV1(f)
 	if err != nil {
 		t.Fatalf("error reading checkpoint: %v", err)
 	}
