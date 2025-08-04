@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rekor
+package v1
 
 import (
 	"bytes"
@@ -98,7 +98,7 @@ func verifyLatestCheckpointSignature(logInfo *models.LogInfo, verifier signature
 // If it successfully fetches and verifies the consistency between these two checkpoints, it returns the previous checkpoint; otherwise, it returns an error.
 func verifyCheckpointConsistency(logInfoFile string, checkpoint *util.SignedCheckpoint, treeID string, rekorClient *client.Rekor, verifier signature.Verifier) (*util.SignedCheckpoint, error) {
 	var prevCheckpoint *util.SignedCheckpoint
-	prevCheckpoint, err := file.ReadLatestCheckpoint(logInfoFile)
+	prevCheckpoint, err := file.ReadLatestCheckpointRekorV1(logInfoFile)
 	if err != nil {
 		return nil, fmt.Errorf("reading checkpoint log: %v", err)
 	}
@@ -137,7 +137,7 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 
 	// Write if there was no stored checkpoint or the sizes differ
 	if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
-		if err := file.WriteCheckpoint(checkpoint, logInfoFile); err != nil {
+		if err := file.WriteCheckpointRekorV1(checkpoint, logInfoFile); err != nil {
 			// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
 			// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
 			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
