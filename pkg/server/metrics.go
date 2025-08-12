@@ -104,13 +104,14 @@ func StartMetricsServer(port int) error {
 
 	// Handle graceful shutdown
 	go func() {
-		<-signalChan
+		sig := <-signalChan
 		log.Println("Shutting down metrics server...")
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
 			log.Printf("Metrics server shutdown error: %v", err)
 		}
+		signalChan <- sig
 	}()
 
 	return nil
