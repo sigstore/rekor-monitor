@@ -18,7 +18,7 @@ require (
 	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/mod v0.27.0
 	gopkg.in/yaml.v2 v2.4.0
-	sigs.k8s.io/release-utils v0.12.0
+	sigs.k8s.io/release-utils v0.12.1
 )
 
 require (
