@@ -42,101 +42,18 @@ on:
 
 permissions:
   contents: read
-
-env:
-  UPLOADED_LOG_NAME: checkpoint
-  LOG_FILE: checkpoint_log.txt
+  id-token: write
+  issues: write
 
 jobs:
-  detect-workflow:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      id-token: write # Needed to detect the current reusable repository and ref.
-    outputs:
-      repository: ${{ steps.detect.outputs.repository }}
-      ref: ${{ steps.detect.outputs.ref }}
-    steps:
-      - name: Detect the repository and ref
-        id: detect
-        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow-js@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
-    # NOTE: This GHA should not be run concurrently.
-    concurrency:
-      group: rekor-consistency-check
-      cancel-in-progress: true
-
-  monitor:
-    runs-on: ubuntu-latest
-    needs: [detect-workflow]
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: '1.23'
-      - name: Download artifact
-        uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
-        with:
-          name: ${{ env.UPLOADED_LOG_NAME }}
-        # Skip on first run since there will be no checkpoint
-        continue-on-error: true
-      - name: Log current checkpoints
-        run: cat ${{ env.LOG_FILE }}
-        # Skip on first run
-        continue-on-error: true
-      - run: |
-          go run ./cmd/rekor_monitor \
-            --file ${{ env.LOG_FILE }} \
-            --once=${{ inputs.once }} \
-            --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}" \
-            --config "${{ inputs.config }}" \
-            ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
-      - name: Upload checkpoint
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.UPLOADED_LOG_NAME }}
-          path: ${{ env.LOG_FILE }}
-          retention-days: ${{ inputs.artifact_retention_days }}
-      - name: Log new checkpoints
-        run: cat ${{ env.LOG_FILE }}
-
-  if-succeeded:
-    runs-on: ubuntu-latest
-    needs: [monitor, detect-workflow]
-    timeout-minutes: 60
-    permissions:
-      issues: 'write'
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ISSUE_REPOSITORY: ${{ github.repository }}
-    if: ${{ needs.monitor.result == 'success' && inputs.file_issue }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
-      - run: |
-          set -euo pipefail
-          ./.github/workflows/scripts/report_success.sh
-
-  if-failed:
-    runs-on: ubuntu-latest
-    needs: [monitor, detect-workflow]
-    timeout-minutes: 60
-    permissions:
-      issues: 'write'
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ISSUE_REPOSITORY: ${{ github.repository }}
-    if: ${{ always() && needs.monitor.result == 'failure' && inputs.file_issue }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
-      - run: |
-          set -euo pipefail
-          ./.github/workflows/scripts/report_failure.sh
+  rekor-monitoring:
+    uses: ./.github/workflows/base_monitoring.yml
+    with:
+      uploaded_log_name: checkpoint
+      checkpoint_file: checkpoint_log.txt
+      monitor_type: rekor
+      file_issue: ${{ inputs.file_issue }}
+      artifact_retention_days: ${{ inputs.artifact_retention_days }}
+      once: ${{ inputs.once }}
+      config: ${{ inputs.config }}
+      url: ${{ inputs.url }}
