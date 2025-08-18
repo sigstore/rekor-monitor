@@ -80,7 +80,7 @@ jobs:
         continue-on-error: true
       - run: |
           go run ./cmd/ct_monitor \
-          --config ${{ inputs.config }} \
+          --config "${{ inputs.config }}" \
           --file ${{ env.LOG_FILE }} \
           --once=${{ inputs.once }} \
           ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
