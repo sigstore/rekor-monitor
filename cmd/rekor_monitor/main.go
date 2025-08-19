@@ -137,8 +137,8 @@ func main() {
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
@@ -181,7 +181,7 @@ func main() {
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = rekor.IdentitySearch(*config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+			_, err = rekor.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 				return
@@ -198,8 +198,8 @@ func main() {
 		select {
 		case <-ticker.C:
 			continue
-		case <-signalChan:
-			fmt.Fprintf(os.Stderr, "received signal, exiting")
+		case <-ctx.Done():
+			fmt.Fprintf(os.Stderr, "Shutting down gracefully...")
 			return
 		}
 	}

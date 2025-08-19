@@ -56,6 +56,12 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 
 	var logEntries []models.LogEntry
 	for i := start + 1; i <= end; i += 10 {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		var logIndices []*int64
 		minVal := computeMin(i+10, end+1)
 		for j := i; j < minVal; j++ {
