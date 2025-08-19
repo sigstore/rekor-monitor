@@ -282,8 +282,8 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 	return index
 }
 
-func IdentitySearch(startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	entries, err := GetEntriesByIndexRange(context.Background(), rekorClient, startIndex, endIndex)
+func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
