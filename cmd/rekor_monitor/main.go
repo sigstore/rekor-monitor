@@ -132,13 +132,13 @@ func main() {
 		logInfoFileName := fmt.Sprintf("%s.v%d.txt", logInfoFileNamePrefix, rekorVersion)
 		logInfoFile = &logInfoFileName
 	}
+	userAgent := strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))
 	switch rekorVersion {
 	case 1:
-		mainLoopV1(*serverURL, *once, *logInfoFile, *interval, *userAgentString, config, trustedRoot)
+		mainLoopV1(*serverURL, *once, *logInfoFile, *interval, userAgent, config, trustedRoot)
 		return
 	case 2:
 		fmt.Fprintf(os.Stderr, "Warning: the monitor currently only checks for the consistency of the log in Rekor v2 logs.\n")
-		userAgent := strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))
 		rekorShards, activeShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, userAgent)
 		if err != nil {
 			log.Fatal(err)
@@ -150,8 +150,8 @@ func main() {
 	}
 }
 
-func mainLoopV1(serverURL string, once bool, logInfoFile string, interval time.Duration, userAgentString string, config notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) {
-	rekorClient, err := client.GetRekorClient(serverURL, client.WithUserAgent(strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, userAgentString))))
+func mainLoopV1(serverURL string, once bool, logInfoFile string, interval time.Duration, userAgent string, config notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) {
+	rekorClient, err := client.GetRekorClient(serverURL, client.WithUserAgent(userAgent))
 	if err != nil {
 		log.Fatalf("getting Rekor client: %v", err)
 	}
