@@ -35,12 +35,11 @@ func (idMetadata IdentityMetadata) String() string {
 	return fmt.Sprint(idMetadata.LatestIndex)
 }
 
-// ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
-func ReadLatestCheckpointRekorV1(logInfoFile string) (*util.SignedCheckpoint, error) {
+func readLastCheckpoint(logInfoFile string) (string, error) {
 	// Each line in the file is one signed checkpoint
 	file, err := os.Open(logInfoFile)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer file.Close()
 
@@ -51,12 +50,21 @@ func ReadLatestCheckpointRekorV1(logInfoFile string) (*util.SignedCheckpoint, er
 		line = scanner.Text()
 	}
 
-	checkpoint := util.SignedCheckpoint{}
-	if err := checkpoint.UnmarshalText([]byte(strings.ReplaceAll(line, "\\n", "\n"))); err != nil {
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return strings.ReplaceAll(line, "\\n", "\n"), nil
+}
+
+// ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
+func ReadLatestCheckpointRekorV1(logInfoFile string) (*util.SignedCheckpoint, error) {
+	lastCheckpointString, err := readLastCheckpoint(logInfoFile)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := scanner.Err(); err != nil {
+	checkpoint := util.SignedCheckpoint{}
+	if err := checkpoint.UnmarshalText([]byte(lastCheckpointString)); err != nil {
 		return nil, err
 	}
 
@@ -65,27 +73,14 @@ func ReadLatestCheckpointRekorV1(logInfoFile string) (*util.SignedCheckpoint, er
 
 // ReadLatestCheckpoint reads the most recent checkpoint from the log file
 func ReadLatestCheckpointRekorV2(logInfoFile string) (*log.Checkpoint, error) {
-	// Each line in the file is one checkpoint
-	file, err := os.Open(logInfoFile)
+	lastCheckpointString, err := readLastCheckpoint(logInfoFile)
 	if err != nil {
 		return nil, err
-	}
-	defer file.Close()
-
-	// Read line by line and get the last line
-	scanner := bufio.NewScanner(file)
-	line := ""
-	for scanner.Scan() {
-		line = scanner.Text()
 	}
 
 	checkpoint := log.Checkpoint{}
-	_, err = checkpoint.Unmarshal([]byte(strings.ReplaceAll(line, "\\n", "\n")))
+	_, err = checkpoint.Unmarshal([]byte(lastCheckpointString))
 	if err != nil {
-		return nil, err
-	}
-
-	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
@@ -122,6 +117,20 @@ func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, logInfoFile string) error {
 	return nil
 }
 
+func writeCheckpointBytes(checkpoint []byte, logInfoFile string) error {
+	// Open file to append new snapshot
+	file, err := os.OpenFile(logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+	// Replace newlines to flatten checkpoint to single line
+	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(checkpoint), "\n", "\\n")); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
+}
+
 // WriteCheckpointRekorV1 writes a signed checkpoint to the log file
 func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, logInfoFile string) error {
 	// Write latest checkpoint to file
@@ -129,34 +138,14 @@ func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, logInfoFile strin
 	if err != nil {
 		return fmt.Errorf("failed to marshal checkpoint: %w", err)
 	}
-	// Open file to append new snapshot
-	file, err := os.OpenFile(logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
-	}
-	defer file.Close()
-	// Replace newlines to flatten checkpoint to single line
-	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(s), "\n", "\\n")); err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
+	return writeCheckpointBytes(s, logInfoFile)
 }
 
 // WriteCheckpointRekorV2 writes a checkpoint to the log file
 func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, logInfoFile string) error {
 	// Write latest checkpoint to file
 	s := checkpoint.Marshal()
-	// Open file to append new snapshot
-	file, err := os.OpenFile(logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
-	}
-	defer file.Close()
-	// Replace newlines to flatten checkpoint to single line
-	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(s), "\n", "\\n")); err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
+	return writeCheckpointBytes(s, logInfoFile)
 }
 
 // DeleteOldCheckpoints persists the latest 100 checkpoints. This expects that the log file
