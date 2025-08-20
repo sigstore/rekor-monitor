@@ -105,6 +105,8 @@ output/*/index.html
 
 bin/
 /logInfo.txt
+/logInfo.v1.txt
+/logInfo.v2.txt
 /identities.txt
 /mirroring
 /rekor_monitor
