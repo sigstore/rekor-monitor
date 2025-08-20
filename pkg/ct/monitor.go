@@ -22,6 +22,7 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	utilidentity "github.com/sigstore/rekor-monitor/pkg/util/identity"
 )
 
 func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
@@ -102,16 +103,14 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 	return matchedEntries, nil
 }
 
-func IdentitySearch(client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
-	retrievedEntries, err := GetCTLogEntries(client, startIndex, endIndex)
-	if err != nil {
-		return nil, err
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+	getMatchedEntries := func(_ context.Context, startIndex, endIndex int) ([]identity.LogEntry, error) {
+		entries, err := GetCTLogEntries(client, startIndex, endIndex)
+		if err != nil {
+			return nil, err
+		}
+		return MatchedIndices(entries, mvs)
 	}
-	matchedEntries, err := MatchedIndices(retrievedEntries, mvs)
-	if err != nil {
-		return nil, err
-	}
-	identities := identity.CreateIdentitiesList(mvs)
-	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
-	return monitoredIdentities, nil
+
+	return utilidentity.Search(ctx, getMatchedEntries, startIndex, endIndex, mvs, outputIdentitiesFile, idMetadataFile)
 }

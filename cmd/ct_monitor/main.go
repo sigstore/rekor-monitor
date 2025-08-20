@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -147,7 +148,7 @@ func main() {
 		}
 
 		if identity.MonitoredValuesExist(monitoredValues) {
-			foundEntries, err := ct.IdentitySearch(fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues)
+			foundEntries, err := ct.IdentitySearch(context.Background(), fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, outputIdentitiesFileName, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 				return

@@ -21,13 +21,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	"github.com/sigstore/rekor-monitor/pkg/util/file"
+	utilidentity "github.com/sigstore/rekor-monitor/pkg/util/identity"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
@@ -283,39 +282,13 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 }
 
 func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
-	if err != nil {
-		return nil, fmt.Errorf("error getting entries by index range: %v", err)
-	}
-
-	idEntries, err := MatchedIndices(entries, monitoredValues)
-	if err != nil {
-		return nil, fmt.Errorf("error finding log indices: %v", err)
-	}
-
-	if len(idEntries) > 0 {
-		for _, idEntry := range idEntries {
-			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
-
-			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
-				return nil, fmt.Errorf("failed to write entry: %v", err)
-			}
-		}
-	}
-
-	// TODO: idMetadataFile currently takes in a string pointer to not cause a regression in the current reusable monitoring workflow.
-	// Once the reusable monitoring workflow is split into a consistency check and identity search, idMetadataFile should always take in a string value.
-	if idMetadataFile != nil {
-		idMetadata := file.IdentityMetadata{
-			LatestIndex: endIndex,
-		}
-		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
+	getMatchedEntries := func(ctx context.Context, startIndex, endIndex int) ([]identity.LogEntry, error) {
+		entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write id metadata: %v", err)
+			return nil, fmt.Errorf("error getting entries by index range: %v", err)
 		}
+		return MatchedIndices(entries, monitoredValues)
 	}
 
-	identities := identity.CreateIdentitiesList(monitoredValues)
-	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
-	return monitoredIdentities, nil
+	return utilidentity.Search(ctx, getMatchedEntries, startIndex, endIndex, monitoredValues, outputIdentitiesFile, idMetadataFile)
 }
