@@ -24,6 +24,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor/pkg/util"
+	"github.com/transparency-dev/formats/log"
 )
 
 type IdentityMetadata struct {
@@ -34,12 +35,11 @@ func (idMetadata IdentityMetadata) String() string {
 	return fmt.Sprint(idMetadata.LatestIndex)
 }
 
-// ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
-func ReadLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
+func readLastCheckpoint(logInfoFile string) (string, error) {
 	// Each line in the file is one signed checkpoint
 	file, err := os.Open(logInfoFile)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer file.Close()
 
@@ -50,12 +50,37 @@ func ReadLatestCheckpoint(logInfoFile string) (*util.SignedCheckpoint, error) {
 		line = scanner.Text()
 	}
 
-	checkpoint := util.SignedCheckpoint{}
-	if err := checkpoint.UnmarshalText([]byte(strings.ReplaceAll(line, "\\n", "\n"))); err != nil {
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return strings.ReplaceAll(line, "\\n", "\n"), nil
+}
+
+// ReadLatestCheckpoint reads the most recent signed checkpoint from the log file
+func ReadLatestCheckpointRekorV1(logInfoFile string) (*util.SignedCheckpoint, error) {
+	lastCheckpointString, err := readLastCheckpoint(logInfoFile)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := scanner.Err(); err != nil {
+	checkpoint := util.SignedCheckpoint{}
+	if err := checkpoint.UnmarshalText([]byte(lastCheckpointString)); err != nil {
+		return nil, err
+	}
+
+	return &checkpoint, nil
+}
+
+// ReadLatestCheckpoint reads the most recent checkpoint from the log file
+func ReadLatestCheckpointRekorV2(logInfoFile string) (*log.Checkpoint, error) {
+	lastCheckpointString, err := readLastCheckpoint(logInfoFile)
+	if err != nil {
+		return nil, err
+	}
+
+	checkpoint := log.Checkpoint{}
+	_, err = checkpoint.Unmarshal([]byte(lastCheckpointString))
+	if err != nil {
 		return nil, err
 	}
 
@@ -92,13 +117,7 @@ func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, logInfoFile string) error {
 	return nil
 }
 
-// WriteCheckpoint writes a signed checkpoint to the log file
-func WriteCheckpoint(checkpoint *util.SignedCheckpoint, logInfoFile string) error {
-	// Write latest checkpoint to file
-	s, err := checkpoint.MarshalText()
-	if err != nil {
-		return fmt.Errorf("failed to marshal checkpoint: %w", err)
-	}
+func writeCheckpointBytes(checkpoint []byte, logInfoFile string) error {
 	// Open file to append new snapshot
 	file, err := os.OpenFile(logInfoFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -106,10 +125,27 @@ func WriteCheckpoint(checkpoint *util.SignedCheckpoint, logInfoFile string) erro
 	}
 	defer file.Close()
 	// Replace newlines to flatten checkpoint to single line
-	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(s), "\n", "\\n")); err != nil {
+	if _, err := fmt.Fprintf(file, "%s\n", strings.ReplaceAll(string(checkpoint), "\n", "\\n")); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 	return nil
+}
+
+// WriteCheckpointRekorV1 writes a signed checkpoint to the log file
+func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, logInfoFile string) error {
+	// Write latest checkpoint to file
+	s, err := checkpoint.MarshalText()
+	if err != nil {
+		return fmt.Errorf("failed to marshal checkpoint: %w", err)
+	}
+	return writeCheckpointBytes(s, logInfoFile)
+}
+
+// WriteCheckpointRekorV2 writes a checkpoint to the log file
+func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, logInfoFile string) error {
+	// Write latest checkpoint to file
+	s := checkpoint.Marshal()
+	return writeCheckpointBytes(s, logInfoFile)
 }
 
 // DeleteOldCheckpoints persists the latest 100 checkpoints. This expects that the log file

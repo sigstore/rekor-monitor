@@ -11,10 +11,14 @@ require (
 	github.com/migueleliasweb/go-github-mock v1.4.0
 	github.com/mocktools/go-smtp-mock/v2 v2.5.1
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
+	github.com/sigstore/protobuf-specs v0.5.0
 	github.com/sigstore/rekor v1.4.0
+	github.com/sigstore/rekor-tiles v0.1.7-0.20250624231741-98cd4a77300f
 	github.com/sigstore/sigstore v1.9.5
 	github.com/sigstore/sigstore-go v1.1.1
+	github.com/transparency-dev/formats v0.0.0-20250728090553-b6e25248e362
 	github.com/transparency-dev/merkle v0.0.2
+	github.com/transparency-dev/tessera v0.2.1-0.20250610150926-8ee4e93b2823
 	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/mod v0.27.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -82,7 +86,6 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
-	github.com/sigstore/protobuf-specs v0.5.0 // indirect
 	github.com/sigstore/timestamp-authority v1.2.8 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
@@ -116,5 +119,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/klog/v2 v2.130.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
