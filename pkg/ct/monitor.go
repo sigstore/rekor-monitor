@@ -104,13 +104,24 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 }
 
 func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	getMatchedEntries := func(_ context.Context, startIndex, endIndex int) ([]identity.LogEntry, error) {
-		entries, err := GetCTLogEntries(client, startIndex, endIndex)
-		if err != nil {
-			return nil, err
-		}
-		return MatchedIndices(entries, mvs)
+	entries, err := GetCTLogEntries(client, startIndex, endIndex)
+	if err != nil {
+		return nil, err
+	}
+	matchedEntries, err := MatchedIndices(entries, mvs)
+	if err != nil {
+		return nil, err
 	}
 
-	return utilidentity.Search(ctx, getMatchedEntries, startIndex, endIndex, mvs, outputIdentitiesFile, idMetadataFile)
+	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(ctx, matchedEntries, mvs, outputIdentitiesFile, idMetadataFile)
+	if err != nil {
+		return nil, err
+	}
+
+	err = utilidentity.WriteIdentityMetadataFile(ctx, idMetadataFile, endIndex)
+	if err != nil {
+		return nil, fmt.Errorf("error writing identity metadata file: %v", err)
+	}
+
+	return monitoredIdentities, nil
 }

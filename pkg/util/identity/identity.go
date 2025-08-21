@@ -25,14 +25,9 @@ import (
 
 type GetMatchedEntriesFunc func(ctx context.Context, startIndex, endIndex int) ([]identity.LogEntry, error)
 
-func Search(ctx context.Context, getMatchedEntries GetMatchedEntriesFunc, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	idEntries, err := getMatchedEntries(ctx, startIndex, endIndex)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(idEntries) > 0 {
-		for _, idEntry := range idEntries {
+func ProcessMatchedEntries(ctx context.Context, matchedEntries []identity.LogEntry, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+	if len(matchedEntries) > 0 {
+		for _, idEntry := range matchedEntries {
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
 			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
@@ -41,19 +36,18 @@ func Search(ctx context.Context, getMatchedEntries GetMatchedEntriesFunc, startI
 		}
 	}
 
-	// TODO: idMetadataFile currently takes in a string pointer to not cause a regression in the current reusable monitoring workflow.
-	// Once the reusable monitoring workflow is split into a consistency check and identity search, idMetadataFile should always take in a string value.
-	if idMetadataFile != nil {
-		idMetadata := file.IdentityMetadata{
-			LatestIndex: endIndex,
-		}
-		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write id metadata: %v", err)
-		}
+	identities := identity.CreateIdentitiesList(monitoredValues)
+	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
+	return monitoredIdentities, nil
+}
+
+func WriteIdentityMetadataFile(ctx context.Context, idMetadataFile *string, latestIndex int) error {
+	if idMetadataFile == nil {
+		return nil
 	}
 
-	identities := identity.CreateIdentitiesList(monitoredValues)
-	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
-	return monitoredIdentities, nil
+	idMetadata := file.IdentityMetadata{
+		LatestIndex: latestIndex,
+	}
+	return file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
 }

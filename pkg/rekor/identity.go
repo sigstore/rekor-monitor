@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package rekor
 
 import (
 	"bytes"
@@ -282,24 +282,13 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 }
 
 func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
-	if err != nil {
-		return nil, fmt.Errorf("error getting entries by index range: %v", err)
-	}
-	matchedEntries, err := MatchedIndices(entries, monitoredValues)
-	if err != nil {
-		return nil, fmt.Errorf("error matching indices: %v", err)
-	}
-
-	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(ctx, matchedEntries, monitoredValues, outputIdentitiesFile, idMetadataFile)
-	if err != nil {
-		return nil, fmt.Errorf("error processing matched entries: %v", err)
+	getMatchedEntries := func(ctx context.Context, startIndex, endIndex int) ([]identity.LogEntry, error) {
+		entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
+		if err != nil {
+			return nil, fmt.Errorf("error getting entries by index range: %v", err)
+		}
+		return MatchedIndices(entries, monitoredValues)
 	}
 
-	err = utilidentity.WriteIdentityMetadataFile(ctx, idMetadataFile, endIndex)
-	if err != nil {
-		return nil, fmt.Errorf("error writing identity metadata file: %v", err)
-	}
-
-	return monitoredIdentities, nil
+	return utilidentity.ProcessMatchedEntries(ctx, getMatchedEntries, startIndex, endIndex, monitoredValues, outputIdentitiesFile, idMetadataFile)
 }
