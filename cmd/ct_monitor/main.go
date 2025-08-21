@@ -24,7 +24,7 @@ import (
 	ctgo "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/sigstore/rekor-monitor/cmd"
+	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	cmd.PrintMonitoredValues(monitoredValues)
-	cmd.LoopLogs(cmd.LoopLogsParams{
+	cmd.MonitorLoop(cmd.MonitorLoopParams{
 		Interval:        flags.Interval,
 		Config:          config,
 		MonitoredValues: monitoredValues,

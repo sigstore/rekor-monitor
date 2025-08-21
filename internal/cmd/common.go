@@ -44,8 +44,8 @@ type MonitorFlags struct {
 	TUFRepository string
 }
 
-// LoopLogsParams contains the parameters for the LoopLogs function
-type LoopLogsParams struct {
+// MonitorLoopParams contains the parameters for the LoopLogs function
+type MonitorLoopParams struct {
 	Interval              time.Duration
 	Config                *notifications.IdentityMonitorConfiguration
 	MonitoredValues       identity.MonitoredValues
@@ -150,7 +150,7 @@ func PrintMonitoredValues(monitoredValues identity.MonitoredValues) {
 	}
 }
 
-func LoopLogs(params LoopLogsParams) {
+func MonitorLoop(params MonitorLoopParams) {
 	ticker := time.NewTicker(params.Interval)
 	defer ticker.Stop()
 

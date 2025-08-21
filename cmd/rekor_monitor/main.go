@@ -21,7 +21,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/sigstore/rekor-monitor/cmd"
+	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
@@ -128,7 +128,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 	}
 
 	cmd.PrintMonitoredValues(monitoredValues)
-	cmd.LoopLogs(cmd.LoopLogsParams{
+	cmd.MonitorLoop(cmd.MonitorLoopParams{
 		Interval:        flags.Interval,
 		Config:          config,
 		MonitoredValues: monitoredValues,
@@ -167,7 +167,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 }
 
 func mainLoopV2(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, activeShardOrigin string) {
-	cmd.LoopLogs(cmd.LoopLogsParams{
+	cmd.MonitorLoop(cmd.MonitorLoopParams{
 		Interval:        flags.Interval,
 		Config:          config,
 		MonitoredValues: identity.MonitoredValues{},
