@@ -22,7 +22,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
-func ProcessMatchedEntries(matchedEntries []identity.LogEntry, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+func ProcessMatchedEntries(matchedEntries []identity.LogEntry, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, endIndex int) ([]identity.MonitoredIdentity, error) {
 	if len(matchedEntries) > 0 {
 		for _, idEntry := range matchedEntries {
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
@@ -33,18 +33,16 @@ func ProcessMatchedEntries(matchedEntries []identity.LogEntry, monitoredValues i
 		}
 	}
 
+	if idMetadataFile != nil {
+		idMetadata := file.IdentityMetadata{
+			LatestIndex: endIndex,
+		}
+		if err := file.WriteIdentityMetadata(*idMetadataFile, idMetadata); err != nil {
+			return nil, fmt.Errorf("failed to write identity metadata: %v", err)
+		}
+	}
+
 	identities := identity.CreateIdentitiesList(monitoredValues)
 	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
 	return monitoredIdentities, nil
-}
-
-func WriteIdentityMetadataFile(idMetadataFile *string, latestIndex int) error {
-	if idMetadataFile == nil {
-		return nil
-	}
-
-	idMetadata := file.IdentityMetadata{
-		LatestIndex: latestIndex,
-	}
-	return file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
 }
