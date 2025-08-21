@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"time"
 
-	prototrustroot "github.com/sigstore/protobuf-specs/gen/pb-go/trustroot/v1"
 	tiles_client "github.com/sigstore/rekor-tiles/pkg/client"
 	"github.com/sigstore/rekor-tiles/pkg/client/read"
 	"github.com/sigstore/sigstore-go/pkg/root"
@@ -109,14 +109,14 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 }
 
 func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string) (map[string]ShardInfo, string, error) {
-	rekorServices, err := root.SelectServices(rekorServices, root.ServiceConfiguration{Selector: prototrustroot.ServiceSelector_ALL}, []uint32{2}, time.Now())
-	if err != nil {
-		return nil, "", fmt.Errorf("error selecting rekor services: %v", err)
+	rekorV2Services := filterV2Shards(rekorServices)
+	if len(rekorV2Services) == 0 {
+		return nil, "", fmt.Errorf("failed to find any Rekor v2 shards")
 	}
 
 	rekorShards := make(map[string]ShardInfo)
 	activeShardOrigin := ""
-	for _, service := range rekorServices {
+	for _, service := range rekorV2Services {
 		parsedURL, err := url.Parse(service.URL)
 		if err != nil {
 			return nil, "", fmt.Errorf("error parsing Rekor url: %v", err)
@@ -126,7 +126,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 			return nil, "", err
 		}
 
-		// The services in rekorServices are ordered from newest to oldest,
+		// The services in rekorV2Services are ordered from newest to oldest,
 		// so we store the origin of the first one as the origin
 		// of the latest (active) shard
 		if activeShardOrigin == "" {
