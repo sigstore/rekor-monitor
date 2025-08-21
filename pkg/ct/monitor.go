@@ -113,12 +113,12 @@ func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex 
 		return nil, err
 	}
 
-	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(ctx, matchedEntries, mvs, outputIdentitiesFile, idMetadataFile)
+	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(matchedEntries, mvs, outputIdentitiesFile, idMetadataFile)
 	if err != nil {
 		return nil, err
 	}
 
-	err = utilidentity.WriteIdentityMetadataFile(ctx, idMetadataFile, endIndex)
+	err = utilidentity.WriteIdentityMetadataFile(idMetadataFile, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error writing identity metadata file: %v", err)
 	}

@@ -15,7 +15,6 @@
 package identity
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -23,9 +22,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
-type GetMatchedEntriesFunc func(ctx context.Context, startIndex, endIndex int) ([]identity.LogEntry, error)
-
-func ProcessMatchedEntries(ctx context.Context, matchedEntries []identity.LogEntry, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+func ProcessMatchedEntries(matchedEntries []identity.LogEntry, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
 	if len(matchedEntries) > 0 {
 		for _, idEntry := range matchedEntries {
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
@@ -41,7 +38,7 @@ func ProcessMatchedEntries(ctx context.Context, matchedEntries []identity.LogEnt
 	return monitoredIdentities, nil
 }
 
-func WriteIdentityMetadataFile(ctx context.Context, idMetadataFile *string, latestIndex int) error {
+func WriteIdentityMetadataFile(idMetadataFile *string, latestIndex int) error {
 	if idMetadataFile == nil {
 		return nil
 	}

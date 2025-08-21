@@ -291,12 +291,12 @@ func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClie
 		return nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(ctx, matchedEntries, monitoredValues, outputIdentitiesFile, idMetadataFile)
+	monitoredIdentities, err := utilidentity.ProcessMatchedEntries(matchedEntries, monitoredValues, outputIdentitiesFile, idMetadataFile)
 	if err != nil {
 		return nil, fmt.Errorf("error processing matched entries: %v", err)
 	}
 
-	err = utilidentity.WriteIdentityMetadataFile(ctx, idMetadataFile, endIndex)
+	err = utilidentity.WriteIdentityMetadataFile(idMetadataFile, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error writing identity metadata file: %v", err)
 	}
