@@ -26,7 +26,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	utilidentity "github.com/sigstore/rekor-monitor/pkg/util/identity"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/pki"
@@ -291,5 +291,12 @@ func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClie
 		return nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	return utilidentity.ProcessMatchedEntries(matchedEntries, monitoredValues, outputIdentitiesFile, idMetadataFile, endIndex)
+	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	identities := identity.CreateIdentitiesList(monitoredValues)
+	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
+	return monitoredIdentities, nil
 }

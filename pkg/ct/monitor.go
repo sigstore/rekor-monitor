@@ -22,7 +22,7 @@ import (
 	ctclient "github.com/google/certificate-transparency-go/client"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	utilidentity "github.com/sigstore/rekor-monitor/pkg/util/identity"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
 func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
@@ -103,15 +103,22 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 	return matchedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
 		return nil, err
 	}
-	matchedEntries, err := MatchedIndices(entries, mvs)
+	matchedEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
 		return nil, err
 	}
 
-	return utilidentity.ProcessMatchedEntries(matchedEntries, mvs, outputIdentitiesFile, idMetadataFile, endIndex)
+	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	identities := identity.CreateIdentitiesList(monitoredValues)
+	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
+	return monitoredIdentities, nil
 }
