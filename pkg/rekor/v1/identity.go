@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/go-openapi/runtime"
@@ -287,35 +286,17 @@ func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClie
 	if err != nil {
 		return nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
-
-	idEntries, err := MatchedIndices(entries, monitoredValues)
+	matchedEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return nil, fmt.Errorf("error finding log indices: %v", err)
+		return nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	if len(idEntries) > 0 {
-		for _, idEntry := range idEntries {
-			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
-
-			if err := file.WriteIdentity(outputIdentitiesFile, idEntry); err != nil {
-				return nil, fmt.Errorf("failed to write entry: %v", err)
-			}
-		}
-	}
-
-	// TODO: idMetadataFile currently takes in a string pointer to not cause a regression in the current reusable monitoring workflow.
-	// Once the reusable monitoring workflow is split into a consistency check and identity search, idMetadataFile should always take in a string value.
-	if idMetadataFile != nil {
-		idMetadata := file.IdentityMetadata{
-			LatestIndex: endIndex,
-		}
-		err = file.WriteIdentityMetadata(*idMetadataFile, idMetadata)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write id metadata: %v", err)
-		}
+	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
+	if err != nil {
+		return nil, err
 	}
 
 	identities := identity.CreateIdentitiesList(monitoredValues)
-	monitoredIdentities := identity.CreateMonitoredIdentities(idEntries, identities)
+	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
 	return monitoredIdentities, nil
 }

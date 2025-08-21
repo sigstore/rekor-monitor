@@ -233,3 +233,27 @@ func ReadIdentityMetadata(metadataFile string) (*IdentityMetadata, error) {
 
 	return idMetadata, nil
 }
+
+// WriteMatchedIdentityEntries writes a list of matched identities to a file
+func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int) error {
+	if len(matchedEntries) > 0 {
+		for _, idEntry := range matchedEntries {
+			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
+
+			if err := WriteIdentity(identitiesFile, idEntry); err != nil {
+				return fmt.Errorf("failed to write entry: %v", err)
+			}
+		}
+	}
+
+	if idMetadataFile != nil {
+		idMetadata := IdentityMetadata{
+			LatestIndex: endIndex,
+		}
+		if err := WriteIdentityMetadata(*idMetadataFile, idMetadata); err != nil {
+			return fmt.Errorf("failed to write identity metadata: %v", err)
+		}
+	}
+
+	return nil
+}
