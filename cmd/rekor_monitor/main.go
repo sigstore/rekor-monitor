@@ -17,16 +17,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"runtime"
-	"strings"
-	"syscall"
-	"time"
 
+	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
@@ -36,8 +31,6 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
-	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/release-utils/version"
 )
 
 // Default values for monitoring job parameters
@@ -52,48 +45,13 @@ const (
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
 func main() {
-	// Command-line flags that are parameters to the verifier job
-	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
-	configYamlInput := flag.String("config", "", "string with YAML configuration containing identity monitor settings")
-	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
-	serverURL := flag.String("url", publicRekorServerURL, "URL to the rekor server that is to be monitored")
-	logInfoFile := flag.String("file", "", "path to the initial log info checkpoint file to be read from")
-	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
-	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
-	tufRepository := flag.String("tuf-repository", TUFRepository, "TUF repository to use. Can be 'default' or 'staging'")
-	flag.Parse()
-
-	var config notifications.IdentityMonitorConfiguration
-
-	if *configFilePath != "" && *configYamlInput != "" {
-		log.Fatalf("error: only one of --config and --config-file should be specified")
-	}
-
-	if *configFilePath != "" {
-		readConfig, err := os.ReadFile(*configFilePath)
-		if err != nil {
-			log.Fatalf("error reading from identity monitor configuration file: %v", err)
-		}
-
-		configString := string(readConfig)
-		if err := yaml.Unmarshal([]byte(configString), &config); err != nil {
-			log.Fatalf("error parsing identities: %v", err)
-		}
-	}
-
-	if *configYamlInput != "" {
-		if err := yaml.Unmarshal([]byte(*configYamlInput), &config); err != nil {
-			log.Fatalf("error parsing identities: %v", err)
-		}
-	}
-
-	if config.OutputIdentitiesFile == "" {
-		config.OutputIdentitiesFile = outputIdentitiesFileName
+	flags, config, err := cmd.ParseAndLoadConfig(publicRekorServerURL, TUFRepository, outputIdentitiesFileName, "rekor-monitor")
+	if err != nil {
+		log.Fatalf("error parsing flags and loading config: %v", err)
 	}
 
 	var tufClient *tuf.Client
-	var err error
-	switch *tufRepository {
+	switch flags.TUFRepository {
 	case "default":
 		tufClient, err = tuf.DefaultClient()
 	case "staging":
@@ -101,7 +59,6 @@ func main() {
 		tufClient, err = tuf.New(options)
 	default:
 		log.Fatalf("custom TUF repository not currently supported")
-
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -124,34 +81,31 @@ func main() {
 	allRekorServices := signingConfig.RekorLogURLs()
 	rekorVersion := uint32(1)
 	for _, service := range allRekorServices {
-		if *serverURL == service.URL {
+		if flags.ServerURL == service.URL {
 			rekorVersion = service.MajorAPIVersion
 		}
 	}
-	if *logInfoFile == "" {
+	if flags.LogInfoFile == "" {
 		logInfoFileName := fmt.Sprintf("%s.v%d.txt", logInfoFileNamePrefix, rekorVersion)
-		logInfoFile = &logInfoFileName
+		flags.LogInfoFile = logInfoFileName
 	}
-	userAgent := strings.TrimSpace(fmt.Sprintf("rekor-monitor/%s (%s; %s) %s", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH, *userAgentString))
 	switch rekorVersion {
 	case 1:
-		mainLoopV1(*serverURL, *once, *logInfoFile, *interval, userAgent, config, trustedRoot)
-		return
+		mainLoopV1(flags, config, trustedRoot)
 	case 2:
 		fmt.Fprintf(os.Stderr, "Warning: the monitor currently only checks for the consistency of the log in Rekor v2 logs.\n")
-		rekorShards, activeShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, userAgent)
+		rekorShards, activeShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
 		if err != nil {
 			log.Fatal(err)
 		}
-		mainLoopV2(*once, *logInfoFile, *interval, rekorShards, activeShardOrigin)
-		return
+		mainLoopV2(flags, config, rekorShards, activeShardOrigin)
 	default:
 		log.Fatalf("Unsupported server version %v, only '1' and '2' are supported", rekorVersion)
 	}
 }
 
-func mainLoopV1(serverURL string, once bool, logInfoFile string, interval time.Duration, userAgent string, config notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) {
-	rekorClient, err := client.GetRekorClient(serverURL, client.WithUserAgent(userAgent))
+func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) {
+	rekorClient, err := client.GetRekorClient(flags.ServerURL, client.WithUserAgent(flags.UserAgent))
 	if err != nil {
 		log.Fatalf("getting Rekor client: %v", err)
 	}
@@ -173,116 +127,71 @@ func mainLoopV1(serverURL string, once bool, logInfoFile string, interval time.D
 		OIDMatchers:           allOIDMatchers,
 	}
 
-	for _, certID := range monitoredValues.CertificateIdentities {
-		if len(certID.Issuers) == 0 {
-			fmt.Printf("Monitoring certificate subject %s\n", certID.CertSubject)
-		} else {
-			fmt.Printf("Monitoring certificate subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
-		}
-	}
-	for _, fp := range monitoredValues.Fingerprints {
-		fmt.Printf("Monitoring fingerprint %s\n", fp)
-	}
-	for _, sub := range monitoredValues.Subjects {
-		fmt.Printf("Monitoring subject %s\n", sub)
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// To get an immediate first tick, for-select is at the end of the loop
-	for {
-		inputEndIndex := config.EndIndex
-
-		// TODO: Handle Rekor sharding
-		// https://github.com/sigstore/rekor-monitor/issues/57
-		var logInfo *models.LogInfo
-		var prevCheckpoint *util.SignedCheckpoint
-		prevCheckpoint, logInfo, err = rekor_v1.RunConsistencyCheck(rekorClient, verifier, logInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
-		}
-
-		if config.StartIndex == nil {
-			if prevCheckpoint != nil {
-				checkpointStartIndex := rekor_v1.GetCheckpointIndex(logInfo, prevCheckpoint)
-				config.StartIndex = &checkpointStartIndex
-			} else {
-				fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
-				return
-			}
-		}
-
-		if config.EndIndex == nil {
-			checkpoint, err := rekor_v1.ReadLatestCheckpoint(logInfo)
+	cmd.PrintMonitoredValues(monitoredValues)
+	cmd.MonitorLoop(cmd.MonitorLoopParams{
+		Interval:        flags.Interval,
+		Config:          config,
+		MonitoredValues: monitoredValues,
+		Once:            flags.Once,
+		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
+			prev, cur, err := rekor_v1.RunConsistencyCheck(rekorClient, verifier, flags.LogInfoFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error reading checkpoint: %v", err)
-				return
+				return nil, nil, err
 			}
-
-			checkpointEndIndex := rekor_v1.GetCheckpointIndex(logInfo, checkpoint)
-			config.EndIndex = &checkpointEndIndex
-		}
-
-		if *config.StartIndex >= *config.EndIndex {
-			fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
-			return
-		}
-
-		if identity.MonitoredValuesExist(monitoredValues) {
-			_, err = rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+			var prevCheckpoint cmd.Checkpoint
+			if prev != nil {
+				prevCheckpoint = prev
+			}
+			var curLogInfo cmd.LogInfo
+			if cur != nil {
+				curLogInfo = cur
+			}
+			return prevCheckpoint, curLogInfo, nil
+		},
+		GetStartIndexFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
+			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
+			return &checkpointStartIndex
+		},
+		GetEndIndexFn: func(_ cmd.Checkpoint, cur cmd.LogInfo) *int {
+			checkpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-				return
+				return nil
 			}
-		}
-
-		if once || inputEndIndex != nil {
-			return
-		}
-
-		config.StartIndex = config.EndIndex
-		config.EndIndex = nil
-
-		select {
-		case <-ticker.C:
-			continue
-		case <-ctx.Done():
-			fmt.Fprintf(os.Stderr, "Shutting down gracefully...")
-			return
-		}
-	}
+			checkpointEndIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), checkpoint)
+			return &checkpointEndIndex
+		},
+		IdentitySearchFn: func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+		},
+	})
 }
 
-func mainLoopV2(once bool, logInfoFile string, interval time.Duration, rekorShards map[string]rekor_v2.ShardInfo, activeShardOrigin string) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	// To get an immediate first tick, for-select is at the end of the loop
-	for {
-		_, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, activeShardOrigin, logInfoFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
-		}
-
-		if once {
-			return
-		}
-
-		select {
-		case <-ticker.C:
-			continue
-		case <-signalChan:
-			fmt.Fprintf(os.Stderr, "received signal, exiting")
-			return
-		}
-	}
+func mainLoopV2(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, activeShardOrigin string) {
+	cmd.MonitorLoop(cmd.MonitorLoopParams{
+		Interval:        flags.Interval,
+		Config:          config,
+		MonitoredValues: identity.MonitoredValues{},
+		Once:            flags.Once,
+		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
+			// TODO: should return prev and cur
+			cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, activeShardOrigin, flags.LogInfoFile)
+			if err != nil {
+				return nil, nil, err
+			}
+			var curLogInfo cmd.LogInfo
+			if cur != nil {
+				curLogInfo = cur
+			}
+			return nil, curLogInfo, nil
+		},
+		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
+			return nil
+		},
+		GetEndIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
+			return nil
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			return nil, nil
+		},
+	})
 }
