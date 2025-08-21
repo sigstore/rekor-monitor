@@ -176,8 +176,8 @@ func MonitorLoop(params MonitorLoopParams) {
 				if prevCheckpoint != nil {
 					config.StartIndex = params.GetStartIndexFn(prevCheckpoint, curCheckpoint)
 				} else {
-					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint")
-					return
+					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, saving checkpoint and continuing\n")
+					continue
 				}
 			}
 
@@ -185,8 +185,8 @@ func MonitorLoop(params MonitorLoopParams) {
 				config.EndIndex = params.GetEndIndexFn(prevCheckpoint, curCheckpoint)
 			}
 
-			if *config.StartIndex >= *config.EndIndex {
-				fmt.Fprintf(os.Stderr, "start index %d must be strictly less than end index %d", *config.StartIndex, *config.EndIndex)
+			if *config.StartIndex > *config.EndIndex {
+				fmt.Fprintf(os.Stderr, "start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex)
 				return
 			}
 

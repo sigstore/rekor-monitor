@@ -49,11 +49,6 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 		return nil, fmt.Errorf("start (%d) must be less than or equal to end (%d)", start, end)
 	}
 
-	// handle case where we initialize log monitor
-	if start == end {
-		start--
-	}
-
 	var logEntries []models.LogEntry
 	for i := start + 1; i <= end; i += 10 {
 		select {

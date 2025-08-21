@@ -95,16 +95,25 @@ func TestGetEntriesByIndexRange(t *testing.T) {
 		index++
 	}
 
-	// should return index 42
+	// should return 0 entries for index range where start == end
 	result, err = GetEntriesByIndexRange(context.TODO(), &mClient, 42, 42)
+	if err != nil {
+		t.Fatalf("unexpected error getting entries: %v", err)
+	}
+	if len(result) != 0 {
+		t.Fatalf("expected 0 entry, got %d", len(result))
+	}
+
+	// should return index 43
+	result, err = GetEntriesByIndexRange(context.TODO(), &mClient, 42, 43)
 	if err != nil {
 		t.Fatalf("unexpected error getting entries: %v", err)
 	}
 	if len(result) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(result))
 	}
-	if !reflect.DeepEqual(result[0], *logEntries[42]) {
-		t.Fatalf("entries should be equal for index 0, log index 42")
+	if !reflect.DeepEqual(result[0], *logEntries[43]) {
+		t.Fatalf("entries should be equal for index 0, log index 43, got %v", result[0])
 	}
 
 	// failure: start greater than end
