@@ -24,12 +24,88 @@ import (
 	tiles_client "github.com/sigstore/rekor-tiles/pkg/client"
 	"github.com/sigstore/rekor-tiles/pkg/client/read"
 	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 type ShardInfo struct {
-	client   *read.Client
-	verifier *signature.Verifier
+	client      *read.Client
+	verifier    *signature.Verifier
+	validityEnd time.Time
+}
+
+func RefreshSigningConfig(tufClient *tuf.Client) (*root.SigningConfig, error) {
+	err := tufClient.Refresh()
+	if err != nil {
+		return nil, fmt.Errorf("error refreshing TUF client: %v", err)
+	}
+
+	signingConfig, err := root.GetSigningConfig(tufClient)
+	if err != nil {
+		return nil, fmt.Errorf("error getting SigningConfig target: %v", err)
+	}
+	return signingConfig, nil
+}
+
+func filterV2Shards(rekorServices []root.Service) []root.Service {
+	// First we sort and filter the Rekor services so that they're ordered from
+	// newest to oldest and only include the v2 logs
+	sortedServices := make([]root.Service, len(rekorServices))
+	copy(sortedServices, rekorServices)
+	slices.SortFunc(sortedServices, func(i, j root.Service) int {
+		return i.ValidityPeriodStart.Compare(j.ValidityPeriodStart)
+	})
+	slices.Reverse(sortedServices)
+
+	var rekorV2Services []root.Service
+	for _, s := range sortedServices {
+		if s.MajorAPIVersion == 2 {
+			rekorV2Services = append(rekorV2Services, s)
+		}
+	}
+
+	return rekorV2Services
+}
+
+func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *root.SigningConfig) (bool, error) {
+	newShards := newSigningConfig.RekorLogURLs()
+	newV2Shards := filterV2Shards(newShards)
+
+	if len(newV2Shards) == 0 {
+		return false, fmt.Errorf("error fetching Rekor shards: no v2 shards found in SigningConfig")
+	}
+
+	if len(currentShards) != len(newV2Shards) {
+		// Shards were added/removed, need to update
+		return true, nil
+	}
+
+	for _, newShard := range newV2Shards {
+		newShardURL, err := url.Parse(newShard.URL)
+		if err != nil {
+			return false, fmt.Errorf("error parsing rekor shard URL: %v", err)
+		}
+		newShardOrigin, err := getOrigin(newShardURL)
+		if err != nil {
+			return false, err
+		}
+
+		matchingShard, ok := currentShards[newShardOrigin]
+		switch {
+		case !ok:
+			// The shard in the new SigningConfig is not present
+			// in the existing shards, so we need to update
+			return true, nil
+		case matchingShard.validityEnd != newShard.ValidityPeriodEnd:
+			// The newest shard in the SigningConfig is present in
+			// the existing shards, but the end validity time changed
+			return true, nil
+		}
+	}
+
+	// All the shards in the new SigningConfig are present in
+	// the existing shards, and they have the same validity end time
+	return false, nil
 }
 
 func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string) (map[string]ShardInfo, string, error) {
@@ -73,7 +149,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 			return nil, "", fmt.Errorf("failed to get current checkpoint for log '%v': %v", origin, err)
 		}
 
-		rekorShards[checkpoint.Origin] = ShardInfo{&rekorClient, &verifier}
+		rekorShards[checkpoint.Origin] = ShardInfo{&rekorClient, &verifier, service.ValidityPeriodEnd}
 	}
 	return rekorShards, activeShardOrigin, nil
 }
