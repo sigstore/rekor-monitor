@@ -52,7 +52,7 @@ type MonitorLoopParams struct {
 	Once                  bool
 	RunConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
 	GetStartIndexFn       func(prev Checkpoint, cur LogInfo) *int
-	GetEndIndexFn         func(prev Checkpoint, cur LogInfo) *int
+	GetEndIndexFn         func(cur LogInfo) *int
 	IdentitySearchFn      func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
 }
 
@@ -176,38 +176,39 @@ func MonitorLoop(params MonitorLoopParams) {
 				if prevCheckpoint != nil {
 					config.StartIndex = params.GetStartIndexFn(prevCheckpoint, curCheckpoint)
 				} else {
-					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, saving checkpoint and continuing\n")
-					continue
+					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, just saving checkpoint\n")
 				}
 			}
 
 			if config.EndIndex == nil {
-				config.EndIndex = params.GetEndIndexFn(prevCheckpoint, curCheckpoint)
+				config.EndIndex = params.GetEndIndexFn(curCheckpoint)
 			}
 
-			if *config.StartIndex > *config.EndIndex {
-				fmt.Fprintf(os.Stderr, "start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex)
-				return
-			}
-
-			foundEntries, err := params.IdentitySearchFn(ctx, config, params.MonitoredValues)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
-				return
-			}
-
-			if len(foundEntries) > 0 {
-				notificationPool := notifications.CreateNotificationPool(*config)
-
-				err = notifications.TriggerNotifications(notificationPool, foundEntries)
-				if err != nil {
-					// continue running consistency check if notifications fail to trigger
-					fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
+			if config.StartIndex != nil && config.EndIndex != nil {
+				if *config.StartIndex > *config.EndIndex {
+					fmt.Fprintf(os.Stderr, "start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex)
+					return
 				}
-			}
 
-			config.StartIndex = config.EndIndex
-			config.EndIndex = nil
+				foundEntries, err := params.IdentitySearchFn(ctx, config, params.MonitoredValues)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+					return
+				}
+
+				if len(foundEntries) > 0 {
+					notificationPool := notifications.CreateNotificationPool(*config)
+
+					err = notifications.TriggerNotifications(notificationPool, foundEntries)
+					if err != nil {
+						// continue running consistency check if notifications fail to trigger
+						fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
+					}
+				}
+
+				config.StartIndex = config.EndIndex
+				config.EndIndex = nil
+			}
 		}
 
 		if params.Once || inputEndIndex != nil {
