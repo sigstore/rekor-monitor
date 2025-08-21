@@ -93,7 +93,7 @@ func main() {
 			checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 			return &checkpointStartIndex
 		},
-		GetEndIndexFn: func(_ cmd.Checkpoint, cur cmd.LogInfo) *int {
+		GetEndIndexFn: func(cur cmd.LogInfo) *int {
 			currentSTH := cur.(*ctgo.SignedTreeHead)
 			checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
 			return &checkpointEndIndex

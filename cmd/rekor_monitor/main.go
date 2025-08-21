@@ -152,7 +152,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
 			return &checkpointStartIndex
 		},
-		GetEndIndexFn: func(_ cmd.Checkpoint, cur cmd.LogInfo) *int {
+		GetEndIndexFn: func(cur cmd.LogInfo) *int {
 			checkpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 			if err != nil {
 				return nil
@@ -187,7 +187,7 @@ func mainLoopV2(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil
 		},
-		GetEndIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
+		GetEndIndexFn: func(_ cmd.LogInfo) *int {
 			return nil
 		},
 		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
