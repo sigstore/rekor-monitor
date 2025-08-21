@@ -25,8 +25,8 @@ import (
 	utilidentity "github.com/sigstore/rekor-monitor/pkg/util/identity"
 )
 
-func GetCTLogEntries(logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
-	entries, err := logClient.GetEntries(context.Background(), int64(startIndex), int64(endIndex))
+func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
+	entries, err := logClient.GetEntries(ctx, int64(startIndex), int64(endIndex))
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving certificate transparency log entries: %v", err)
 	}
@@ -104,7 +104,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 }
 
 func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, mvs identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
-	entries, err := GetCTLogEntries(client, startIndex, endIndex)
+	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
 		return nil, err
 	}
