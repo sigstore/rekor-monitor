@@ -73,7 +73,7 @@ func main() {
 		Config:          config,
 		MonitoredValues: monitoredValues,
 		Once:            flags.Once,
-		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.Checkpoint, error) {
+		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := ct.RunConsistencyCheck(fulcioClient, flags.LogInfoFile)
 			if err != nil {
 				return nil, nil, err
@@ -82,18 +82,18 @@ func main() {
 			if prev != nil {
 				prevCheckpoint = prev
 			}
-			var curCheckpoint cmd.Checkpoint
+			var curLogInfo cmd.LogInfo
 			if cur != nil {
-				curCheckpoint = cur
+				curLogInfo = cur
 			}
-			return prevCheckpoint, curCheckpoint, nil
+			return prevCheckpoint, curLogInfo, nil
 		},
-		GetStartIndexFn: func(prev, _ cmd.Checkpoint) *int {
+		GetStartIndexFn: func(prev cmd.Checkpoint, _ cmd.LogInfo) *int {
 			prevSTH := prev.(*ctgo.SignedTreeHead)
 			checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 			return &checkpointStartIndex
 		},
-		GetEndIndexFn: func(_, cur cmd.Checkpoint) *int {
+		GetEndIndexFn: func(_ cmd.Checkpoint, cur cmd.LogInfo) *int {
 			currentSTH := cur.(*ctgo.SignedTreeHead)
 			checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
 			return &checkpointEndIndex

@@ -133,7 +133,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		Config:          config,
 		MonitoredValues: monitoredValues,
 		Once:            flags.Once,
-		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.Checkpoint, error) {
+		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := rekor_v1.RunConsistencyCheck(rekorClient, verifier, flags.LogInfoFile)
 			if err != nil {
 				return nil, nil, err
@@ -142,17 +142,17 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			if prev != nil {
 				prevCheckpoint = prev
 			}
-			var curCheckpoint cmd.Checkpoint
+			var curLogInfo cmd.LogInfo
 			if cur != nil {
-				curCheckpoint = cur
+				curLogInfo = cur
 			}
-			return prevCheckpoint, curCheckpoint, nil
+			return prevCheckpoint, curLogInfo, nil
 		},
-		GetStartIndexFn: func(prev, cur cmd.Checkpoint) *int {
+		GetStartIndexFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
 			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
 			return &checkpointStartIndex
 		},
-		GetEndIndexFn: func(_, cur cmd.Checkpoint) *int {
+		GetEndIndexFn: func(_ cmd.Checkpoint, cur cmd.LogInfo) *int {
 			checkpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 			if err != nil {
 				return nil
@@ -172,22 +172,22 @@ func mainLoopV2(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		Config:          config,
 		MonitoredValues: identity.MonitoredValues{},
 		Once:            flags.Once,
-		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.Checkpoint, error) {
+		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			// TODO: should return prev and cur
 			cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, activeShardOrigin, flags.LogInfoFile)
 			if err != nil {
 				return nil, nil, err
 			}
-			var curCheckpoint cmd.Checkpoint
+			var curLogInfo cmd.LogInfo
 			if cur != nil {
-				curCheckpoint = cur
+				curLogInfo = cur
 			}
-			return nil, curCheckpoint, nil
+			return nil, curLogInfo, nil
 		},
-		GetStartIndexFn: func(_, _ cmd.Checkpoint) *int {
+		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil
 		},
-		GetEndIndexFn: func(_, _ cmd.Checkpoint) *int {
+		GetEndIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil
 		},
 		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {

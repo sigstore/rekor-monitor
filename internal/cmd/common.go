@@ -50,13 +50,14 @@ type MonitorLoopParams struct {
 	Config                *notifications.IdentityMonitorConfiguration
 	MonitoredValues       identity.MonitoredValues
 	Once                  bool
-	RunConsistencyCheckFn func(ctx context.Context) (Checkpoint, Checkpoint, error)
-	GetStartIndexFn       func(prev, cur Checkpoint) *int
-	GetEndIndexFn         func(prev, cur Checkpoint) *int
+	RunConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
+	GetStartIndexFn       func(prev Checkpoint, cur LogInfo) *int
+	GetEndIndexFn         func(prev Checkpoint, cur LogInfo) *int
 	IdentitySearchFn      func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
 }
 
 type Checkpoint interface{}
+type LogInfo interface{}
 
 // ParseMonitorFlags parses command-line flags and returns a MonitorFlags struct
 func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAgentName string) *MonitorFlags {
