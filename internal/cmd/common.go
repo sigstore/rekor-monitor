@@ -42,6 +42,7 @@ type MonitorFlags struct {
 	Interval      time.Duration
 	UserAgent     string
 	TUFRepository string
+	TUFRootPath   string
 }
 
 // MonitorLoopParams contains the parameters for the LoopLogs function
@@ -68,7 +69,8 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	serverURL := flag.String("url", defaultServerURL, "URL to the server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
-	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default' or 'staging'")
+	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default', 'staging' or a custom TUF repository URL.")
+	tufRootPath := flag.String("tuf-root-path", "", "path to the trusted root file (passed out of bounds), if custom TUF repository is used")
 	flag.Parse()
 
 	finalUserAgent := strings.TrimSpace(fmt.Sprintf("%s/%s (%s; %s) %s",
@@ -88,6 +90,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 		Interval:      *interval,
 		UserAgent:     finalUserAgent,
 		TUFRepository: *tufRepository,
+		TUFRootPath:   *tufRootPath,
 	}
 }
 
