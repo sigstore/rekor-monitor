@@ -49,7 +49,9 @@ func RefreshSigningConfig(tufClient *tuf.Client) (*root.SigningConfig, error) {
 
 func filterV2Shards(rekorServices []root.Service) []root.Service {
 	// First we sort and filter the Rekor services so that they're ordered from
-	// newest to oldest and only include the v2 logs
+	// newest to oldest. We filter them so that we:
+	// - only include the v2 logs.
+	// - only include shards that are (or were) valid. No shards that will be valid in the future
 	sortedServices := make([]root.Service, len(rekorServices))
 	copy(sortedServices, rekorServices)
 	slices.SortFunc(sortedServices, func(i, j root.Service) int {
@@ -58,8 +60,9 @@ func filterV2Shards(rekorServices []root.Service) []root.Service {
 	slices.Reverse(sortedServices)
 
 	var rekorV2Services []root.Service
+	now := time.Now()
 	for _, s := range sortedServices {
-		if s.MajorAPIVersion == 2 {
+		if s.MajorAPIVersion == 2 && !s.ValidityPeriodStart.IsZero() && s.ValidityPeriodStart.Before(now) {
 			rekorV2Services = append(rekorV2Services, s)
 		}
 	}
