@@ -94,11 +94,11 @@ func main() {
 		mainLoopV1(flags, config, trustedRoot)
 	case 2:
 		fmt.Fprintf(os.Stderr, "Warning: the monitor currently only checks for the consistency of the log in Rekor v2 logs.\n")
-		rekorShards, activeShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
+		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
 		if err != nil {
 			log.Fatal(err)
 		}
-		mainLoopV2(tufClient, flags, config, rekorShards, activeShardOrigin)
+		mainLoopV2(tufClient, flags, config, rekorShards, latestShardOrigin)
 	default:
 		log.Fatalf("Unsupported server version %v, only '1' and '2' are supported", rekorVersion)
 	}
@@ -166,7 +166,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 	})
 }
 
-func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, activeShardOrigin string) {
+func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) {
 	cmd.MonitorLoop(cmd.MonitorLoopParams{
 		Interval:        flags.Interval,
 		Config:          config,
@@ -188,14 +188,14 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 				if err != nil {
 					return nil, nil, fmt.Errorf("error getting trusted root: %v", err)
 				}
-				rekorShards, activeShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), flags.UserAgent)
+				rekorShards, latestShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), flags.UserAgent)
 				if err != nil {
 					return nil, nil, fmt.Errorf("error getting shards: %v", err)
 				}
 			}
 
 			// TODO: should return prev and cur
-			cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, activeShardOrigin, flags.LogInfoFile)
+			cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, latestShardOrigin, flags.LogInfoFile)
 			if err != nil {
 				return nil, nil, err
 			}

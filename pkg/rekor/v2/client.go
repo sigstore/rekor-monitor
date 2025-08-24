@@ -118,7 +118,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 	}
 
 	rekorShards := make(map[string]ShardInfo)
-	activeShardOrigin := ""
+	latestShardOrigin := ""
 	for _, service := range rekorV2Services {
 		parsedURL, err := url.Parse(service.URL)
 		if err != nil {
@@ -131,9 +131,9 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 
 		// The services in rekorV2Services are ordered from newest to oldest,
 		// so we store the origin of the first one as the origin
-		// of the latest (active) shard
-		if activeShardOrigin == "" {
-			activeShardOrigin = origin
+		// of the latest shard
+		if latestShardOrigin == "" {
+			latestShardOrigin = origin
 		}
 		verifier, err := GetLogVerifier(ctx, parsedURL, trustedRoot, userAgent)
 		if err != nil {
@@ -146,7 +146,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 		}
 
 		// ReadCheckpoint fetches and verifies the current checkpoint
-		// We verify the checkpoints of all active v2 shards
+		// We verify the checkpoints of all v2 shards
 		checkpoint, _, err := rekorClient.ReadCheckpoint(ctx)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to get current checkpoint for log '%v': %v", origin, err)
@@ -154,7 +154,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 
 		rekorShards[checkpoint.Origin] = ShardInfo{&rekorClient, &verifier, service.ValidityPeriodEnd}
 	}
-	return rekorShards, activeShardOrigin, nil
+	return rekorShards, latestShardOrigin, nil
 }
 
 func getOrigin(shardURL *url.URL) (string, error) {

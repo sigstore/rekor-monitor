@@ -110,18 +110,18 @@ func GetLogVerifier(ctx context.Context, baseURL *url.URL, trustedRoot root.Trus
 	return verifier, nil
 }
 
-func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, activeShardOrigin string, logInfoFile string) (*log.Checkpoint, error) {
+func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, logInfoFile string) (*log.Checkpoint, error) {
 	// First, we select the correct shard. Most of the time this will be
-	// the latest active shard (with origin == activeShardOrigin), but
+	// the latest shard (with origin == latestShardOrigin), but
 	// in situations where the previously stored checkpoint is from an older
 	// shard, we have to:
 	// - Verify the previous checkpoint against the last checkpoint of the older shard
 	// - Store the last checkpoint of the *newest* shard as the last-seen checkpoint
 	// in order to migrate from the old shald to the new one.
 
-	// Fetch (and verify) the latest checkpoint of the latest active shard
+	// Fetch (and verify) the latest checkpoint of the latest shard
 	// This is the checkpoint that will be saved to `logInfoFile`.
-	latestActiveCheckpoint, _, err := (*rekorShards[activeShardOrigin].client).ReadCheckpoint(ctx)
+	latestShardCheckpoint, _, err := (*rekorShards[latestShardOrigin].client).ReadCheckpoint(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current checkpoint: %v", err)
 	}
@@ -137,9 +137,9 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 
 		// The new checkpoint we fetch for the consistency check has to be from the same
 		// shard as the previous checkpoint.
-		rekorClient := *rekorShards[activeShardOrigin].client
-		newCheckpoint := latestActiveCheckpoint
-		if prevCheckpoint.Origin != activeShardOrigin {
+		rekorClient := *rekorShards[latestShardOrigin].client
+		newCheckpoint := latestShardCheckpoint
+		if prevCheckpoint.Origin != latestShardOrigin {
 			rekorClient = *rekorShards[prevCheckpoint.Origin].client
 			newCheckpoint, _, err = rekorClient.ReadCheckpoint(ctx)
 			if err != nil {
@@ -168,8 +168,8 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 	}
 
 	// Write if there was no stored checkpoint or the origin/sizes differ
-	if prevCheckpoint == nil || prevCheckpoint.Origin != latestActiveCheckpoint.Origin || prevCheckpoint.Size != latestActiveCheckpoint.Size {
-		if err := file.WriteCheckpointRekorV2(latestActiveCheckpoint, logInfoFile); err != nil {
+	if prevCheckpoint == nil || prevCheckpoint.Origin != latestShardCheckpoint.Origin || prevCheckpoint.Size != latestShardCheckpoint.Size {
+		if err := file.WriteCheckpointRekorV2(latestShardCheckpoint, logInfoFile); err != nil {
 			// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
 			// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
 			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
