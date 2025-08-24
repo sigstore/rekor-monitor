@@ -57,11 +57,10 @@ func filterV2Shards(rekorServices []root.Service) []root.Service {
 	slices.SortFunc(sortedServices, func(i, j root.Service) int {
 		return i.ValidityPeriodStart.Compare(j.ValidityPeriodStart)
 	})
-	slices.Reverse(sortedServices)
 
 	var rekorV2Services []root.Service
 	now := time.Now()
-	for _, s := range sortedServices {
+	for _, s := range slices.Backward(sortedServices) {
 		if s.MajorAPIVersion == 2 && !s.ValidityPeriodStart.IsZero() && s.ValidityPeriodStart.Before(now) {
 			rekorV2Services = append(rekorV2Services, s)
 		}
