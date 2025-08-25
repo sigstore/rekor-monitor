@@ -41,6 +41,32 @@ const (
 	logInfoFileNamePrefix    = "logInfo"
 )
 
+func getTUFClient(flags *cmd.MonitorFlags) (*tuf.Client, error) {
+	switch flags.TUFRepository {
+	case "default":
+		if flags.TUFRootPath != "" {
+			log.Fatal("tuf-root-path is not supported when using the default TUF repository")
+		}
+		return tuf.DefaultClient()
+	case "staging":
+		if flags.TUFRootPath != "" {
+			log.Fatal("tuf-root-path is not supported when using the staging TUF repository")
+		}
+		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
+		return tuf.New(options)
+	default:
+		if flags.TUFRootPath == "" {
+			log.Fatal("tuf-root-path is required when using a custom TUF repository")
+		}
+		rootBytes, err := os.ReadFile(flags.TUFRootPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		options := tuf.DefaultOptions().WithRoot(rootBytes).WithRepositoryBaseURL(flags.TUFRepository)
+		return tuf.New(options)
+	}
+}
+
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
@@ -50,16 +76,11 @@ func main() {
 		log.Fatalf("error parsing flags and loading config: %v", err)
 	}
 
-	var tufClient *tuf.Client
-	switch flags.TUFRepository {
-	case "default":
-		tufClient, err = tuf.DefaultClient()
-	case "staging":
-		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
-		tufClient, err = tuf.New(options)
-	default:
-		log.Fatalf("custom TUF repository not currently supported")
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	tufClient, err := getTUFClient(flags)
 	if err != nil {
 		log.Fatal(err)
 	}
