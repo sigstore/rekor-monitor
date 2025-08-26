@@ -50,7 +50,7 @@ func generateGitHubIssueBody(data NotificationData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{header, "```\n" + body + "\n```"}, "\n"), nil
+	return strings.Join([]string{header, "```\n" + string(body) + "\n```"}, "\n"), nil
 }
 
 // Send implements the NotificationPlatform interface

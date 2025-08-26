@@ -40,7 +40,7 @@ type NotificationContext struct {
 
 // NotificationBodyConverter defines an interface for payloads that can convert themselves to a notification body string
 type NotificationBodyConverter interface {
-	ToNotificationBody() (string, error)
+	ToNotificationBody() ([]byte, error)
 }
 
 // NotificationData represents the data to be sent in a notification

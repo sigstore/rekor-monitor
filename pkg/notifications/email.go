@@ -37,7 +37,7 @@ func generateEmailBody(data NotificationData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "<pre>" + body + "</pre>", nil
+	return "<pre>" + string(body) + "</pre>", nil
 }
 
 // Send implements the NotificationPlatform interface
