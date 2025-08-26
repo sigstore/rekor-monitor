@@ -16,14 +16,9 @@ package notifications
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/google/go-github/v65/github"
-)
-
-var (
-	notificationPlatformGitHubIssueBodyHeaderText = "%s found the following pairs of monitored identities and matching log entries: "
 )
 
 // GitHubIssueInput extends the NotificationPlatform interface to support found identity
@@ -42,8 +37,7 @@ type GitHubIssueInput struct {
 
 // generateGitHubIssueBody generates a GitHub issue body for generic notification data
 func generateGitHubIssueBody(data NotificationData) (string, error) {
-	header := fmt.Sprintf(notificationPlatformGitHubIssueBodyHeaderText, data.Context.MonitorType)
-
+	header := data.Payload.ToNotificationHeader()
 	body, err := data.Payload.ToNotificationBody()
 	if err != nil {
 		return "", err

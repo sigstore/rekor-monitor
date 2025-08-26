@@ -55,7 +55,7 @@ type MonitorLoopParams struct {
 	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
 	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
 	GetEndIndexFn            func(cur LogInfo) *int
-	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
+	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 }
 
 type Checkpoint interface{}
@@ -194,24 +194,40 @@ func MonitorLoop(params MonitorLoopParams) {
 					return
 				}
 
-				foundEntries, err := params.IdentitySearchFn(ctx, config, params.MonitoredValues)
+				foundEntries, failedEntries, err := params.IdentitySearchFn(ctx, config, params.MonitoredValues)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 					return
 				}
 
-				if len(foundEntries) > 0 {
+				if len(foundEntries) > 0 || len(failedEntries) > 0 {
 					notificationPool := notifications.CreateNotificationPool(*config)
 
-					notificationData := notifications.NotificationData{
-						Context: params.NotificationContextNewFn(),
-						Payload: identity.MonitoredIdentityList(foundEntries),
-					}
+					if len(foundEntries) > 0 {
+						notificationData := notifications.NotificationData{
+							Context: params.NotificationContextNewFn(),
+							Payload: identity.MonitoredIdentityList(foundEntries),
+						}
 
-					err = notifications.TriggerNotifications(notificationPool, notificationData)
-					if err != nil {
-						// continue running consistency check if notifications fail to trigger
-						fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
+						err = notifications.TriggerNotifications(notificationPool, notificationData)
+						if err != nil {
+							// continue running consistency check if notifications fail to trigger
+							fmt.Fprintf(os.Stderr, "failed to trigger notifications for found entries: %v", err)
+						}
+					}
+					if len(failedEntries) > 0 {
+						fmt.Fprintf(os.Stderr, "failed to parse some log entries: %v", failedEntries)
+
+						notificationData := notifications.NotificationData{
+							Context: params.NotificationContextNewFn(),
+							Payload: identity.FailedLogEntryList(failedEntries),
+						}
+
+						err = notifications.TriggerNotifications(notificationPool, notificationData)
+						if err != nil {
+							// continue running consistency check if notifications fail to trigger
+							fmt.Fprintf(os.Stderr, "failed to trigger notifications for failed entries: %v", err)
+						}
 					}
 				}
 
