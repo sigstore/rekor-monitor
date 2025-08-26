@@ -24,7 +24,6 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -132,20 +131,4 @@ func TriggerNotifications(notificationPlatforms []NotificationPlatform, data Not
 	}
 
 	return nil
-}
-
-// CreateCTMonitorNotificationContext creates a notification context for ct-monitor
-func CreateCTMonitorNotificationContext() NotificationContext {
-	return CreateNotificationContext(
-		"ct-monitor",
-		fmt.Sprintf("ct-monitor workflow results for %s", time.Now().Format(time.RFC822)),
-	)
-}
-
-// CreateRekorMonitorNotificationContext creates a notification context for rekor-monitor
-func CreateRekorMonitorNotificationContext() NotificationContext {
-	return CreateNotificationContext(
-		"rekor-monitor",
-		fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822)),
-	)
 }

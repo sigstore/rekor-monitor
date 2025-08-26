@@ -53,7 +53,7 @@ func TestCreateAndSendNotifications(t *testing.T) {
 	}
 
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
 

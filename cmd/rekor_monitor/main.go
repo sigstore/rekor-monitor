@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -40,6 +41,14 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 	logInfoFileNamePrefix    = "logInfo"
 )
+
+// CreateRekorMonitorNotificationContext creates a notification context for rekor-monitor
+func CreateRekorMonitorNotificationContext() notifications.NotificationContext {
+	return notifications.CreateNotificationContext(
+		"rekor-monitor",
+		fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822)),
+	)
+}
 
 func getTUFClient(flags *cmd.MonitorFlags) (*tuf.Client, error) {
 	switch flags.TUFRepository {
@@ -154,7 +163,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		Config:                   config,
 		MonitoredValues:          monitoredValues,
 		Once:                     flags.Once,
-		NotificationContextNewFn: notifications.CreateRekorMonitorNotificationContext,
+		NotificationContextNewFn: CreateRekorMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := rekor_v1.RunConsistencyCheck(rekorClient, verifier, flags.LogInfoFile)
 			if err != nil {
@@ -194,7 +203,7 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 		Config:                   config,
 		MonitoredValues:          identity.MonitoredValues{},
 		Once:                     flags.Once,
-		NotificationContextNewFn: notifications.CreateRekorMonitorNotificationContext,
+		NotificationContextNewFn: CreateRekorMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			// On each iteration, we refresh the SigningConfig metadata and
 			// update the shards if we detect a change in the newest shard

@@ -68,7 +68,7 @@ func TestEmailSendFailureCases(t *testing.T) {
 
 	for _, emailNotificationInput := range emailNotificationInputs {
 		notificationData := NotificationData{
-			Context: CreateRekorMonitorNotificationContext(),
+			Context: CreateNotificationContext("test-monitor", "test-subject"),
 			Payload: identity.MonitoredIdentityList{monitoredIdentity},
 		}
 		err := emailNotificationInput.Send(context.Background(), notificationData)
@@ -103,7 +103,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 	}
 
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{monitoredIdentity},
 	}
 	err := emailNotificationInput.Send(context.Background(), notificationData)
@@ -138,7 +138,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	}
 
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{monitoredIdentity},
 	}
 	err := emailNotificationInput.Send(context.Background(), notificationData)

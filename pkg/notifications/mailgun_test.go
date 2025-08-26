@@ -40,7 +40,7 @@ func TestMailgunSendFailure(t *testing.T) {
 	}
 
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{monitoredIdentity},
 	}
 	err := mailgunNotificationInput.Send(context.Background(), notificationData)

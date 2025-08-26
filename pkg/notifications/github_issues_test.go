@@ -35,7 +35,7 @@ func TestGitHubIssueInputSend401BadCredentialsFailure(t *testing.T) {
 	}
 	ctx := context.Background()
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
@@ -72,7 +72,7 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 	}
 	ctx := context.Background()
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
@@ -104,7 +104,7 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 	}
 	ctx := context.Background()
 	notificationData := NotificationData{
-		Context: CreateRekorMonitorNotificationContext(),
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
