@@ -30,14 +30,37 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
-var (
-	NotificationSubject = fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822))
-)
+type NotificationContextNew func() NotificationContext
+
+// NotificationContext provides context information for notifications
+type NotificationContext struct {
+	MonitorType string `json:"monitorType"` // e.g., "rekor-monitor", "ct-monitor"
+	Subject     string `json:"subject"`     // Custom subject line
+}
+
+// NotificationBodyConverter defines an interface for payloads that can convert themselves to a notification body string
+type NotificationBodyConverter interface {
+	ToNotificationBody() (string, error)
+}
+
+// NotificationData represents the data to be sent in a notification
+type NotificationData struct {
+	Context NotificationContext       `json:"context"`
+	Payload NotificationBodyConverter `json:"payload"` // The actual data to notify about
+}
 
 // NotificationPlatform provides the Send() method to handle alerting logic
 // for the respective notification platform extending the interface.
 type NotificationPlatform interface {
-	Send(context.Context, []identity.MonitoredIdentity) error
+	Send(context.Context, NotificationData) error
+}
+
+// CreateNotificationContext creates a custom notification context
+func CreateNotificationContext(monitorType, subject string) NotificationContext {
+	return NotificationContext{
+		MonitorType: monitorType,
+		Subject:     subject,
+	}
 }
 
 // ConfigMonitoredValues holds a set of values to compare against a given entry.
@@ -100,13 +123,29 @@ func CreateNotificationPool(config IdentityMonitorConfiguration) []NotificationP
 	return notificationPlatforms
 }
 
-func TriggerNotifications(notificationPlatforms []NotificationPlatform, identities []identity.MonitoredIdentity) error {
+func TriggerNotifications(notificationPlatforms []NotificationPlatform, data NotificationData) error {
 	// update this as new notification platforms are implemented within rekor-monitor
 	for _, notificationPlatform := range notificationPlatforms {
-		if err := notificationPlatform.Send(context.Background(), identities); err != nil {
+		if err := notificationPlatform.Send(context.Background(), data); err != nil {
 			return fmt.Errorf("error sending notification from platform: %v", err)
 		}
 	}
 
 	return nil
+}
+
+// CreateCTMonitorNotificationContext creates a notification context for ct-monitor
+func CreateCTMonitorNotificationContext() NotificationContext {
+	return CreateNotificationContext(
+		"ct-monitor",
+		fmt.Sprintf("ct-monitor workflow results for %s", time.Now().Format(time.RFC822)),
+	)
+}
+
+// CreateRekorMonitorNotificationContext creates a notification context for rekor-monitor
+func CreateRekorMonitorNotificationContext() NotificationContext {
+	return CreateNotificationContext(
+		"rekor-monitor",
+		fmt.Sprintf("rekor-monitor workflow results for %s", time.Now().Format(time.RFC822)),
+	)
 }

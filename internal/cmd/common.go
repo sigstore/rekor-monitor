@@ -47,14 +47,15 @@ type MonitorFlags struct {
 
 // MonitorLoopParams contains the parameters for the LoopLogs function
 type MonitorLoopParams struct {
-	Interval              time.Duration
-	Config                *notifications.IdentityMonitorConfiguration
-	MonitoredValues       identity.MonitoredValues
-	Once                  bool
-	RunConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
-	GetStartIndexFn       func(prev Checkpoint, cur LogInfo) *int
-	GetEndIndexFn         func(cur LogInfo) *int
-	IdentitySearchFn      func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
+	Interval                 time.Duration
+	Config                   *notifications.IdentityMonitorConfiguration
+	MonitoredValues          identity.MonitoredValues
+	Once                     bool
+	NotificationContextNewFn notifications.NotificationContextNew
+	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
+	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
+	GetEndIndexFn            func(cur LogInfo) *int
+	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
 }
 
 type Checkpoint interface{}
@@ -202,7 +203,12 @@ func MonitorLoop(params MonitorLoopParams) {
 				if len(foundEntries) > 0 {
 					notificationPool := notifications.CreateNotificationPool(*config)
 
-					err = notifications.TriggerNotifications(notificationPool, foundEntries)
+					notificationData := notifications.NotificationData{
+						Context: params.NotificationContextNewFn(),
+						Payload: identity.MonitoredIdentityList(foundEntries),
+					}
+
+					err = notifications.TriggerNotifications(notificationPool, notificationData)
 					if err != nil {
 						// continue running consistency check if notifications fail to trigger
 						fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)

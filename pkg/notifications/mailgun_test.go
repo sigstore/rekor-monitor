@@ -39,7 +39,11 @@ func TestMailgunSendFailure(t *testing.T) {
 		},
 	}
 
-	err := mailgunNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
+	notificationData := NotificationData{
+		Context: CreateRekorMonitorNotificationContext(),
+		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+	}
+	err := mailgunNotificationInput.Send(context.Background(), notificationData)
 	if err == nil {
 		t.Errorf("expected error, received nil")
 	}

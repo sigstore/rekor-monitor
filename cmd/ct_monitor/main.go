@@ -69,10 +69,11 @@ func main() {
 
 	cmd.PrintMonitoredValues(monitoredValues)
 	cmd.MonitorLoop(cmd.MonitorLoopParams{
-		Interval:        flags.Interval,
-		Config:          config,
-		MonitoredValues: monitoredValues,
-		Once:            flags.Once,
+		Interval:                 flags.Interval,
+		Config:                   config,
+		MonitoredValues:          monitoredValues,
+		Once:                     flags.Once,
+		NotificationContextNewFn: notifications.CreateCTMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := ct.RunConsistencyCheck(fulcioClient, flags.LogInfoFile)
 			if err != nil {

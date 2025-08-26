@@ -19,7 +19,6 @@ import (
 
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 // SendGrid extends the NotificationPlatform interface to support
@@ -32,14 +31,12 @@ type SendGridNotificationInput struct {
 	SendGridAPIKey        string `yaml:"sendGridAPIKey"`
 }
 
-// Send takes in an SendGridNotificationInput and attempts to send the
-// following list of found identities to the given email address.
-// It returns an error in the case of failure.
-func (sendGridNotificationInput SendGridNotificationInput) Send(ctx context.Context, monitoredIdentities []identity.MonitoredIdentity) error {
+// Send implements the NotificationPlatform interface
+func (sendGridNotificationInput SendGridNotificationInput) Send(ctx context.Context, data NotificationData) error {
 	from := mail.NewEmail(sendGridNotificationInput.SenderName, sendGridNotificationInput.SenderEmailAddress)
 	to := mail.NewEmail(sendGridNotificationInput.RecipientName, sendGridNotificationInput.RecipientEmailAddress)
-	subject := NotificationSubject
-	emailHTMLBody, err := GenerateEmailBody(monitoredIdentities)
+	subject := data.Context.Subject
+	emailHTMLBody, err := generateEmailBody(data)
 	if err != nil {
 		return err
 	}

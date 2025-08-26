@@ -34,7 +34,11 @@ func TestGitHubIssueInputSend401BadCredentialsFailure(t *testing.T) {
 		AuthenticationToken: "",
 	}
 	ctx := context.Background()
-	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
+	notificationData := NotificationData{
+		Context: CreateRekorMonitorNotificationContext(),
+		Payload: identity.MonitoredIdentityList{},
+	}
+	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err == nil {
 		t.Errorf("expected 401 Bad Credentials, received error %v", err)
 	}
@@ -67,7 +71,11 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 		GitHubClient:        mockGitHubClient,
 	}
 	ctx := context.Background()
-	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
+	notificationData := NotificationData{
+		Context: CreateRekorMonitorNotificationContext(),
+		Payload: identity.MonitoredIdentityList{},
+	}
+	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
@@ -95,7 +103,11 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 		GitHubClient:        mockGitHubClient,
 	}
 	ctx := context.Background()
-	err := gitHubIssuesInput.Send(ctx, []identity.MonitoredIdentity{})
+	notificationData := NotificationData{
+		Context: CreateRekorMonitorNotificationContext(),
+		Payload: identity.MonitoredIdentityList{},
+	}
+	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err == nil || !strings.Contains(err.Error(), "400 Bad Request") {
 		t.Errorf("expected 400 Bad Request, received %v", err)
 	}

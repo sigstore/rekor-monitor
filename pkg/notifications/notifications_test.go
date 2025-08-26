@@ -26,7 +26,7 @@ import (
 type MockNotificationPlatform struct {
 }
 
-func (mockNotificationPlatform MockNotificationPlatform) Send(_ context.Context, _ []identity.MonitoredIdentity) error {
+func (mockNotificationPlatform MockNotificationPlatform) Send(_ context.Context, _ NotificationData) error {
 	return errors.New("successfully sent from mock notification platform")
 }
 
@@ -52,7 +52,12 @@ func TestCreateAndSendNotifications(t *testing.T) {
 		t.Errorf("expected 2 notification platforms to be created, received %d", notificationPoolLength)
 	}
 
-	err := TriggerNotifications([]NotificationPlatform{mockNotificationPlatform}, []identity.MonitoredIdentity{})
+	notificationData := NotificationData{
+		Context: CreateRekorMonitorNotificationContext(),
+		Payload: identity.MonitoredIdentityList{},
+	}
+
+	err := TriggerNotifications([]NotificationPlatform{mockNotificationPlatform}, notificationData)
 	if !strings.Contains(err.Error(), "successfully sent from mock notification platform") {
 		t.Errorf("did not trigger notification from mock notification platform")
 	}

@@ -150,10 +150,11 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 
 	cmd.PrintMonitoredValues(monitoredValues)
 	cmd.MonitorLoop(cmd.MonitorLoopParams{
-		Interval:        flags.Interval,
-		Config:          config,
-		MonitoredValues: monitoredValues,
-		Once:            flags.Once,
+		Interval:                 flags.Interval,
+		Config:                   config,
+		MonitoredValues:          monitoredValues,
+		Once:                     flags.Once,
+		NotificationContextNewFn: notifications.CreateRekorMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := rekor_v1.RunConsistencyCheck(rekorClient, verifier, flags.LogInfoFile)
 			if err != nil {
@@ -189,10 +190,11 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 
 func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) {
 	cmd.MonitorLoop(cmd.MonitorLoopParams{
-		Interval:        flags.Interval,
-		Config:          config,
-		MonitoredValues: identity.MonitoredValues{},
-		Once:            flags.Once,
+		Interval:                 flags.Interval,
+		Config:                   config,
+		MonitoredValues:          identity.MonitoredValues{},
+		Once:                     flags.Once,
+		NotificationContextNewFn: notifications.CreateRekorMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			// On each iteration, we refresh the SigningConfig metadata and
 			// update the shards if we detect a change in the newest shard

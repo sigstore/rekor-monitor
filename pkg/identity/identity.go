@@ -101,6 +101,18 @@ func PrintMonitoredIdentities(monitoredIdentities []MonitoredIdentity) ([]byte, 
 	return jsonBody, nil
 }
 
+// MonitoredIdentityList wraps []MonitoredIdentity to implement NotificationBodyConverter
+type MonitoredIdentityList []MonitoredIdentity
+
+// ToNotificationBody implements the NotificationBodyConverter interface for MonitoredIdentityList
+func (identities MonitoredIdentityList) ToNotificationBody() (string, error) {
+	jsonBody, err := json.MarshalIndent(identities, "", "\t")
+	if err != nil {
+		return "", err
+	}
+	return string(jsonBody), nil
+}
+
 // CreateIdentitiesList takes in a MonitoredValues input and returns a list of all currently monitored identities.
 // It returns a list of strings.
 func CreateIdentitiesList(mvs MonitoredValues) []string {
