@@ -42,10 +42,8 @@ type GitHubIssueInput struct {
 
 // generateGitHubIssueBody generates a GitHub issue body for generic notification data
 func generateGitHubIssueBody(data NotificationData) (string, error) {
-	// Use custom header if available in metadata, otherwise use default
 	header := fmt.Sprintf(notificationPlatformGitHubIssueBodyHeaderText, data.Context.MonitorType)
 
-	// Try to use the payload as a NotificationBodyConverter
 	body, err := data.Payload.ToNotificationBody()
 	if err != nil {
 		return "", err
