@@ -16,9 +16,12 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
@@ -465,5 +468,307 @@ monitoredValues:
 
 	if len(config.MonitoredValues.Subjects) != 3 {
 		t.Errorf("LoadMonitorConfig() expected 3 subjects, got %d", len(config.MonitoredValues.Subjects))
+	}
+}
+
+func TestMonitorLoop_BasicExecution(t *testing.T) {
+	// Test basic execution with callbacks being called correctly
+	callCount := 0
+	consistencyCheckCalled := false
+	identitySearchCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond, // Very short interval for testing
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(1),
+			EndIndex:   intPtr(10),
+		},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+			Fingerprints: []string{"sha256:abcdef1234567890"},
+			Subjects:     []string{"test@example.com"},
+		},
+		Once: true, // Run once to avoid infinite loop
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			consistencyCheckCalled = true
+			callCount++
+			// Return mock checkpoint and log info
+			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			callCount++
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			callCount++
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled = true
+			callCount++
+
+			// Verify that the monitored values are passed correctly
+			if len(monitoredValues.CertificateIdentities) != 1 {
+				t.Errorf("Expected 1 certificate identity, got %d", len(monitoredValues.CertificateIdentities))
+			}
+			if len(monitoredValues.Fingerprints) != 1 {
+				t.Errorf("Expected 1 fingerprint, got %d", len(monitoredValues.Fingerprints))
+			}
+			if len(monitoredValues.Subjects) != 1 {
+				t.Errorf("Expected 1 subject, got %d", len(monitoredValues.Subjects))
+			}
+
+			// Return some found identities to trigger notifications
+			return []identity.MonitoredIdentity{
+				{
+					Identity: "test-identity",
+					FoundIdentityEntries: []identity.LogEntry{
+						{CertSubject: "test-subject", Index: 5, UUID: "test-uuid"},
+					},
+				},
+			}, nil
+		},
+	}
+
+	// Run MonitorLoop
+	MonitorLoop(params)
+
+	// Verify callbacks were called
+	if !consistencyCheckCalled {
+		t.Error("RunConsistencyCheckFn was not called")
+	}
+	if !identitySearchCalled {
+		t.Error("IdentitySearchFn was not called")
+	}
+	if callCount != 2 {
+		t.Errorf("Expected exactly 2 callback calls, got %d", callCount)
+	}
+}
+
+func TestMonitorLoop_ConsistencyCheckError(t *testing.T) {
+	// Test that MonitorLoop handles consistency check errors correctly
+	consistencyCheckCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(1),
+			EndIndex:   intPtr(10),
+		},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+		},
+		Once: true, // Run once to avoid infinite loop
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			consistencyCheckCalled = true
+			return nil, nil, fmt.Errorf("consistency check failed")
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			t.Error("IdentitySearchFn should not be called when consistency check fails")
+			return nil, nil
+		},
+	}
+
+	// Run MonitorLoop - it should return immediately due to error
+	MonitorLoop(params)
+
+	if !consistencyCheckCalled {
+		t.Error("RunConsistencyCheckFn was not called")
+	}
+}
+
+func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
+	// Test that MonitorLoop skips identity search when no monitored values exist
+	consistencyCheckCalled := false
+	identitySearchCalled := false
+	startIndexCalled := false
+	endIndexCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(1),
+			EndIndex:   intPtr(10),
+		},
+		MonitoredValues: identity.MonitoredValues{}, // Empty monitored values
+		Once:            true,                       // Run once to avoid infinite loop
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			consistencyCheckCalled = true
+			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			startIndexCalled = true
+			t.Error("GetStartIndexFn should not be called when no monitored values exist")
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			endIndexCalled = true
+			t.Error("GetEndIndexFn should not be called when no monitored values exist")
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled = true
+			t.Error("IdentitySearchFn should not be called when no monitored values exist")
+			return nil, nil
+		},
+	}
+
+	// Run MonitorLoop
+	MonitorLoop(params)
+
+	if !consistencyCheckCalled {
+		t.Error("RunConsistencyCheckFn was not called")
+	}
+	if identitySearchCalled {
+		t.Error("IdentitySearchFn should not be called when no monitored values exist")
+	}
+	if startIndexCalled {
+		t.Error("GetStartIndexFn should not be called when no monitored values exist")
+	}
+	if endIndexCalled {
+		t.Error("GetEndIndexFn should not be called when no monitored values exist")
+	}
+}
+
+func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
+	// Test that MonitorLoop handles invalid index ranges correctly
+	consistencyCheckCalled := false
+	identitySearchCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(20), // Start > End
+			EndIndex:   intPtr(10),
+		},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+		},
+		Once: true, // Run once to avoid infinite loop
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			consistencyCheckCalled = true
+			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			return intPtr(20)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled = true
+			t.Error("IdentitySearchFn should not be called when start index > end index")
+			return nil, nil
+		},
+	}
+
+	// Run MonitorLoop - it should return immediately due to invalid index range
+	MonitorLoop(params)
+
+	if !consistencyCheckCalled {
+		t.Error("RunConsistencyCheckFn was not called")
+	}
+	if identitySearchCalled {
+		t.Error("IdentitySearchFn should not be called when start index > end index")
+	}
+}
+
+func TestMonitorLoop_OnceFlag(t *testing.T) {
+	// Test that MonitorLoop exits after one iteration when Once flag is true
+	iterationCount := 0
+	identitySearchCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(1),
+			EndIndex:   intPtr(10),
+		},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+		},
+		Once: true, // This should cause it to run only once
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			iterationCount++
+			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled = true
+			return []identity.MonitoredIdentity{}, nil
+		},
+	}
+
+	// Run MonitorLoop
+	MonitorLoop(params)
+
+	if iterationCount != 1 {
+		t.Errorf("Expected 1 iteration, got %d", iterationCount)
+	}
+	if !identitySearchCalled {
+		t.Error("IdentitySearchFn should be called even when Once is true")
+	}
+}
+
+func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
+	// Test that MonitorLoop exits when EndIndex is specified in config
+	iterationCount := 0
+	identitySearchCalled := false
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config: &notifications.IdentityMonitorConfiguration{
+			StartIndex: intPtr(1),
+			EndIndex:   intPtr(10), // This should cause it to exit after one iteration
+		},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+		},
+		Once: false, // Not once, but should still exit due to EndIndex
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			iterationCount++
+			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled = true
+			return []identity.MonitoredIdentity{}, nil
+		},
+	}
+
+	// Run MonitorLoop
+	MonitorLoop(params)
+
+	if iterationCount != 1 {
+		t.Errorf("Expected 1 iteration, got %d", iterationCount)
+	}
+	if !identitySearchCalled {
+		t.Error("IdentitySearchFn should be called even when EndIndex is specified")
 	}
 }
