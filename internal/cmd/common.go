@@ -53,6 +53,7 @@ type MonitorLoopParams struct {
 	Once                     bool
 	NotificationContextNewFn notifications.NotificationContextNew
 	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
+	WriteCheckpointFn        func(ctx context.Context, prev Checkpoint, cur LogInfo) error
 	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
 	GetEndIndexFn            func(cur LogInfo) *int
 	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
@@ -210,14 +211,21 @@ func MonitorLoop(params MonitorLoopParams) {
 
 					err = notifications.TriggerNotifications(notificationPool, notificationData)
 					if err != nil {
-						// continue running consistency check if notifications fail to trigger
 						fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
+						return
 					}
 				}
 
 				config.StartIndex = config.EndIndex
 				config.EndIndex = nil
 			}
+		}
+
+		// Write checkpoint after identity search to ensure identities are
+		// always searched even if something fails in the middle
+		if err := params.WriteCheckpointFn(ctx, prevCheckpoint, curCheckpoint); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
+			return
 		}
 
 		if params.Once || inputEndIndex != nil {

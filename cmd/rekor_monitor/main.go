@@ -32,6 +32,7 @@ import (
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
+	tlog "github.com/transparency-dev/formats/log"
 )
 
 // Default values for monitoring job parameters
@@ -179,6 +180,21 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			}
 			return prevCheckpoint, curLogInfo, nil
 		},
+		WriteCheckpointFn: func(ctx context.Context, prev cmd.Checkpoint, cur cmd.LogInfo) error {
+			prevCheckpoint, ok := prev.(*util.SignedCheckpoint)
+			if !ok {
+				if prev == nil {
+					prevCheckpoint = nil
+				} else {
+					return fmt.Errorf("prev is not a SignedCheckpoint")
+				}
+			}
+			curLogInfo, ok := cur.(*models.LogInfo)
+			if !ok {
+				return fmt.Errorf("cur is not a LogInfo")
+			}
+			return rekor_v1.WriteCheckpoint(ctx, prevCheckpoint, curLogInfo, flags.LogInfoFile)
+		},
 		GetStartIndexFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
 			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
 			return &checkpointStartIndex
@@ -226,16 +242,34 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 				}
 			}
 
-			// TODO: should return prev and cur
-			cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, latestShardOrigin, flags.LogInfoFile)
+			prev, cur, err := rekor_v2.RunConsistencyCheck(context.Background(), rekorShards, latestShardOrigin, flags.LogInfoFile)
 			if err != nil {
 				return nil, nil, err
+			}
+			var prevCheckpoint cmd.Checkpoint
+			if prev != nil {
+				prevCheckpoint = prev
 			}
 			var curLogInfo cmd.LogInfo
 			if cur != nil {
 				curLogInfo = cur
 			}
-			return nil, curLogInfo, nil
+			return prevCheckpoint, curLogInfo, nil
+		},
+		WriteCheckpointFn: func(ctx context.Context, prev cmd.Checkpoint, cur cmd.LogInfo) error {
+			prevCheckpoint, ok := prev.(*tlog.Checkpoint)
+			if !ok {
+				if prev == nil {
+					prevCheckpoint = nil
+				} else {
+					return fmt.Errorf("prev is not a Checkpoint")
+				}
+			}
+			curCheckpoint, ok := cur.(*tlog.Checkpoint)
+			if !ok {
+				return fmt.Errorf("cur is not a Checkpoint")
+			}
+			return rekor_v2.WriteCheckpoint(ctx, prevCheckpoint, curCheckpoint, flags.LogInfoFile)
 		},
 		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil

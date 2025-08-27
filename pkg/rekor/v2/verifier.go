@@ -110,7 +110,7 @@ func GetLogVerifier(ctx context.Context, baseURL *url.URL, trustedRoot root.Trus
 	return verifier, nil
 }
 
-func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, logInfoFile string) (*log.Checkpoint, error) {
+func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, logInfoFile string) (*log.Checkpoint, *log.Checkpoint, error) {
 	// First, we select the correct shard. Most of the time this will be
 	// the latest shard (with origin == latestShardOrigin), but
 	// in situations where the previously stored checkpoint is from an older
@@ -123,7 +123,7 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 	// This is the checkpoint that will be saved to `logInfoFile`.
 	latestShardCheckpoint, _, err := (*rekorShards[latestShardOrigin].client).ReadCheckpoint(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current checkpoint: %v", err)
+		return nil, nil, fmt.Errorf("failed to get current checkpoint: %v", err)
 	}
 
 	var prevCheckpoint *log.Checkpoint
@@ -132,7 +132,7 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 		// Read the latest saved checkpoint from the log file
 		prevCheckpoint, err = file.ReadLatestCheckpointRekorV2(logInfoFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading checkpoint log: %v", err)
+			return nil, nil, fmt.Errorf("reading checkpoint log: %v", err)
 		}
 
 		// The new checkpoint we fetch for the consistency check has to be from the same
@@ -143,7 +143,7 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 			rekorClient = *rekorShards[prevCheckpoint.Origin].client
 			newCheckpoint, _, err = rekorClient.ReadCheckpoint(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get current checkpoint: %v", err)
+				return nil, nil, fmt.Errorf("failed to get current checkpoint: %v", err)
 			}
 		}
 
@@ -151,30 +151,32 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 		// checkpoint and the newest fetched checkpoint
 		pb, err := tclient.NewProofBuilder(ctx, newCheckpoint.Size, rekorClient.ReadTile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get proof builder: %v", err)
+			return nil, nil, fmt.Errorf("failed to get proof builder: %v", err)
 		}
 		consistencyProof, err := pb.ConsistencyProof(ctx, prevCheckpoint.Size, newCheckpoint.Size)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build consistency proof: %v", err)
+			return nil, nil, fmt.Errorf("failed to build consistency proof: %v", err)
 		}
 
 		err = proof.VerifyConsistency(rfc6962.DefaultHasher, prevCheckpoint.Size, newCheckpoint.Size, consistencyProof, prevCheckpoint.Hash, newCheckpoint.Hash)
 		if err != nil {
-			return nil, fmt.Errorf("consistency check failed: %v", err)
+			return nil, nil, fmt.Errorf("consistency check failed: %v", err)
 		}
 
 		fmt.Fprintf(os.Stderr, "Root hash consistency verified - Current Size: %d Root Hash: %s - Previous Size: %d Root Hash %s\n",
 			newCheckpoint.Size, hex.EncodeToString(newCheckpoint.Hash), prevCheckpoint.Size, hex.EncodeToString(prevCheckpoint.Hash))
 	}
 
+	return prevCheckpoint, latestShardCheckpoint, nil
+}
+
+func WriteCheckpoint(ctx context.Context, prev *log.Checkpoint, cur *log.Checkpoint, logInfoFile string) error {
 	// Write if there was no stored checkpoint or the origin/sizes differ
-	if prevCheckpoint == nil || prevCheckpoint.Origin != latestShardCheckpoint.Origin || prevCheckpoint.Size != latestShardCheckpoint.Size {
-		if err := file.WriteCheckpointRekorV2(latestShardCheckpoint, logInfoFile); err != nil {
-			// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
-			// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
-			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
+	if prev == nil || prev.Origin != cur.Origin || prev.Size != cur.Size {
+		if err := file.WriteCheckpointRekorV2(cur, logInfoFile); err != nil {
+			return fmt.Errorf("failed to write checkpoint: %v", err)
 		}
 	}
 
-	return prevCheckpoint, nil
+	return nil
 }

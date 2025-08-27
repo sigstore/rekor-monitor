@@ -132,24 +132,32 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to verify previous checkpoint: %v", err)
 		}
-
 	}
 
-	// Write if there was no stored checkpoint or the sizes differ
-	if prevCheckpoint == nil || prevCheckpoint.Size != checkpoint.Size {
-		if err := file.WriteCheckpointRekorV1(checkpoint, logInfoFile); err != nil {
-			// TODO: Once the consistency check and identity search are split into separate tasks, this should hard fail.
-			// Temporarily skipping this to allow this job to succeed, remediating the issue noted here: https://github.com/sigstore/rekor-monitor/issues/271
-			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
-		}
+	return prevCheckpoint, logInfo, nil
+}
+
+func WriteCheckpoint(ctx context.Context, prev *util.SignedCheckpoint, cur *models.LogInfo, logInfoFile string) error {
+	curCheckpoint, err := ReadLatestCheckpoint(cur)
+	if err != nil {
+		return fmt.Errorf("failed to read latest checkpoint: %v", err)
 	}
 
 	// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
 	// to persist the last checkpoint.
 	// Delete old checkpoints to avoid the log growing indefinitely
-	if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
-		return nil, nil, fmt.Errorf("failed to delete old checkpoints: %v", err)
+	if _, err := os.Stat(logInfoFile); err == nil {
+		if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
+			return fmt.Errorf("failed to delete old checkpoints: %v", err)
+		}
 	}
 
-	return prevCheckpoint, logInfo, nil
+	// Write if there was no stored checkpoint or the sizes differ
+	if prev == nil || prev.Size != curCheckpoint.Size {
+		if err := file.WriteCheckpointRekorV1(curCheckpoint, logInfoFile); err != nil {
+			return fmt.Errorf("failed to write checkpoint: %v", err)
+		}
+	}
+
+	return nil
 }
