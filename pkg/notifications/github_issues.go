@@ -16,15 +16,14 @@ package notifications
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/google/go-github/v65/github"
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 var (
-	notificationPlatformGitHubIssueBodyHeaderText = "Rekor-monitor found the following pairs of monitored identities and matching log entries: "
-	notificationPlatformGitHubIssueLabels         = []string{"rekor-monitor", "automatically generated"}
+	notificationPlatformGitHubIssueBodyHeaderText = "%s found the following pairs of monitored identities and matching log entries: "
 )
 
 // GitHubIssueInput extends the NotificationPlatform interface to support found identity
@@ -41,31 +40,32 @@ type GitHubIssueInput struct {
 	GitHubClient *github.Client `yaml:"githubClient"`
 }
 
-func generateGitHubIssueBody(monitoredIdentities []identity.MonitoredIdentity) (string, error) {
-	header := notificationPlatformGitHubIssueBodyHeaderText
-	body, err := identity.PrintMonitoredIdentities(monitoredIdentities)
+// generateGitHubIssueBody generates a GitHub issue body for generic notification data
+func generateGitHubIssueBody(data NotificationData) (string, error) {
+	header := fmt.Sprintf(notificationPlatformGitHubIssueBodyHeaderText, data.Context.MonitorType)
+
+	body, err := data.Payload.ToNotificationBody()
 	if err != nil {
 		return "", err
 	}
 	return strings.Join([]string{header, "```\n" + string(body) + "\n```"}, "\n"), nil
 }
 
-// Send takes in a GitHubIssueInput and attempts to create the specified issue
-// denoting the following found identities.
-// It returns an error in the case of failure.
-func (gitHubIssueInput GitHubIssueInput) Send(ctx context.Context, monitoredIdentities []identity.MonitoredIdentity) error {
-	issueTitle := NotificationSubject
-	issueBody, err := generateGitHubIssueBody(monitoredIdentities)
+// Send implements the NotificationPlatform interface
+func (gitHubIssueInput GitHubIssueInput) Send(ctx context.Context, data NotificationData) error {
+	issueTitle := data.Context.Subject
+	issueBody, err := generateGitHubIssueBody(data)
 	if err != nil {
 		return err
 	}
+
 	var client *github.Client
 	if gitHubIssueInput.GitHubClient == nil {
 		client = github.NewClient(nil).WithAuthToken(gitHubIssueInput.AuthenticationToken)
 	} else {
 		client = gitHubIssueInput.GitHubClient
 	}
-	labels := notificationPlatformGitHubIssueLabels
+	labels := []string{data.Context.MonitorType, "automatically generated"}
 
 	issueRequest := &github.IssueRequest{
 		Title:    &issueTitle,

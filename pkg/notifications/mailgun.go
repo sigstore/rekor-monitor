@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"github.com/mailgun/mailgun-go/v4"
-	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
 // MailgunNotificationInput extends the NotificationPlatform interface to support
@@ -30,12 +29,10 @@ type MailgunNotificationInput struct {
 	MailgunDomainName     string `yaml:"mailgunDomainName"`
 }
 
-// Send takes in an MailgunNotificationInput and attempts to send the
-// following list of found identities to the given email address.
-// It returns an error in the case of failure.
-func (mailgunNotificationInput MailgunNotificationInput) Send(ctx context.Context, monitoredIdentities []identity.MonitoredIdentity) error {
-	subject := NotificationSubject
-	emailHTMLBody, err := GenerateEmailBody(monitoredIdentities)
+// Send implements the NotificationPlatform interface
+func (mailgunNotificationInput MailgunNotificationInput) Send(ctx context.Context, data NotificationData) error {
+	subject := data.Context.Subject
+	emailHTMLBody, err := generateEmailBody(data)
 	if err != nil {
 		return err
 	}

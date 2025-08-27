@@ -67,7 +67,11 @@ func TestEmailSendFailureCases(t *testing.T) {
 	}
 
 	for _, emailNotificationInput := range emailNotificationInputs {
-		err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
+		notificationData := NotificationData{
+			Context: CreateNotificationContext("test-monitor", "test-subject"),
+			Payload: identity.MonitoredIdentityList{monitoredIdentity},
+		}
+		err := emailNotificationInput.Send(context.Background(), notificationData)
 		if err == nil {
 			t.Errorf("expected error, received nil")
 		}
@@ -98,7 +102,11 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
-	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
+	notificationData := NotificationData{
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
+		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+	}
+	err := emailNotificationInput.Send(context.Background(), notificationData)
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
@@ -129,7 +137,11 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 		SMTPCustomOptions:     []mail.Option{mail.WithPort(server.PortNumber()), mail.WithTLSPolicy(mail.NoTLS), mail.WithHELO("example.com")},
 	}
 
-	err := emailNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
+	notificationData := NotificationData{
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
+		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+	}
+	err := emailNotificationInput.Send(context.Background(), notificationData)
 	if err == nil || !strings.Contains(err.Error(), "421 Service not available") {
 		t.Errorf("expected 421 Service not available, received error %v", err)
 	}

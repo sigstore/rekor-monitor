@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	ctgo "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -36,6 +37,14 @@ const (
 	logInfoFileName          = "ctLogInfo"
 	outputIdentitiesFileName = "ctIdentities.txt"
 )
+
+// CreateCTMonitorNotificationContext creates a notification context for ct-monitor
+func CreateCTMonitorNotificationContext() notifications.NotificationContext {
+	return notifications.CreateNotificationContext(
+		"ct-monitor",
+		fmt.Sprintf("ct-monitor workflow results for %s", time.Now().Format(time.RFC822)),
+	)
+}
 
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
@@ -69,10 +78,11 @@ func main() {
 
 	cmd.PrintMonitoredValues(monitoredValues)
 	cmd.MonitorLoop(cmd.MonitorLoopParams{
-		Interval:        flags.Interval,
-		Config:          config,
-		MonitoredValues: monitoredValues,
-		Once:            flags.Once,
+		Interval:                 flags.Interval,
+		Config:                   config,
+		MonitoredValues:          monitoredValues,
+		Once:                     flags.Once,
+		NotificationContextNewFn: CreateCTMonitorNotificationContext,
 		RunConsistencyCheckFn: func(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 			prev, cur, err := ct.RunConsistencyCheck(fulcioClient, flags.LogInfoFile)
 			if err != nil {

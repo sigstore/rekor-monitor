@@ -40,7 +40,11 @@ func TestSendGridSendFailure(t *testing.T) {
 		},
 	}
 
-	err := sendGridNotificationInput.Send(context.Background(), []identity.MonitoredIdentity{monitoredIdentity})
+	notificationData := NotificationData{
+		Context: CreateNotificationContext("test-monitor", "test-subject"),
+		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+	}
+	err := sendGridNotificationInput.Send(context.Background(), notificationData)
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
