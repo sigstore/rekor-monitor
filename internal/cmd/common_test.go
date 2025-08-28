@@ -491,6 +491,12 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 			Subjects:     []string{"test@example.com"},
 		},
 		Once: true, // Run once to avoid infinite loop
+		NotificationContextNewFn: func() notifications.NotificationContext {
+			return notifications.NotificationContext{
+				MonitorType: "test-monitor",
+				Subject:     "test-subject",
+			}
+		},
 		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
 			consistencyCheckCalled = true
 			callCount++
