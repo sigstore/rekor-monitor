@@ -214,10 +214,10 @@ func MonitorLoop(params MonitorLoopParams) {
 						fmt.Fprintf(os.Stderr, "failed to trigger notifications: %v", err)
 					}
 				}
-
-				config.StartIndex = config.EndIndex
-				config.EndIndex = nil
 			}
+
+			config.StartIndex = config.EndIndex
+			config.EndIndex = nil
 		}
 
 		if params.Once || inputEndIndex != nil {
