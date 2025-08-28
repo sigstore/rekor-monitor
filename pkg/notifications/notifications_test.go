@@ -220,10 +220,8 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Validate() error = %v, want error containing %q", err, tt.errMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Validate() unexpected error = %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Validate() unexpected error = %v", err)
 			}
 		})
 	}
