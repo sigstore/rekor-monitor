@@ -204,8 +204,14 @@ func MonitorLoop(params MonitorLoopParams) {
 				if len(foundEntries) > 0 {
 					notificationPool := notifications.CreateNotificationPool(*config)
 
+					var context notifications.NotificationContext
+					if params.NotificationContextNewFn == nil {
+						context = notifications.CreateNotificationContext("default-monitor", "monitor found entries")
+					} else {
+						context = params.NotificationContextNewFn()
+					}
 					notificationData := notifications.NotificationData{
-						Context: params.NotificationContextNewFn(),
+						Context: context,
 						Payload: identity.MonitoredIdentityList(foundEntries),
 					}
 
