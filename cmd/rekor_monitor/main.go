@@ -180,7 +180,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			}
 			return prevCheckpoint, curLogInfo, nil
 		},
-		WriteCheckpointFn: func(ctx context.Context, prev cmd.Checkpoint, cur cmd.LogInfo) error {
+		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
 			prevCheckpoint, ok := prev.(*util.SignedCheckpoint)
 			if !ok {
 				if prev == nil {
@@ -193,7 +193,7 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			if !ok {
 				return fmt.Errorf("cur is not a LogInfo")
 			}
-			return rekor_v1.WriteCheckpoint(ctx, prevCheckpoint, curLogInfo, flags.LogInfoFile)
+			return rekor_v1.WriteCheckpoint(prevCheckpoint, curLogInfo, flags.LogInfoFile)
 		},
 		GetStartIndexFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
 			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
@@ -256,7 +256,7 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 			}
 			return prevCheckpoint, curLogInfo, nil
 		},
-		WriteCheckpointFn: func(ctx context.Context, prev cmd.Checkpoint, cur cmd.LogInfo) error {
+		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
 			prevCheckpoint, ok := prev.(*tlog.Checkpoint)
 			if !ok {
 				if prev == nil {
@@ -269,7 +269,7 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 			if !ok {
 				return fmt.Errorf("cur is not a Checkpoint")
 			}
-			return rekor_v2.WriteCheckpoint(ctx, prevCheckpoint, curCheckpoint, flags.LogInfoFile)
+			return rekor_v2.WriteCheckpoint(prevCheckpoint, curCheckpoint, flags.LogInfoFile)
 		},
 		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil

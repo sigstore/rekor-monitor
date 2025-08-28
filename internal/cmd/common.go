@@ -53,7 +53,7 @@ type MonitorLoopParams struct {
 	Once                     bool
 	NotificationContextNewFn notifications.NotificationContextNew
 	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
-	WriteCheckpointFn        func(ctx context.Context, prev Checkpoint, cur LogInfo) error
+	WriteCheckpointFn        func(prev Checkpoint, cur LogInfo) error
 	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
 	GetEndIndexFn            func(cur LogInfo) *int
 	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, error)
@@ -223,7 +223,7 @@ func MonitorLoop(params MonitorLoopParams) {
 
 		// Write checkpoint after identity search to ensure identities are
 		// always searched even if something fails in the middle
-		if err := params.WriteCheckpointFn(ctx, prevCheckpoint, curCheckpoint); err != nil {
+		if err := params.WriteCheckpointFn(prevCheckpoint, curCheckpoint); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
 			return
 		}

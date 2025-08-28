@@ -137,7 +137,7 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 	return prevCheckpoint, logInfo, nil
 }
 
-func WriteCheckpoint(ctx context.Context, prev *util.SignedCheckpoint, cur *models.LogInfo, logInfoFile string) error {
+func WriteCheckpoint(prev *util.SignedCheckpoint, cur *models.LogInfo, logInfoFile string) error {
 	curCheckpoint, err := ReadLatestCheckpoint(cur)
 	if err != nil {
 		return fmt.Errorf("failed to read latest checkpoint: %v", err)
