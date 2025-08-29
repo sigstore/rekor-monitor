@@ -84,41 +84,50 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	return matchedEntries, nil
 }
 
-func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
+func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	matchedEntries := []identity.LogEntry{}
+	failedEntries := []identity.FailedLogEntry{}
 	for _, entry := range logEntries {
 		matchedCertSubjectEntries, err := ScanEntryCertSubject(entry, mvs.CertificateIdentities)
 		if err != nil {
-			return nil, err
+			failedEntries = append(failedEntries, identity.FailedLogEntry{
+				Index: entry.Index,
+				Error: fmt.Sprintf("error matching certificate subjects: %v", err),
+			})
+			continue
 		}
 		matchedEntries = append(matchedEntries, matchedCertSubjectEntries...)
 
 		matchedOIDEntries, err := ScanEntryOIDExtensions(entry, mvs.OIDMatchers)
 		if err != nil {
-			return nil, err
+			failedEntries = append(failedEntries, identity.FailedLogEntry{
+				Index: entry.Index,
+				Error: fmt.Sprintf("error matching OID extensions: %v", err),
+			})
+			continue
 		}
 		matchedEntries = append(matchedEntries, matchedOIDEntries...)
 	}
 
-	return matchedEntries, nil
+	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	matchedEntries, err := MatchedIndices(entries, monitoredValues)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	identities := identity.CreateIdentitiesList(monitoredValues)
 	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
-	return monitoredIdentities, nil
+	return monitoredIdentities, failedEntries, nil
 }

@@ -94,7 +94,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
 				CertSubject: subject,
@@ -105,6 +105,9 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].CertSubject != subject {
 		t.Fatalf("mismatched subjects: %s %s", matches[0].CertSubject, subject)
@@ -120,7 +123,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 
 	// match to subject and issuer with certificate in hashedrekord
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
 				CertSubject: subject,
@@ -133,9 +136,12 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
 	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
+	}
 
 	// match with regex subject and regex issuer with certificate in hashedrekord
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
 				CertSubject: ".*ubje.*",
@@ -147,6 +153,9 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 
 	// match to regex subject and issuer with certificate in rekord
@@ -179,7 +188,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		}
 		logEntry := models.LogEntry{uuid: logEntryAnon}
 
-		matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 			CertificateIdentities: []identity.CertificateIdentity{
 				{
 					CertSubject: ".*ubje.*",
@@ -191,6 +200,9 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		}
 		if len(matches) != 1 {
 			t.Fatalf("expected 1 match, got %d", len(matches))
+		}
+		if len(failedEntries) != 0 {
+			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 		}
 	}
 
@@ -212,12 +224,15 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
+		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
 		if len(matches) != 0 {
 			t.Fatalf("expected 0 matches, got %d", len(matches))
+		}
+		if len(failedEntries) != 0 {
+			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 		}
 	}
 }
@@ -270,7 +285,7 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
 				CertSubject: subject,
@@ -282,6 +297,9 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].CertSubject != subject {
 		t.Fatalf("mismatched subjects: %s %s", matches[0].CertSubject, subject)
@@ -348,7 +366,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	fp := hex.EncodeToString(digest[:])
 
 	//  match to key fingerprint in hashedrekord
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			fp,
 		}})
@@ -357,6 +375,9 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].Fingerprint != fp {
 		t.Fatalf("mismatched fingerprints: %s %s", matches[0].Fingerprint, fp)
@@ -369,7 +390,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 
 	// no match with different fingerprints
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			"other-fp",
 		}})
@@ -378,6 +399,9 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 }
 
@@ -427,7 +451,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			subject,
 		}})
@@ -436,6 +460,9 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].Subject != subject {
 		t.Fatalf("mismatched subjects: %s %s", matches[0].Subject, subject)
@@ -448,7 +475,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	}
 
 	// no match with different subjects
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			"other-sub",
 		}})
@@ -457,6 +484,9 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 }
 
@@ -518,7 +548,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	// match to oid with matching extension value
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: []extensions.OIDExtension{
 			{
 				ObjectIdentifier: oid,
@@ -530,6 +560,9 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].Index != int64(logIndex) {
 		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
@@ -557,12 +590,15 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
+		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 		if len(matches) != 0 {
 			t.Fatalf("expected no matches, got %d", len(matches))
+		}
+		if len(failedEntries) != 0 {
+			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 		}
 	}
 }
@@ -634,7 +670,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
 	})
 	if err != nil {
@@ -642,6 +678,9 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].Index != int64(logIndex) {
 		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
@@ -660,7 +699,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
 	})
 	if err != nil {
@@ -668,6 +707,9 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 }
 
@@ -741,13 +783,16 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
-	matches, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers})
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 	if matches[0].Index != int64(logIndex) {
 		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
@@ -772,7 +817,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
-	matches, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers})
 
 	if err != nil {
@@ -780,6 +825,9 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("expected no matches, got %d", len(matches))
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 }
 
@@ -851,7 +899,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 
 	for name, testCase := range monitoredValuesTests {
 		t.Run(name, func(t *testing.T) {
-			_, err := MatchedIndices(nil, testCase.input)
+			_, _, err := MatchedIndices(nil, testCase.input)
 			if err == nil || !strings.Contains(err.Error(), testCase.errorString) {
 				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
 			}

@@ -126,24 +126,33 @@ func MatchLogEntryOIDs(logEntryAnon models.LogEntryAnon, uuid string, entryCerti
 }
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, error) {
+func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := verifyMonitoredValues(mvs); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var matchedEntries []identity.LogEntry
+	var failedEntries []identity.FailedLogEntry
 
 	for _, entries := range logEntries {
 		for uuid, entry := range entries {
-			entry := entry
-
 			verifiers, err := extractVerifiers(&entry)
 			if err != nil {
-				return nil, fmt.Errorf("error extracting verifiers for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+				failedEntries = append(failedEntries, identity.FailedLogEntry{
+					Index: *entry.LogIndex,
+					UUID:  uuid,
+					Error: fmt.Sprintf("error extracting verifiers: %v", err),
+				})
+				continue
 			}
 			subjects, certs, fps, err := extractAllIdentities(verifiers)
 			if err != nil {
-				return nil, fmt.Errorf("error extracting identities for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+				failedEntries = append(failedEntries, identity.FailedLogEntry{
+					Index: *entry.LogIndex,
+					UUID:  uuid,
+					Error: fmt.Sprintf("error extracting identities: %v", err),
+				})
+				continue
 			}
 
 			matchedFingerprintEntries := MatchLogEntryFingerprints(entry, uuid, fps, mvs.Fingerprints)
@@ -151,25 +160,40 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 
 			matchedSubjectEntries, err := MatchLogEntrySubjects(entry, uuid, subjects, mvs.Subjects)
 			if err != nil {
-				return nil, fmt.Errorf("error matching subjects for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+				failedEntries = append(failedEntries, identity.FailedLogEntry{
+					Index: *entry.LogIndex,
+					UUID:  uuid,
+					Error: fmt.Sprintf("error matching subjects: %v", err),
+				})
+				continue
 			}
 			matchedEntries = append(matchedEntries, matchedSubjectEntries...)
 
 			matchedCertIDEntries, err := MatchLogEntryCertificateIdentities(entry, uuid, certs, mvs.CertificateIdentities)
 			if err != nil {
-				return nil, fmt.Errorf("error matching certificate identities for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+				failedEntries = append(failedEntries, identity.FailedLogEntry{
+					Index: *entry.LogIndex,
+					UUID:  uuid,
+					Error: fmt.Sprintf("error matching certificate identities: %v", err),
+				})
+				continue
 			}
 			matchedEntries = append(matchedEntries, matchedCertIDEntries...)
 
 			matchedOIDEntries, err := MatchLogEntryOIDs(entry, uuid, certs, mvs.OIDMatchers)
 			if err != nil {
-				return nil, fmt.Errorf("error matching object identifier extensions and values for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
+				failedEntries = append(failedEntries, identity.FailedLogEntry{
+					Index: *entry.LogIndex,
+					UUID:  uuid,
+					Error: fmt.Sprintf("error matching object identifier extensions and values: %v", err),
+				})
+				continue
 			}
 			matchedEntries = append(matchedEntries, matchedOIDEntries...)
 		}
 	}
 
-	return matchedEntries, nil
+	return matchedEntries, failedEntries, nil
 }
 
 // verifyMonitoredValues checks that monitored values are valid
@@ -281,22 +305,22 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 	return index
 }
 
-func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, error) {
+func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 	if err != nil {
-		return nil, fmt.Errorf("error getting entries by index range: %v", err)
+		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
-	matchedEntries, err := MatchedIndices(entries, monitoredValues)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return nil, fmt.Errorf("error matching indices: %v", err)
+		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
 	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	identities := identity.CreateIdentitiesList(monitoredValues)
 	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
-	return monitoredIdentities, nil
+	return monitoredIdentities, failedEntries, nil
 }
