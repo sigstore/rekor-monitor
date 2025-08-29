@@ -503,6 +503,10 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 			// Return mock checkpoint and log info
 			return "prev-checkpoint", "current-checkpoint", nil
 		},
+		WriteCheckpointFn: func(_ Checkpoint, _ LogInfo) error {
+			callCount++
+			return nil
+		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
 			callCount++
 			return intPtr(1)
@@ -548,8 +552,8 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 	if !identitySearchCalled {
 		t.Error("IdentitySearchFn was not called")
 	}
-	if callCount != 2 {
-		t.Errorf("Expected exactly 2 callback calls, got %d", callCount)
+	if callCount != 3 {
+		t.Errorf("Expected exactly 3 callback calls, got %d", callCount)
 	}
 }
 
@@ -599,6 +603,7 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 	identitySearchCalled := false
 	startIndexCalled := false
 	endIndexCalled := false
+	writeCheckpointCalled := false
 
 	params := MonitorLoopParams{
 		Interval: 10 * time.Millisecond,
@@ -611,6 +616,10 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
 			consistencyCheckCalled = true
 			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		WriteCheckpointFn: func(_ Checkpoint, _ LogInfo) error {
+			writeCheckpointCalled = true
+			return nil
 		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
 			startIndexCalled = true
@@ -644,6 +653,9 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 	if endIndexCalled {
 		t.Error("GetEndIndexFn should not be called when no monitored values exist")
 	}
+	if !writeCheckpointCalled {
+		t.Error("WriteCheckpointFn should be called even when no monitored values exist")
+	}
 }
 
 func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
@@ -668,10 +680,10 @@ func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
 			return "prev-checkpoint", "current-checkpoint", nil
 		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
-			return intPtr(20)
+			return nil
 		},
 		GetEndIndexFn: func(_ LogInfo) *int {
-			return intPtr(10)
+			return nil
 		},
 		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
 			identitySearchCalled = true
@@ -695,6 +707,7 @@ func TestMonitorLoop_OnceFlag(t *testing.T) {
 	// Test that MonitorLoop exits after one iteration when Once flag is true
 	iterationCount := 0
 	identitySearchCalled := false
+	writeCheckpointCalled := false
 
 	params := MonitorLoopParams{
 		Interval: 10 * time.Millisecond,
@@ -711,6 +724,10 @@ func TestMonitorLoop_OnceFlag(t *testing.T) {
 		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
 			iterationCount++
 			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		WriteCheckpointFn: func(_ Checkpoint, _ LogInfo) error {
+			writeCheckpointCalled = true
+			return nil
 		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
 			return intPtr(1)
@@ -733,12 +750,16 @@ func TestMonitorLoop_OnceFlag(t *testing.T) {
 	if !identitySearchCalled {
 		t.Error("IdentitySearchFn should be called even when Once is true")
 	}
+	if !writeCheckpointCalled {
+		t.Error("WriteCheckpointFn should be called when Once is true")
+	}
 }
 
 func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
 	// Test that MonitorLoop exits when EndIndex is specified in config
 	iterationCount := 0
 	identitySearchCalled := false
+	writeCheckpointCalled := false
 
 	params := MonitorLoopParams{
 		Interval: 10 * time.Millisecond,
@@ -755,6 +776,10 @@ func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
 		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
 			iterationCount++
 			return "prev-checkpoint", "current-checkpoint", nil
+		},
+		WriteCheckpointFn: func(_ Checkpoint, _ LogInfo) error {
+			writeCheckpointCalled = true
+			return nil
 		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
 			return intPtr(1)
@@ -776,6 +801,9 @@ func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
 	}
 	if !identitySearchCalled {
 		t.Error("IdentitySearchFn should be called even when EndIndex is specified")
+	}
+	if !writeCheckpointCalled {
+		t.Error("WriteCheckpointFn should be called when EndIndex is specified")
 	}
 }
 

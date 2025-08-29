@@ -204,6 +204,11 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("first consistency check should not have returned checkpoint")
 	}
 
+	err = rekor_v1.WriteCheckpoint(prevCheckpoint, logInfo, tempLogInfoFileName)
+	if err != nil {
+		t.Errorf("error writing checkpoint: %v", err)
+	}
+
 	configRenderedOIDMatchers, err := configMonitoredValues.OIDMatchers.RenderOIDMatchers()
 	if err != nil {
 		t.Errorf("error rendering OID matchers: %v", err)
@@ -242,6 +247,12 @@ func TestIdentitySearch(t *testing.T) {
 	prevCheckpoint, logInfo, err = rekor_v1.RunConsistencyCheck(rekorClient, verifier, tempLogInfoFileName)
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
+	}
+	if logInfo == nil {
+		t.Errorf("second consistency check did not return log info")
+	}
+	if prevCheckpoint == nil {
+		t.Errorf("second consistency check did not return previous checkpoint")
 	}
 	checkpoint = &util.SignedCheckpoint{}
 	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
@@ -288,4 +299,10 @@ func TestIdentitySearch(t *testing.T) {
 	if !strings.Contains(tempOutputIdentitiesString, "2") {
 		t.Errorf("expected to find latest index 2 in %s, did not", tempMetadataString)
 	}
+
+	err = rekor_v1.WriteCheckpoint(prevCheckpoint, logInfo, tempLogInfoFileName)
+	if err != nil {
+		t.Errorf("error writing checkpoint: %v", err)
+	}
+
 }
