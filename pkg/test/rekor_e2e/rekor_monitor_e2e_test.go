@@ -243,6 +243,12 @@ func TestIdentitySearch(t *testing.T) {
 	if err != nil {
 		t.Errorf("second consistency check failed: %v", err)
 	}
+	if logInfo == nil {
+		t.Errorf("second consistency check did not return log info")
+	}
+	if prevCheckpoint == nil {
+		t.Errorf("second consistency check did not return previous checkpoint")
+	}
 	checkpoint = &util.SignedCheckpoint{}
 	if err := checkpoint.UnmarshalText([]byte(*logInfo.SignedTreeHead)); err != nil {
 		t.Errorf("%v", err)
