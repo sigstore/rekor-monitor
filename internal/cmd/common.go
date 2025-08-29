@@ -125,6 +125,10 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 		config.OutputIdentitiesFile = defaultOutputFile
 	}
 
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %v", err)
+	}
+
 	return &config, nil
 }
 

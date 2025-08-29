@@ -24,6 +24,7 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -99,6 +100,27 @@ type IdentityMonitorConfiguration struct {
 	EmailNotificationSMTP     *EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  *MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
 	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
+}
+
+func (c *IdentityMonitorConfiguration) Validate() error {
+	// Validate CertificateIdentities CertSubject and Issuers regexes
+	for _, certIdentity := range c.MonitoredValues.CertificateIdentities {
+		if _, err := regexp.Compile(certIdentity.CertSubject); err != nil {
+			return fmt.Errorf("invalid certSubject regex %s: %v", certIdentity.CertSubject, err)
+		}
+		for _, issuer := range certIdentity.Issuers {
+			if _, err := regexp.Compile(issuer); err != nil {
+				return fmt.Errorf("invalid issuer regex %s: %v", issuer, err)
+			}
+		}
+	}
+	// Validate Subjects regexes
+	for _, subject := range c.MonitoredValues.Subjects {
+		if _, err := regexp.Compile(subject); err != nil {
+			return fmt.Errorf("invalid subject regex %s: %v", subject, err)
+		}
+	}
+	return nil
 }
 
 func CreateNotificationPool(config IdentityMonitorConfiguration) []NotificationPlatform {
