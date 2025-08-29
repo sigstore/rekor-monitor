@@ -778,3 +778,54 @@ func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
 		t.Error("IdentitySearchFn should be called even when EndIndex is specified")
 	}
 }
+
+func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
+	// Test that MonitorLoop handles no previous checkpoint + once=false correctly
+	identitySearchCalled := 0
+	consistencyCheckCalled := 0
+
+	params := MonitorLoopParams{
+		Interval: 10 * time.Millisecond,
+		Config:   &notifications.IdentityMonitorConfiguration{},
+		MonitoredValues: identity.MonitoredValues{
+			CertificateIdentities: []identity.CertificateIdentity{
+				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			},
+		},
+		Once: false,
+		RunConsistencyCheckFn: func(_ context.Context) (Checkpoint, LogInfo, error) {
+			consistencyCheckCalled++
+			switch consistencyCheckCalled {
+			case 1:
+				return nil, "current-checkpoint", nil
+			case 2:
+				return "prev-checkpoint", "current-checkpoint", nil
+			default:
+				return "prev-checkpoint", "current-checkpoint", nil
+			}
+		},
+		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
+			return intPtr(1)
+		},
+		GetEndIndexFn: func(_ LogInfo) *int {
+			return intPtr(10)
+		},
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+			identitySearchCalled++
+			if identitySearchCalled == 3 {
+				return []identity.MonitoredIdentity{}, fmt.Errorf("stop the loop")
+			}
+			return []identity.MonitoredIdentity{}, nil
+		},
+	}
+
+	// Run MonitorLoop
+	MonitorLoop(params)
+
+	if consistencyCheckCalled != 4 {
+		t.Errorf("Expected 4 consistency check calls, got %d", consistencyCheckCalled)
+	}
+	if identitySearchCalled != 3 {
+		t.Errorf("Expected 3 identity search calls, got %d", identitySearchCalled)
+	}
+}
