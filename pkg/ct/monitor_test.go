@@ -380,13 +380,16 @@ func TestMatchedIndices(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		matchedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues)
+		matchedEntries, failedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues)
 		if err != nil {
 			t.Errorf("error matching indices: %v", err)
 		}
 		expected := tc.expected
 		if !reflect.DeepEqual(matchedEntries, expected) {
 			t.Errorf("received %v, expected %v", matchedEntries, expected)
+		}
+		if len(failedEntries) > 0 {
+			t.Errorf("received failed entries: %v", failedEntries)
 		}
 	}
 }
