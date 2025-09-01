@@ -811,6 +811,7 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 	// Test that MonitorLoop handles no previous checkpoint + once=false correctly
 	identitySearchCalled := 0
 	consistencyCheckCalled := 0
+	writeCheckpointCalled := false
 
 	params := MonitorLoopParams{
 		Interval: 10 * time.Millisecond,
@@ -831,6 +832,10 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 			default:
 				return "prev-checkpoint", "current-checkpoint", nil
 			}
+		},
+		WriteCheckpointFn: func(_ Checkpoint, _ LogInfo) error {
+			writeCheckpointCalled = true
+			return nil
 		},
 		GetStartIndexFn: func(_ Checkpoint, _ LogInfo) *int {
 			return intPtr(1)
@@ -855,5 +860,8 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 	}
 	if identitySearchCalled != 3 {
 		t.Errorf("Expected 3 identity search calls, got %d", identitySearchCalled)
+	}
+	if !writeCheckpointCalled {
+		t.Error("WriteCheckpointFn should be called when no previous checkpoint exists")
 	}
 }
