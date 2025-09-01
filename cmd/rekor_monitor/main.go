@@ -193,18 +193,8 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 
 			// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
 			// to persist the last checkpoint.
-			// Delete old checkpoints to avoid the log growing indefinitely
-			if _, err := os.Stat(flags.LogInfoFile); err == nil {
-				if err := file.DeleteOldCheckpoints(flags.LogInfoFile); err != nil {
-					return fmt.Errorf("failed to delete old checkpoints: %v", err)
-				}
-			}
-
-			// Write if there was no stored checkpoint or the sizes differ
-			if prev == nil || prevCheckpoint == nil || prevCheckpoint.Size != curCheckpoint.Size {
-				if err := file.WriteCheckpointRekorV1(curCheckpoint, flags.LogInfoFile); err != nil {
-					return fmt.Errorf("failed to write checkpoint: %v", err)
-				}
+			if err := file.WriteCheckpointRekorV1(curCheckpoint, prevCheckpoint, flags.LogInfoFile, false); err != nil {
+				return fmt.Errorf("failed to write checkpoint: %v", err)
 			}
 
 			return nil
@@ -279,13 +269,9 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 			if !ok {
 				return fmt.Errorf("cur is not a Checkpoint")
 			}
-			// Write if there was no stored checkpoint or the origin/sizes differ
-			if prev == nil || prevCheckpoint == nil || prevCheckpoint.Origin != curCheckpoint.Origin || prevCheckpoint.Size != curCheckpoint.Size {
-				if err := file.WriteCheckpointRekorV2(curCheckpoint, flags.LogInfoFile); err != nil {
-					return fmt.Errorf("failed to write checkpoint: %v", err)
-				}
+			if err := file.WriteCheckpointRekorV2(curCheckpoint, prevCheckpoint, flags.LogInfoFile, false); err != nil {
+				return fmt.Errorf("failed to write checkpoint: %v", err)
 			}
-
 			return nil
 		},
 		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {

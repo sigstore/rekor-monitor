@@ -64,7 +64,7 @@ func TestVerifyCertificateTransparencyConsistency(t *testing.T) {
 	tempLogInfoFileName := tempLogInfoFile.Name()
 	defer os.Remove(tempLogInfoFileName)
 
-	err = file.WriteCTSignedTreeHead(sth, tempLogInfoFileName)
+	err = file.WriteCTSignedTreeHead(sth, nil, tempLogInfoFileName, false)
 	if err != nil {
 		t.Errorf("error writing sth to log info file: %v", err)
 	}

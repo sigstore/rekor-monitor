@@ -108,10 +108,8 @@ func main() {
 			if !ok {
 				return fmt.Errorf("cur is not a SignedTreeHead")
 			}
-			if prev == nil || prevCheckpoint == nil || prevCheckpoint.TreeSize != curCheckpoint.TreeSize {
-				if err := file.WriteCTSignedTreeHead(curCheckpoint, flags.LogInfoFile); err != nil {
-					return fmt.Errorf("failed to write checkpoint: %v", err)
-				}
+			if err := file.WriteCTSignedTreeHead(curCheckpoint, prevCheckpoint, flags.LogInfoFile, false); err != nil {
+				return fmt.Errorf("failed to write checkpoint: %v", err)
 			}
 			return nil
 		},

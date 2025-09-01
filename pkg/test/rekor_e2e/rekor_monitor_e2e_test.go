@@ -204,7 +204,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("first consistency check should not have returned checkpoint")
 	}
 
-	err = rekor_v1.WriteCheckpoint(prevCheckpoint, logInfo, tempLogInfoFileName)
+	err = rekor_v1.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
 	if err != nil {
 		t.Errorf("error writing checkpoint: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected to find latest index 2 in %s, did not", tempMetadataString)
 	}
 
-	err = rekor_v1.WriteCheckpoint(prevCheckpoint, logInfo, tempLogInfoFileName)
+	err = rekor_v1.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
 	if err != nil {
 		t.Errorf("error writing checkpoint: %v", err)
 	}

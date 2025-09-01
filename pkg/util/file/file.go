@@ -105,14 +105,16 @@ func ReadLatestCTSignedTreeHead(logInfoFile string) (*ct.SignedTreeHead, error) 
 }
 
 // WriteCTSignedTreeHead writes a signed tree head to a given log file
-func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, logInfoFile string) error {
-	marshalledSTH, err := json.Marshal(sth)
-	if err != nil {
-		return err
-	}
+func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, prev *ct.SignedTreeHead, logInfoFile string, force bool) error {
+	if force || prev == nil || prev.TreeSize != sth.TreeSize {
+		marshalledSTH, err := json.Marshal(sth)
+		if err != nil {
+			return err
+		}
 
-	if err := os.WriteFile(logInfoFile, []byte(fmt.Sprintf("%s\n", strings.ReplaceAll(string(marshalledSTH), "\n", "\\n"))), 0600); err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
+		if err := os.WriteFile(logInfoFile, []byte(fmt.Sprintf("%s\n", strings.ReplaceAll(string(marshalledSTH), "\n", "\\n"))), 0600); err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
 	}
 	return nil
 }
@@ -132,20 +134,35 @@ func writeCheckpointBytes(checkpoint []byte, logInfoFile string) error {
 }
 
 // WriteCheckpointRekorV1 writes a signed checkpoint to the log file
-func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, logInfoFile string) error {
-	// Write latest checkpoint to file
-	s, err := checkpoint.MarshalText()
-	if err != nil {
-		return fmt.Errorf("failed to marshal checkpoint: %w", err)
+func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, prev *util.SignedCheckpoint, logInfoFile string, force bool) error {
+	// Delete old checkpoints to avoid the log growing indefinitely
+	if _, err := os.Stat(logInfoFile); err == nil {
+		if err := DeleteOldCheckpoints(logInfoFile); err != nil {
+			return fmt.Errorf("failed to delete old checkpoints: %v", err)
+		}
 	}
-	return writeCheckpointBytes(s, logInfoFile)
+
+	// Write if there was no stored checkpoint or the sizes differ
+	if force || prev == nil || prev.Size != checkpoint.Size {
+		// Write latest checkpoint to file
+		s, err := checkpoint.MarshalText()
+		if err != nil {
+			return fmt.Errorf("failed to marshal checkpoint: %w", err)
+		}
+		return writeCheckpointBytes(s, logInfoFile)
+	}
+
+	return nil
 }
 
 // WriteCheckpointRekorV2 writes a checkpoint to the log file
-func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, logInfoFile string) error {
-	// Write latest checkpoint to file
-	s := checkpoint.Marshal()
-	return writeCheckpointBytes(s, logInfoFile)
+func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, prev *log.Checkpoint, logInfoFile string, force bool) error {
+	if force || prev == nil || prev.Origin != checkpoint.Origin || prev.Size != checkpoint.Size {
+		// Write latest checkpoint to file
+		s := checkpoint.Marshal()
+		return writeCheckpointBytes(s, logInfoFile)
+	}
+	return nil
 }
 
 // DeleteOldCheckpoints persists the latest 100 checkpoints. This expects that the log file
