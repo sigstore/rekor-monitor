@@ -85,6 +85,13 @@ func (e *LogEntry) String() string {
 	return strings.Join(parts, " ")
 }
 
+// FailedLogEntry holds a log entry that failed to be parsed/extracted
+type FailedLogEntry struct {
+	Index int64  `json:"index"`
+	UUID  string `json:"uuid"`
+	Error string `json:"error"`
+}
+
 // MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
 type MonitoredIdentity struct {
 	Identity             string     `json:"identity"`
@@ -107,6 +114,28 @@ type MonitoredIdentityList []MonitoredIdentity
 // ToNotificationBody implements the NotificationBodyConverter interface for MonitoredIdentityList
 func (identities MonitoredIdentityList) ToNotificationBody() ([]byte, error) {
 	return PrintMonitoredIdentities(identities)
+}
+
+// ToNotificationHeader implements the NotificationBodyConverter interface for MonitoredIdentityList
+func (identities MonitoredIdentityList) ToNotificationHeader() string {
+	return "Found the following pairs of monitored identities and matching log entries: "
+}
+
+// FailedLogEntryList wraps []FailedLogEntry to implement NotificationBodyConverter
+type FailedLogEntryList []FailedLogEntry
+
+// ToNotificationBody implements the NotificationBodyConverter interface for FailedLogEntryList
+func (failedEntries FailedLogEntryList) ToNotificationBody() ([]byte, error) {
+	jsonBody, err := json.MarshalIndent(failedEntries, "", "\t")
+	if err != nil {
+		return nil, err
+	}
+	return jsonBody, nil
+}
+
+// ToNotificationHeader implements the NotificationBodyConverter interface for FailedLogEntryList
+func (failedEntries FailedLogEntryList) ToNotificationHeader() string {
+	return "Failed to parse the following log entries: "
 }
 
 // CreateIdentitiesList takes in a MonitoredValues input and returns a list of all currently monitored identities.

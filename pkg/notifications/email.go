@@ -16,6 +16,7 @@ package notifications
 
 import (
 	"context"
+	"strings"
 
 	"github.com/wneessen/go-mail"
 )
@@ -33,11 +34,12 @@ type EmailNotificationInput struct {
 
 // generateEmailBody generates email body for generic notification data
 func generateEmailBody(data NotificationData) (string, error) {
+	header := data.Payload.ToNotificationHeader()
 	body, err := data.Payload.ToNotificationBody()
 	if err != nil {
 		return "", err
 	}
-	return "<pre>" + string(body) + "</pre>", nil
+	return strings.Join([]string{header, "<pre>" + string(body) + "</pre>"}, "\n"), nil
 }
 
 // Send implements the NotificationPlatform interface
