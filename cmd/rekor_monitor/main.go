@@ -182,11 +182,11 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			return prevCheckpoint, curLogInfo, nil
 		},
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
-			var prevCheckpoint *util.SignedCheckpoint
-			if prev != nil {
-				var ok bool
-				prevCheckpoint, ok = prev.(*util.SignedCheckpoint)
-				if !ok {
+			prevCheckpoint, ok := prev.(*util.SignedCheckpoint)
+			if !ok {
+				if prev == nil {
+					prevCheckpoint = nil
+				} else {
 					return fmt.Errorf("prev is not a SignedCheckpoint")
 				}
 			}
@@ -266,11 +266,11 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 			return prevCheckpoint, curLogInfo, nil
 		},
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
-			var prevCheckpoint *tlog.Checkpoint
-			if prev != nil {
-				var ok bool
-				prevCheckpoint, ok = prev.(*tlog.Checkpoint)
-				if !ok {
+			prevCheckpoint, ok := prev.(*tlog.Checkpoint)
+			if !ok {
+				if prev == nil {
+					prevCheckpoint = nil
+				} else {
 					return fmt.Errorf("prev is not a Checkpoint")
 				}
 			}
