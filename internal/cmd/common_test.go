@@ -838,12 +838,12 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 			identitySearchCalled++
 			if identitySearchCalled == 3 {
-				return []identity.MonitoredIdentity{}, fmt.Errorf("stop the loop")
+				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
 			}
-			return []identity.MonitoredIdentity{}, nil
+			return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, nil
 		},
 	}
 
