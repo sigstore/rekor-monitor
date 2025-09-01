@@ -91,7 +91,7 @@ func TestWriteAndReadRekorV1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteCheckpointRekorV1(sc, f); err != nil {
+	if err := WriteCheckpointRekorV1(sc, nil, f, false); err != nil {
 		t.Fatalf("error writing checkpoint: %v", err)
 	}
 	c, err := ReadLatestCheckpointRekorV1(f)
@@ -140,7 +140,7 @@ func TestReadWriteCTSignedTreeHead(t *testing.T) {
 	tempSTHFileName := tempSTHFile.Name()
 	defer os.Remove(tempSTHFileName)
 
-	err = WriteCTSignedTreeHead(sth, tempSTHFileName)
+	err = WriteCTSignedTreeHead(sth, nil, tempSTHFileName, false)
 	if err != nil {
 		t.Errorf("failed to write STH: %v", err)
 	}

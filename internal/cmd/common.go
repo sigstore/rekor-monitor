@@ -53,6 +53,7 @@ type MonitorLoopParams struct {
 	Once                     bool
 	NotificationContextNewFn notifications.NotificationContextNew
 	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
+	WriteCheckpointFn        func(prev Checkpoint, cur LogInfo) error
 	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
 	GetEndIndexFn            func(cur LogInfo) *int
 	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
@@ -215,8 +216,8 @@ func MonitorLoop(params MonitorLoopParams) {
 
 						err = notifications.TriggerNotifications(notificationPool, notificationData)
 						if err != nil {
-							// continue running consistency check if notifications fail to trigger
 							fmt.Fprintf(os.Stderr, "failed to trigger notifications for found entries: %v", err)
+							return
 						}
 					}
 					if len(failedEntries) > 0 {
@@ -229,8 +230,8 @@ func MonitorLoop(params MonitorLoopParams) {
 
 						err = notifications.TriggerNotifications(notificationPool, notificationData)
 						if err != nil {
-							// continue running consistency check if notifications fail to trigger
 							fmt.Fprintf(os.Stderr, "failed to trigger notifications for failed entries: %v", err)
+							return
 						}
 					}
 				}
@@ -238,6 +239,13 @@ func MonitorLoop(params MonitorLoopParams) {
 
 			config.StartIndex = config.EndIndex
 			config.EndIndex = nil
+		}
+
+		// Write checkpoint after identity search to ensure identities are
+		// always searched even if something fails in the middle
+		if err := params.WriteCheckpointFn(prevCheckpoint, curCheckpoint); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
+			return
 		}
 
 		if params.Once || inputEndIndex != nil {
