@@ -190,7 +190,6 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 					return fmt.Errorf("prev is not a SignedCheckpoint")
 				}
 			}
-
 			curCheckpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 			if err != nil {
 				return fmt.Errorf("failed to read latest checkpoint: %v", err)
