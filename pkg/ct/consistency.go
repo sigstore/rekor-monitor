@@ -111,11 +111,5 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct
 		}
 	}
 
-	if prevSTH == nil || prevSTH.TreeSize != currentSTH.TreeSize {
-		if err := file.WriteCTSignedTreeHead(currentSTH, logInfoFile); err != nil {
-			return nil, nil, fmt.Errorf("failed to write checkpoint: %v", err)
-		}
-	}
-
 	return prevSTH, currentSTH, nil
 }

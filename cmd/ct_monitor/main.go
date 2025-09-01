@@ -29,6 +29,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
 // Default values for monitoring job parameters
@@ -97,6 +98,22 @@ func main() {
 				curLogInfo = cur
 			}
 			return prevCheckpoint, curLogInfo, nil
+		},
+		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
+			prevCheckpoint, ok := prev.(*ctgo.SignedTreeHead)
+			if !ok {
+				return fmt.Errorf("prev is not a SignedTreeHead")
+			}
+			curCheckpoint, ok := cur.(*ctgo.SignedTreeHead)
+			if !ok {
+				return fmt.Errorf("cur is not a SignedTreeHead")
+			}
+			if prev == nil || prevCheckpoint == nil || prevCheckpoint.TreeSize != curCheckpoint.TreeSize {
+				if err := file.WriteCTSignedTreeHead(curCheckpoint, flags.LogInfoFile); err != nil {
+					return fmt.Errorf("failed to write checkpoint: %v", err)
+				}
+			}
+			return nil
 		},
 		GetStartIndexFn: func(prev cmd.Checkpoint, _ cmd.LogInfo) *int {
 			prevSTH := prev.(*ctgo.SignedTreeHead)
