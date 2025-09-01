@@ -38,6 +38,7 @@ import (
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
 	"github.com/sigstore/rekor-monitor/pkg/test"
 	monitor_util "github.com/sigstore/rekor-monitor/pkg/util"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
@@ -204,7 +205,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("first consistency check should not have returned checkpoint")
 	}
 
-	err = rekor_v1.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
+	err = file.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
 	if err != nil {
 		t.Errorf("error writing checkpoint: %v", err)
 	}
@@ -300,7 +301,7 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected to find latest index 2 in %s, did not", tempMetadataString)
 	}
 
-	err = rekor_v1.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
+	err = file.WriteCheckpointRekorV1(checkpoint, prevCheckpoint, tempLogInfoFileName, false)
 	if err != nil {
 		t.Errorf("error writing checkpoint: %v", err)
 	}
