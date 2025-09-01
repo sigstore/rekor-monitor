@@ -27,6 +27,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
 	rekor_v2 "github.com/sigstore/rekor-monitor/pkg/rekor/v2"
+	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/util"
@@ -183,17 +184,30 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
 			prevCheckpoint, ok := prev.(*util.SignedCheckpoint)
 			if !ok {
-				if prev == nil {
-					prevCheckpoint = nil
-				} else {
-					return fmt.Errorf("prev is not a SignedCheckpoint")
+				return fmt.Errorf("prev is not a SignedCheckpoint")
+			}
+			curCheckpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
+			if err != nil {
+				return fmt.Errorf("failed to read latest checkpoint: %v", err)
+			}
+
+			// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
+			// to persist the last checkpoint.
+			// Delete old checkpoints to avoid the log growing indefinitely
+			if _, err := os.Stat(flags.LogInfoFile); err == nil {
+				if err := file.DeleteOldCheckpoints(flags.LogInfoFile); err != nil {
+					return fmt.Errorf("failed to delete old checkpoints: %v", err)
 				}
 			}
-			curLogInfo, ok := cur.(*models.LogInfo)
-			if !ok {
-				return fmt.Errorf("cur is not a LogInfo")
+
+			// Write if there was no stored checkpoint or the sizes differ
+			if prev == nil || prevCheckpoint == nil || prevCheckpoint.Size != curCheckpoint.Size {
+				if err := file.WriteCheckpointRekorV1(curCheckpoint, flags.LogInfoFile); err != nil {
+					return fmt.Errorf("failed to write checkpoint: %v", err)
+				}
 			}
-			return rekor_v1.WriteCheckpoint(prevCheckpoint, curLogInfo, flags.LogInfoFile)
+
+			return nil
 		},
 		GetStartIndexFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
 			checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
@@ -259,17 +273,20 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
 			prevCheckpoint, ok := prev.(*tlog.Checkpoint)
 			if !ok {
-				if prev == nil {
-					prevCheckpoint = nil
-				} else {
-					return fmt.Errorf("prev is not a Checkpoint")
-				}
+				return fmt.Errorf("prev is not a Checkpoint")
 			}
 			curCheckpoint, ok := cur.(*tlog.Checkpoint)
 			if !ok {
 				return fmt.Errorf("cur is not a Checkpoint")
 			}
-			return rekor_v2.WriteCheckpoint(prevCheckpoint, curCheckpoint, flags.LogInfoFile)
+			// Write if there was no stored checkpoint or the origin/sizes differ
+			if prev == nil || prevCheckpoint == nil || prevCheckpoint.Origin != curCheckpoint.Origin || prevCheckpoint.Size != curCheckpoint.Size {
+				if err := file.WriteCheckpointRekorV2(curCheckpoint, flags.LogInfoFile); err != nil {
+					return fmt.Errorf("failed to write checkpoint: %v", err)
+				}
+			}
+
+			return nil
 		},
 		GetStartIndexFn: func(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 			return nil

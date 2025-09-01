@@ -169,14 +169,3 @@ func RunConsistencyCheck(ctx context.Context, rekorShards map[string]ShardInfo, 
 
 	return prevCheckpoint, latestShardCheckpoint, nil
 }
-
-func WriteCheckpoint(prev *log.Checkpoint, cur *log.Checkpoint, logInfoFile string) error {
-	// Write if there was no stored checkpoint or the origin/sizes differ
-	if prev == nil || prev.Origin != cur.Origin || prev.Size != cur.Size {
-		if err := file.WriteCheckpointRekorV2(cur, logInfoFile); err != nil {
-			return fmt.Errorf("failed to write checkpoint: %v", err)
-		}
-	}
-
-	return nil
-}

@@ -136,28 +136,3 @@ func RunConsistencyCheck(rekorClient *client.Rekor, verifier signature.Verifier,
 
 	return prevCheckpoint, logInfo, nil
 }
-
-func WriteCheckpoint(prev *util.SignedCheckpoint, cur *models.LogInfo, logInfoFile string) error {
-	curCheckpoint, err := ReadLatestCheckpoint(cur)
-	if err != nil {
-		return fmt.Errorf("failed to read latest checkpoint: %v", err)
-	}
-
-	// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
-	// to persist the last checkpoint.
-	// Delete old checkpoints to avoid the log growing indefinitely
-	if _, err := os.Stat(logInfoFile); err == nil {
-		if err := file.DeleteOldCheckpoints(logInfoFile); err != nil {
-			return fmt.Errorf("failed to delete old checkpoints: %v", err)
-		}
-	}
-
-	// Write if there was no stored checkpoint or the sizes differ
-	if prev == nil || prev.Size != curCheckpoint.Size {
-		if err := file.WriteCheckpointRekorV1(curCheckpoint, logInfoFile); err != nil {
-			return fmt.Errorf("failed to write checkpoint: %v", err)
-		}
-	}
-
-	return nil
-}
