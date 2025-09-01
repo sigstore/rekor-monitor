@@ -100,9 +100,13 @@ func main() {
 			return prevCheckpoint, curLogInfo, nil
 		},
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
-			prevCheckpoint, ok := prev.(*ctgo.SignedTreeHead)
-			if !ok {
-				return fmt.Errorf("prev is not a SignedTreeHead")
+			var prevCheckpoint *ctgo.SignedTreeHead
+			if prev != nil {
+				var ok bool
+				prevCheckpoint, ok = prev.(*ctgo.SignedTreeHead)
+				if !ok {
+					return fmt.Errorf("prev is not a SignedTreeHead")
+				}
 			}
 			curCheckpoint, ok := cur.(*ctgo.SignedTreeHead)
 			if !ok {

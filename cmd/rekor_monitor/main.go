@@ -182,10 +182,15 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 			return prevCheckpoint, curLogInfo, nil
 		},
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
-			prevCheckpoint, ok := prev.(*util.SignedCheckpoint)
-			if !ok {
-				return fmt.Errorf("prev is not a SignedCheckpoint")
+			var prevCheckpoint *util.SignedCheckpoint
+			if prev != nil {
+				var ok bool
+				prevCheckpoint, ok = prev.(*util.SignedCheckpoint)
+				if !ok {
+					return fmt.Errorf("prev is not a SignedCheckpoint")
+				}
 			}
+
 			curCheckpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 			if err != nil {
 				return fmt.Errorf("failed to read latest checkpoint: %v", err)
@@ -261,9 +266,13 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 			return prevCheckpoint, curLogInfo, nil
 		},
 		WriteCheckpointFn: func(prev cmd.Checkpoint, cur cmd.LogInfo) error {
-			prevCheckpoint, ok := prev.(*tlog.Checkpoint)
-			if !ok {
-				return fmt.Errorf("prev is not a Checkpoint")
+			var prevCheckpoint *tlog.Checkpoint
+			if prev != nil {
+				var ok bool
+				prevCheckpoint, ok = prev.(*tlog.Checkpoint)
+				if !ok {
+					return fmt.Errorf("prev is not a Checkpoint")
+				}
 			}
 			curCheckpoint, ok := cur.(*tlog.Checkpoint)
 			if !ok {
