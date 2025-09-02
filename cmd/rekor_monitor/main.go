@@ -252,6 +252,16 @@ func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notific
 	return nil, nil, nil
 }
 
+func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
+	rekorVersion := uint32(1)
+	for _, service := range allRekorServices {
+		if serverURL == service.URL {
+			rekorVersion = service.MajorAPIVersion
+		}
+	}
+	return rekorVersion
+}
+
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
@@ -274,23 +284,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO: Use root.GetSigningConfig once https://github.com/sigstore/sigstore-go/pull/506 is merged
-	signingConfigBytes, err := tufClient.GetTarget("signing_config.v0.2.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	signingConfig, err := root.NewSigningConfigFromJSON(signingConfigBytes)
+	signingConfig, err := root.GetSigningConfig(tufClient)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	allRekorServices := signingConfig.RekorLogURLs()
-	rekorVersion := uint32(1)
-	for _, service := range allRekorServices {
-		if flags.ServerURL == service.URL {
-			rekorVersion = service.MajorAPIVersion
-		}
-	}
+	rekorVersion := getRekorVersion(allRekorServices, flags.ServerURL)
 	if flags.LogInfoFile == "" {
 		logInfoFileName := fmt.Sprintf("%s.v%d.txt", logInfoFileNamePrefix, rekorVersion)
 		flags.LogInfoFile = logInfoFileName
