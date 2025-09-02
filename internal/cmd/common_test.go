@@ -494,6 +494,8 @@ type TestMonitorLoop struct {
 	getEndIndexCalled            int
 }
 
+type TestContextKey string
+
 func (b *TestMonitorLoop) Interval() time.Duration {
 	return 10 * time.Millisecond
 }
@@ -542,22 +544,22 @@ func (b *TestMonitorLoop) RunConsistencyCheck(ctx context.Context) (Checkpoint, 
 		return nil, nil, fmt.Errorf("run consistency check error")
 	}
 	if b.runConsistencyCheckFn != nil {
-		return b.runConsistencyCheckFn(context.WithValue(ctx, "loopLogic", b))
+		return b.runConsistencyCheckFn(context.WithValue(ctx, TestContextKey("loopLogic"), b))
 	}
 	return "prev-checkpoint", "current-checkpoint", nil
 }
 
-func (b *TestMonitorLoop) WriteCheckpoint(prev Checkpoint, cur LogInfo) error {
+func (b *TestMonitorLoop) WriteCheckpoint(_ Checkpoint, _ LogInfo) error {
 	b.writeCheckpointCalled++
 	return nil
 }
 
-func (b *TestMonitorLoop) GetStartIndex(prev Checkpoint, cur LogInfo) *int {
+func (b *TestMonitorLoop) GetStartIndex(_ Checkpoint, _ LogInfo) *int {
 	b.getStartIndexCalled++
 	return intPtr(1)
 }
 
-func (b *TestMonitorLoop) GetEndIndex(cur LogInfo) *int {
+func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int {
 	b.getEndIndexCalled++
 	return intPtr(10)
 }
@@ -566,7 +568,7 @@ func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notificati
 	b.identitySearchCalled++
 
 	if b.identitySearchFn != nil {
-		return b.identitySearchFn(context.WithValue(ctx, "loopLogic", b), config, monitoredValues)
+		return b.identitySearchFn(context.WithValue(ctx, TestContextKey("loopLogic"), b), config, monitoredValues)
 	}
 
 	// Verify that the monitored values are passed correctly
@@ -727,7 +729,7 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 		once:   &once,
 		config: &notifications.IdentityMonitorConfiguration{},
 		runConsistencyCheckFn: func(ctx context.Context) (Checkpoint, LogInfo, error) {
-			switch ctx.Value("loopLogic").(*TestMonitorLoop).runConsistencyCheckCalled {
+			switch ctx.Value(TestContextKey("loopLogic")).(*TestMonitorLoop).runConsistencyCheckCalled {
 			case 1:
 				return nil, "current-checkpoint", nil
 			default:
@@ -735,7 +737,7 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 			}
 		},
 		identitySearchFn: func(ctx context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-			switch ctx.Value("loopLogic").(*TestMonitorLoop).identitySearchCalled {
+			switch ctx.Value(TestContextKey("loopLogic")).(*TestMonitorLoop).identitySearchCalled {
 			case 3:
 				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
 			default:

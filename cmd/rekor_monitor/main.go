@@ -103,7 +103,7 @@ func (l RekorV1MonitorLogic) NotificationContextNew() notifications.Notification
 	)
 }
 
-func (l RekorV1MonitorLogic) RunConsistencyCheck(ctx context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
+func (l RekorV1MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 	prev, cur, err := rekor_v1.RunConsistencyCheck(l.rekorClient, l.verifier, l.flags.LogInfoFile)
 	if err != nil {
 		return nil, nil, err
@@ -188,7 +188,7 @@ func (l RekorV2MonitorLogic) NotificationContextNew() notifications.Notification
 	)
 }
 
-func (l RekorV2MonitorLogic) RunConsistencyCheck(ctx context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
+func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 	// On each iteration, we refresh the SigningConfig metadata and
 	// update the shards if we detect a change in the newest shard
 	signingConfig, err := rekor_v2.RefreshSigningConfig(l.tufClient)
@@ -240,15 +240,15 @@ func (l RekorV2MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	return nil
 }
 
-func (l RekorV2MonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
+func (l RekorV2MonitorLogic) GetStartIndex(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
 	return nil
 }
 
-func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int {
+func (l RekorV2MonitorLogic) GetEndIndex(_ cmd.LogInfo) *int {
 	return nil
 }
 
-func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (l RekorV2MonitorLogic) IdentitySearch(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	return nil, nil, nil
 }
 

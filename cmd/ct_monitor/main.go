@@ -69,7 +69,7 @@ func (l CTMonitorLogic) NotificationContextNew() notifications.NotificationConte
 	)
 }
 
-func (l CTMonitorLogic) RunConsistencyCheck(ctx context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
+func (l CTMonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
 	prev, cur, err := ct.RunConsistencyCheck(l.fulcioClient, l.flags.LogInfoFile)
 	if err != nil {
 		return nil, nil, err
@@ -100,7 +100,7 @@ func (l CTMonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInfo) er
 	return nil
 }
 
-func (l CTMonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
+func (l CTMonitorLogic) GetStartIndex(prev cmd.Checkpoint, _ cmd.LogInfo) *int {
 	prevSTH := prev.(*ctgo.SignedTreeHead)
 	checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 	return &checkpointStartIndex
