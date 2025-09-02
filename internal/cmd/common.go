@@ -59,6 +59,19 @@ type MonitorLoopParams struct {
 	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error)
 }
 
+type MonitorLogic interface {
+	Interval() time.Duration
+	Config() *notifications.IdentityMonitorConfiguration
+	MonitoredValues() identity.MonitoredValues
+	Once() bool
+	NotificationContextNew() notifications.NotificationContext
+	RunConsistencyCheck(ctx context.Context) (Checkpoint, LogInfo, error)
+	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
+	GetStartIndex(prev Checkpoint, cur LogInfo) *int
+	GetEndIndex(cur LogInfo) *int
+	IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error)
+}
+
 type Checkpoint interface{}
 type LogInfo interface{}
 
@@ -160,37 +173,37 @@ func PrintMonitoredValues(monitoredValues identity.MonitoredValues) {
 	}
 }
 
-func MonitorLoop(params MonitorLoopParams) {
-	ticker := time.NewTicker(params.Interval)
+func MonitorLoop(loopLogic MonitorLogic) {
+	ticker := time.NewTicker(loopLogic.Interval())
 	defer ticker.Stop()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	config := params.Config
+	config := loopLogic.Config()
 
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
 		fmt.Fprint(os.Stderr, "New monitor run at ", time.Now().Format(time.RFC3339), "\n")
 		inputEndIndex := config.EndIndex
 
-		prevCheckpoint, curCheckpoint, err := params.RunConsistencyCheckFn(ctx)
+		prevCheckpoint, curCheckpoint, err := loopLogic.RunConsistencyCheck(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
 			return
 		}
 
-		if identity.MonitoredValuesExist(params.MonitoredValues) {
+		if identity.MonitoredValuesExist(loopLogic.MonitoredValues()) {
 			if config.StartIndex == nil {
 				if prevCheckpoint != nil {
-					config.StartIndex = params.GetStartIndexFn(prevCheckpoint, curCheckpoint)
+					config.StartIndex = loopLogic.GetStartIndex(prevCheckpoint, curCheckpoint)
 				} else {
 					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, just saving checkpoint\n")
 				}
 			}
 
 			if config.EndIndex == nil {
-				config.EndIndex = params.GetEndIndexFn(curCheckpoint)
+				config.EndIndex = loopLogic.GetEndIndex(curCheckpoint)
 			}
 
 			if config.StartIndex != nil && config.EndIndex != nil {
@@ -199,7 +212,7 @@ func MonitorLoop(params MonitorLoopParams) {
 					return
 				}
 
-				foundEntries, failedEntries, err := params.IdentitySearchFn(ctx, config, params.MonitoredValues)
+				foundEntries, failedEntries, err := loopLogic.IdentitySearch(ctx, config, loopLogic.MonitoredValues())
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
 					return
@@ -210,8 +223,8 @@ func MonitorLoop(params MonitorLoopParams) {
 
 					if foundEntries.Len() > 0 {
 						notificationData := notifications.NotificationData{
-							Context: params.NotificationContextNewFn(),
-							Payload: identity.MatchedEntries(foundEntries),
+							Context: loopLogic.NotificationContextNew(),
+							Payload: foundEntries,
 						}
 
 						err = notifications.TriggerNotifications(notificationPool, notificationData)
@@ -224,7 +237,7 @@ func MonitorLoop(params MonitorLoopParams) {
 						fmt.Fprintf(os.Stderr, "failed to parse some log entries: %v", failedEntries)
 
 						notificationData := notifications.NotificationData{
-							Context: params.NotificationContextNewFn(),
+							Context: loopLogic.NotificationContextNew(),
 							Payload: identity.FailedLogEntryList(failedEntries),
 						}
 
@@ -243,12 +256,12 @@ func MonitorLoop(params MonitorLoopParams) {
 
 		// Write checkpoint after identity search to ensure identities are
 		// always searched even if something fails in the middle
-		if err := params.WriteCheckpointFn(prevCheckpoint, curCheckpoint); err != nil {
+		if err := loopLogic.WriteCheckpoint(prevCheckpoint, curCheckpoint); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v", err)
 			return
 		}
 
-		if params.Once || inputEndIndex != nil {
+		if loopLogic.Once() || inputEndIndex != nil {
 			return
 		}
 
