@@ -100,12 +100,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO: Use root.GetSigningConfig once https://github.com/sigstore/sigstore-go/pull/506 is merged
-	signingConfigBytes, err := tufClient.GetTarget("signing_config.v0.2.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	signingConfig, err := root.NewSigningConfigFromJSON(signingConfigBytes)
+	signingConfig, err := root.GetSigningConfig(tufClient)
 	if err != nil {
 		log.Fatal(err)
 	}
