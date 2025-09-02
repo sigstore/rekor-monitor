@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -43,19 +42,6 @@ var (
 type CertificateIdentity struct {
 	CertSubject string   `yaml:"certSubject"`
 	Issuers     []string `yaml:"issuers"`
-}
-
-// Hash returns a hash of the CertificateIdentity for use as a map key
-func (ci CertificateIdentity) String() string {
-	// Create a more readable representation for the map key
-	if len(ci.Issuers) == 0 {
-		return fmt.Sprintf("cert:%s", ci.CertSubject)
-	}
-	// Sort the issuers to ensure consistent hashing regardless of order
-	issuers := make([]string, len(ci.Issuers))
-	copy(issuers, ci.Issuers)
-	sort.Strings(issuers)
-	return fmt.Sprintf("cert:%s:issuers:%v", ci.CertSubject, issuers)
 }
 
 // MonitoredValues holds a set of values to compare against a given entry

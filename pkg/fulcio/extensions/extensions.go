@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -178,18 +177,6 @@ type FulcioExtensions struct {
 type OIDExtension struct {
 	ObjectIdentifier asn1.ObjectIdentifier `yaml:"objectIdentifier"`
 	ExtensionValues  []string              `yaml:"extensionValues"`
-}
-
-func (e OIDExtension) String() string {
-	// Create a more readable representation for the map key
-	if len(e.ExtensionValues) == 0 {
-		return fmt.Sprintf("objId:%s", e.ObjectIdentifier.String())
-	}
-	// Sort the extension values to ensure consistent hashing regardless of order
-	extensionValues := make([]string, len(e.ExtensionValues))
-	copy(extensionValues, e.ExtensionValues)
-	sort.Strings(extensionValues)
-	return fmt.Sprintf("objId:%s:extValues:%v", e.ObjectIdentifier.String(), extensionValues)
 }
 
 // CustomExtension holds an OID field represented in dot notation and a list of values to match on
