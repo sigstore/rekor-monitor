@@ -29,20 +29,17 @@ func TestSendGridSendFailure(t *testing.T) {
 		SenderName:            "",
 		SendGridAPIKey:        "",
 	}
-	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
-		FoundIdentityEntries: []identity.LogEntry{
-			{
-				CertSubject: "test-cert-subject",
-				UUID:        "test-uuid",
-				Index:       0,
-			},
+	monitoredIdentity := identity.NewMatchedEntries(
+		identity.LogEntry{
+			CertSubject: "test-cert-subject",
+			UUID:        "test-uuid",
+			Index:       0,
 		},
-	}
+	)
 
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+		Payload: monitoredIdentity,
 	}
 	err := sendGridNotificationInput.Send(context.Background(), notificationData)
 	if err != nil {

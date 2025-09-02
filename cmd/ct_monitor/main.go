@@ -123,7 +123,7 @@ func main() {
 			checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
 			return &checkpointEndIndex
 		},
-		IdentitySearchFn: func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			return ct.IdentitySearch(ctx, fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 		},
 	})

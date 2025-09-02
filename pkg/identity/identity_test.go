@@ -19,7 +19,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
@@ -43,186 +42,34 @@ func TestIdentityEntryString(t *testing.T) {
 	}
 }
 
-// Test CreateMonitoredIdentities
-func TestCreateMonitoredIdentities(t *testing.T) {
-	type test struct {
-		inputEntries    []LogEntry
-		inputIdentities []string
-		output          []MonitoredIdentity
-	}
-
-	testIdentities := map[string]string{
-		"testCertSubject":    "test-cert-subject",
-		"testFingerprint":    "test-fingerprint",
-		"testExtensionValue": "test-extension-value",
-		"testSubject":        "test-subject",
-	}
-
-	testUUIDs := map[string]string{
-		"testUUID":  "test-uuid",
-		"testUUID2": "test-uuid-2",
-	}
-
-	testIndexes := map[string]int64{
-		"1": int64(1),
-		"2": int64(2),
-	}
-
-	testIdentityEntries := map[string]LogEntry{
-		"testCertSubject1": {
-			CertSubject: testIdentities["testCertSubject"],
-			UUID:        testUUIDs["testUUID"],
-			Index:       testIndexes["1"],
+// Test PrintMatchedEntries
+func TestPrintMatchedEntries(t *testing.T) {
+	matchedEntries := NewMatchedEntries(
+		LogEntry{
+			CertSubject: "test-cert-subject",
+			UUID:        "test-uuid",
+			Index:       0,
 		},
-		"testCertSubject2": {
-			CertSubject: testIdentities["testCertSubject"],
-			UUID:        testUUIDs["testUUID2"],
-			Index:       testIndexes["2"],
-		},
-		"testFingerprint1": {
-			Fingerprint: testIdentities["testFingerprint"],
-			UUID:        testUUIDs["testUUID"],
-			Index:       testIndexes["1"],
-		},
-		"testFingerprint2": {
-			Fingerprint: testIdentities["testFingerprint"],
-			UUID:        testUUIDs["testUUID"],
-			Index:       testIndexes["2"],
-		},
-		"testExtensionValue1": {
-			ExtensionValue: testIdentities["testExtensionValue"],
-			UUID:           testUUIDs["testUUID"],
-			Index:          testIndexes["1"],
-		},
-		"testExtensionValue2": {
-			ExtensionValue: testIdentities["testExtensionValue"],
-			UUID:           testUUIDs["testUUID"],
-			Index:          testIndexes["2"],
-		},
-		"testSubject1": {
-			Subject: testIdentities["testSubject"],
-			UUID:    testUUIDs["testUUID"],
-			Index:   testIndexes["1"],
-		},
-		"testSubject2": {
-			Subject: testIdentities["testSubject"],
-			UUID:    testUUIDs["testUUID"],
-			Index:   testIndexes["2"],
-		},
-	}
-
-	testMonitoredIdentities := map[string]MonitoredIdentity{
-		"testMonitoredIdCertSubject1": {
-			Identity:             testIdentities["testCertSubject"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testCertSubject1"]},
-		},
-		"testMonitoredIdCertSubject2": {
-			Identity:             testIdentities["testCertSubject"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
-		},
-		"testMonitoredIdFingerprint1": {
-			Identity:             testIdentities["testFingerprint"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testFingerprint1"]},
-		},
-		"testMonitoredIdFingerprint2": {
-			Identity:             testIdentities["testFingerprint"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testFingerprint1"], testIdentityEntries["testFingerprint2"]},
-		},
-		"testMonitoredIdExtensionValue1": {
-			Identity:             testIdentities["testExtensionValue"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testExtensionValue1"]},
-		},
-		"testMonitoredIdExtensionValue2": {
-			Identity:             testIdentities["testExtensionValue"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testExtensionValue1"], testIdentityEntries["testExtensionValue2"]},
-		},
-		"testMonitoredIdSubject1": {
-			Identity:             testIdentities["testSubject"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testSubject1"]},
-		},
-		"testMonitoredIdSubject2": {
-			Identity:             testIdentities["testSubject"],
-			FoundIdentityEntries: []LogEntry{testIdentityEntries["testSubject1"], testIdentityEntries["testSubject2"]},
-		},
-	}
-
-	tests := map[string]test{
-		"empty case": {
-			inputEntries:    []LogEntry{},
-			inputIdentities: []string{},
-			output:          []MonitoredIdentity{},
-		},
-		"one entry for given identity": {
-			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"]},
-			inputIdentities: []string{testIdentities["testCertSubject"]},
-			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject1"]},
-		},
-		"multiple log entries under same identity": {
-			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
-			inputIdentities: []string{testIdentities["testCertSubject"]},
-			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject2"]},
-		},
-		"no log entries matching given identity": {
-			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testCertSubject2"]},
-			inputIdentities: []string{testIdentities["testFingerprint"]},
-			output:          []MonitoredIdentity{},
-		},
-		"test all identities": {
-			inputEntries:    []LogEntry{testIdentityEntries["testCertSubject1"], testIdentityEntries["testFingerprint1"], testIdentityEntries["testExtensionValue1"], testIdentityEntries["testSubject1"], testIdentityEntries["testCertSubject2"], testIdentityEntries["testFingerprint2"], testIdentityEntries["testExtensionValue2"], testIdentityEntries["testSubject2"]},
-			inputIdentities: []string{testIdentities["testCertSubject"], testIdentities["testFingerprint"], testIdentities["testExtensionValue"], testIdentities["testSubject"]},
-			output:          []MonitoredIdentity{testMonitoredIdentities["testMonitoredIdCertSubject2"], testMonitoredIdentities["testMonitoredIdExtensionValue2"], testMonitoredIdentities["testMonitoredIdFingerprint2"], testMonitoredIdentities["testMonitoredIdSubject2"]},
-		},
-	}
-
-	for name, testCase := range tests {
-		t.Run(name, func(t *testing.T) {
-			createMonitoredIdentitiesOutput := CreateMonitoredIdentities(testCase.inputEntries, testCase.inputIdentities)
-			sort.Slice(createMonitoredIdentitiesOutput, func(i, j int) bool {
-				return createMonitoredIdentitiesOutput[i].Identity < createMonitoredIdentitiesOutput[j].Identity
-			})
-			if !reflect.DeepEqual(createMonitoredIdentitiesOutput, testCase.output) {
-				t.Errorf("expected %v, got %v", testCase.output, createMonitoredIdentitiesOutput)
-			}
-		})
-	}
-}
-
-// Test PrintMonitoredIdentities
-func TestPrintMonitoredIdentities(t *testing.T) {
-	monitoredIdentity := MonitoredIdentity{
-		Identity: "test-identity",
-		FoundIdentityEntries: []LogEntry{
-			{
-				CertSubject: "test-cert-subject",
-				UUID:        "test-uuid",
-				Index:       0,
-			},
-		},
-	}
-	parsedMonitoredIdentity, err := PrintMonitoredIdentities([]MonitoredIdentity{monitoredIdentity})
+	)
+	parsedMatchedEntries, err := matchedEntries.ToNotificationBody()
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
-	expectedParsedMonitoredIdentityOutput := strings.Fields(`[
-        	{
-        		"identity": "test-identity",
-        		"foundIdentityEntries": [
-        			{
-        				"CertSubject": "test-cert-subject",
-        				"Issuer": "",
-        				"Fingerprint": "",
-        				"Subject": "",
-        				"Index": 0,
-        				"UUID": "test-uuid",
-        				"OIDExtension": null,
-        				"ExtensionValue": ""
-        			}
-        		]
-        	}
+	expectedParsedMatchedEntriesOutput := strings.Fields(`[
+			{
+				"CertSubject": "test-cert-subject",
+				"Issuer": "",
+				"Fingerprint": "",
+				"Subject": "",
+				"Index": 0,
+				"UUID": "test-uuid",
+				"OIDExtension": null,
+				"ExtensionValue": ""
+			}
         ]`)
-	parsedMonitoredIdentityFields := strings.Fields(string(parsedMonitoredIdentity))
-	if !reflect.DeepEqual(parsedMonitoredIdentityFields, expectedParsedMonitoredIdentityOutput) {
-		t.Errorf("expected parsed monitored identity to equal %s, got %s", expectedParsedMonitoredIdentityOutput, parsedMonitoredIdentityFields)
+	parsedMatchedEntriesFields := strings.Fields(string(parsedMatchedEntries))
+	if !reflect.DeepEqual(parsedMatchedEntriesFields, expectedParsedMatchedEntriesOutput) {
+		t.Errorf("expected parsed monitored identity to equal %s, got %s", expectedParsedMatchedEntriesOutput, parsedMatchedEntriesFields)
 	}
 }
 

@@ -103,23 +103,23 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].CertSubject != subject {
-		t.Fatalf("mismatched subjects: %s %s", matches[0].CertSubject, subject)
+	if matches.Entries[uuid].CertSubject != subject {
+		t.Fatalf("mismatched subjects: %s %s", matches.Entries[uuid].CertSubject, subject)
 	}
-	if matches[0].Issuer != issuer {
-		t.Fatalf("mismatched issuers: %s %s", matches[0].Issuer, issuer)
+	if matches.Entries[uuid].Issuer != issuer {
+		t.Fatalf("mismatched issuers: %s %s", matches.Entries[uuid].Issuer, issuer)
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	// match to subject and issuer with certificate in hashedrekord
@@ -133,8 +133,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -151,8 +151,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -198,8 +198,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
-		if len(matches) != 1 {
-			t.Fatalf("expected 1 match, got %d", len(matches))
+		if matches.Len() != 1 {
+			t.Fatalf("expected 1 match, got %d", matches.Len())
 		}
 		if len(failedEntries) != 0 {
 			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -228,8 +228,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
-		if len(matches) != 0 {
-			t.Fatalf("expected 0 matches, got %d", len(matches))
+		if matches.Len() != 0 {
+			t.Fatalf("expected 0 matches, got %d", matches.Len())
 		}
 		if len(failedEntries) != 0 {
 			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -295,17 +295,17 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].CertSubject != subject {
-		t.Fatalf("mismatched subjects: %s %s", matches[0].CertSubject, subject)
+	if matches.Entries[uuid].CertSubject != subject {
+		t.Fatalf("mismatched subjects: %s %s", matches.Entries[uuid].CertSubject, subject)
 	}
-	if matches[0].Issuer != issuer {
-		t.Fatalf("mismatched issuers: %s %s", matches[0].Issuer, issuer)
+	if matches.Entries[uuid].Issuer != issuer {
+		t.Fatalf("mismatched issuers: %s %s", matches.Entries[uuid].Issuer, issuer)
 	}
 }
 
@@ -373,20 +373,20 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].Fingerprint != fp {
-		t.Fatalf("mismatched fingerprints: %s %s", matches[0].Fingerprint, fp)
+	if matches.Entries[uuid].Fingerprint != fp {
+		t.Fatalf("mismatched fingerprints: %s %s", matches.Entries[uuid].Fingerprint, fp)
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	// no match with different fingerprints
@@ -397,8 +397,8 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching fingerprints, got %v", err)
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected 0 matches, got %d", len(matches))
+	if matches.Len() != 0 {
+		t.Fatalf("expected 0 matches, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -458,20 +458,20 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].Subject != subject {
-		t.Fatalf("mismatched subjects: %s %s", matches[0].Subject, subject)
+	if matches.Entries[uuid].Subject != subject {
+		t.Fatalf("mismatched subjects: %s %s", matches.Entries[uuid].Subject, subject)
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	// no match with different subjects
@@ -482,8 +482,8 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching subjects, got %v", err)
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected 0 matches, got %d", len(matches))
+	if matches.Len() != 0 {
+		t.Fatalf("expected 0 matches, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -558,17 +558,17 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	testedMonitoredValues := []identity.MonitoredValues{
@@ -594,8 +594,8 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(matches) != 0 {
-			t.Fatalf("expected no matches, got %d", len(matches))
+		if matches.Len() != 0 {
+			t.Fatalf("expected no matches, got %d", matches.Len())
 		}
 		if len(failedEntries) != 0 {
 			t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -676,17 +676,17 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	// no match to oid with different oid extension field
@@ -705,8 +705,8 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
+	if matches.Len() != 0 {
+		t.Fatalf("expected no matches, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
@@ -788,17 +788,17 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(matches))
+	if matches.Len() != 1 {
+		t.Fatalf("expected 1 match, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
-	if matches[0].Index != int64(logIndex) {
-		t.Fatalf("mismatched log indices: %d %d", matches[0].Index, logIndex)
+	if matches.Entries[uuid].Index != int64(logIndex) {
+		t.Fatalf("mismatched log indices: %d %d", matches.Entries[uuid].Index, logIndex)
 	}
-	if matches[0].UUID != uuid {
-		t.Fatalf("mismatched UUIDs: %s %s", matches[0].UUID, uuid)
+	if matches.Entries[uuid].UUID != uuid {
+		t.Fatalf("mismatched UUIDs: %s %s", matches.Entries[uuid].UUID, uuid)
 	}
 
 	oidMatchers = extensions.OIDMatchers{
@@ -823,8 +823,8 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no matches, got %d", len(matches))
+	if matches.Len() != 0 {
+		t.Fatalf("expected no matches, got %d", matches.Len())
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))

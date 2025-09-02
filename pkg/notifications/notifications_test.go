@@ -54,7 +54,7 @@ func TestCreateAndSendNotifications(t *testing.T) {
 
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{},
+		Payload: identity.MatchedEntries{},
 	}
 
 	err := TriggerNotifications([]NotificationPlatform{mockNotificationPlatform}, notificationData)

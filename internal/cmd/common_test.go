@@ -515,7 +515,7 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 			callCount++
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled = true
 			callCount++
 
@@ -531,14 +531,9 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 			}
 
 			// Return some found identities to trigger notifications
-			return []identity.MonitoredIdentity{
-				{
-					Identity: "test-identity",
-					FoundIdentityEntries: []identity.LogEntry{
-						{CertSubject: "test-subject", Index: 5, UUID: "test-uuid"},
-					},
-				},
-			}, nil, nil
+			return identity.NewMatchedEntries(
+				identity.LogEntry{CertSubject: "test-subject", Index: 5, UUID: "test-uuid"},
+			), nil, nil
 		},
 	}
 
@@ -583,9 +578,9 @@ func TestMonitorLoop_ConsistencyCheckError(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			t.Error("IdentitySearchFn should not be called when consistency check fails")
-			return nil, nil, nil
+			return identity.MatchedEntries{}, nil, nil
 		},
 	}
 
@@ -631,10 +626,10 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 			t.Error("GetEndIndexFn should not be called when no monitored values exist")
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled = true
 			t.Error("IdentitySearchFn should not be called when no monitored values exist")
-			return nil, nil, nil
+			return identity.MatchedEntries{}, nil, nil
 		},
 	}
 
@@ -685,10 +680,10 @@ func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return nil
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled = true
 			t.Error("IdentitySearchFn should not be called when start index > end index")
-			return nil, nil, nil
+			return identity.MatchedEntries{}, nil, nil
 		},
 	}
 
@@ -735,9 +730,9 @@ func TestMonitorLoop_OnceFlag(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled = true
-			return []identity.MonitoredIdentity{}, nil, nil
+			return identity.MatchedEntries{}, nil, nil
 		},
 	}
 
@@ -787,9 +782,9 @@ func TestMonitorLoop_EndIndexSpecified(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled = true
-			return []identity.MonitoredIdentity{}, nil, nil
+			return identity.MatchedEntries{}, nil, nil
 		},
 	}
 
@@ -843,12 +838,12 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 		GetEndIndexFn: func(_ LogInfo) *int {
 			return intPtr(10)
 		},
-		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		IdentitySearchFn: func(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			identitySearchCalled++
 			if identitySearchCalled == 3 {
-				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
+				return identity.MatchedEntries{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
 			}
-			return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, nil
+			return identity.MatchedEntries{}, []identity.FailedLogEntry{}, nil
 		},
 	}
 

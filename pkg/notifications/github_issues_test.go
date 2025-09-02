@@ -36,7 +36,7 @@ func TestGitHubIssueInputSend401BadCredentialsFailure(t *testing.T) {
 	ctx := context.Background()
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{},
+		Payload: identity.MatchedEntries{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err == nil {
@@ -73,7 +73,7 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 	ctx := context.Background()
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{},
+		Payload: identity.MatchedEntries{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 	ctx := context.Background()
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{},
+		Payload: identity.MatchedEntries{},
 	}
 	err := gitHubIssuesInput.Send(ctx, notificationData)
 	if err == nil || !strings.Contains(err.Error(), "400 Bad Request") {

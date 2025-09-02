@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -41,6 +43,19 @@ var (
 type CertificateIdentity struct {
 	CertSubject string   `yaml:"certSubject"`
 	Issuers     []string `yaml:"issuers"`
+}
+
+// Hash returns a hash of the CertificateIdentity for use as a map key
+func (ci CertificateIdentity) String() string {
+	// Create a more readable representation for the map key
+	if len(ci.Issuers) == 0 {
+		return fmt.Sprintf("cert:%s", ci.CertSubject)
+	}
+	// Sort the issuers to ensure consistent hashing regardless of order
+	issuers := make([]string, len(ci.Issuers))
+	copy(issuers, ci.Issuers)
+	sort.Strings(issuers)
+	return fmt.Sprintf("cert:%s:issuers:%v", ci.CertSubject, issuers)
 }
 
 // MonitoredValues holds a set of values to compare against a given entry
@@ -92,32 +107,56 @@ type FailedLogEntry struct {
 	Error string `json:"error"`
 }
 
-// MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
-type MonitoredIdentity struct {
-	Identity             string     `json:"identity"`
-	FoundIdentityEntries []LogEntry `json:"foundIdentityEntries"`
-}
-
-// PrintMonitoredIdentities formats a list of monitored identities and corresponding log entries
+// PrintMatchedEntries formats a list of matched entries
 // using JSON tagging into JSON formatting.
-func PrintMonitoredIdentities(monitoredIdentities []MonitoredIdentity) ([]byte, error) {
-	jsonBody, err := json.MarshalIndent(monitoredIdentities, "", "\t")
+func PrintMatchedEntries(matchedEntries []LogEntry) ([]byte, error) {
+	jsonBody, err := json.MarshalIndent(matchedEntries, "", "\t")
 	if err != nil {
 		return nil, err
 	}
 	return jsonBody, nil
 }
 
-// MonitoredIdentityList wraps []MonitoredIdentity to implement NotificationBodyConverter
-type MonitoredIdentityList []MonitoredIdentity
-
-// ToNotificationBody implements the NotificationBodyConverter interface for MonitoredIdentityList
-func (identities MonitoredIdentityList) ToNotificationBody() ([]byte, error) {
-	return PrintMonitoredIdentities(identities)
+// MatchedEntries groups all entries found during an identity search
+type MatchedEntries struct {
+	Entries map[string]LogEntry
 }
 
-// ToNotificationHeader implements the NotificationBodyConverter interface for MonitoredIdentityList
-func (identities MonitoredIdentityList) ToNotificationHeader() string {
+func NewMatchedEntries(entries ...LogEntry) MatchedEntries {
+	matchedEntries := MatchedEntries{
+		Entries: make(map[string]LogEntry),
+	}
+	matchedEntries.Add(entries...)
+	return matchedEntries
+}
+
+// Add adds a log entry to the monitored identity list
+func (matchedEntries MatchedEntries) Add(entries ...LogEntry) {
+	for _, entry := range entries {
+		matchedEntries.Entries[fmt.Sprintf("%s:%d", entry.UUID, entry.Index)] = entry
+	}
+}
+
+func (matchedEntries MatchedEntries) Merge(other MatchedEntries) {
+	maps.Copy(matchedEntries.Entries, other.Entries)
+}
+
+func (matchedEntries MatchedEntries) Len() int {
+	return len(matchedEntries.Entries)
+}
+
+// ToNotificationBody implements the NotificationBodyConverter interface for MatchedEntries
+func (matchedEntries MatchedEntries) ToNotificationBody() ([]byte, error) {
+	// Convert the matched entries to a list
+	entries := make([]LogEntry, 0, len(matchedEntries.Entries))
+	for _, entry := range matchedEntries.Entries {
+		entries = append(entries, entry)
+	}
+	return PrintMatchedEntries(entries)
+}
+
+// ToNotificationHeader implements the NotificationBodyConverter interface for MatchedEntries
+func (matchedEntries MatchedEntries) ToNotificationHeader() string {
 	return "Found the following pairs of monitored identities and matching log entries: "
 }
 
@@ -156,64 +195,6 @@ func CreateIdentitiesList(mvs MonitoredValues) []string {
 	}
 
 	return identities
-}
-
-// CreateMonitoredIdentities takes in a list of IdentityEntries and groups them by
-// associated identity based on an input list of identities to monitor.
-// It returns a list of MonitoredIdentities.
-func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentities []string) []MonitoredIdentity {
-	identityMap := make(map[string]bool)
-	for _, id := range monitoredIdentities {
-		identityMap[id] = true
-	}
-
-	monitoredIdentityMap := make(map[string][]LogEntry)
-	for _, idEntry := range inputIdentityEntries {
-		switch {
-		case identityMap[idEntry.CertSubject]:
-			idCertSubject := idEntry.CertSubject
-			_, ok := monitoredIdentityMap[idCertSubject]
-			if ok {
-				monitoredIdentityMap[idCertSubject] = append(monitoredIdentityMap[idCertSubject], idEntry)
-			} else {
-				monitoredIdentityMap[idCertSubject] = []LogEntry{idEntry}
-			}
-		case identityMap[idEntry.ExtensionValue]:
-			idExtValue := idEntry.ExtensionValue
-			_, ok := monitoredIdentityMap[idExtValue]
-			if ok {
-				monitoredIdentityMap[idExtValue] = append(monitoredIdentityMap[idExtValue], idEntry)
-			} else {
-				monitoredIdentityMap[idExtValue] = []LogEntry{idEntry}
-			}
-		case identityMap[idEntry.Fingerprint]:
-			idFingerprint := idEntry.Fingerprint
-			_, ok := monitoredIdentityMap[idFingerprint]
-			if ok {
-				monitoredIdentityMap[idFingerprint] = append(monitoredIdentityMap[idFingerprint], idEntry)
-			} else {
-				monitoredIdentityMap[idFingerprint] = []LogEntry{idEntry}
-			}
-		case identityMap[idEntry.Subject]:
-			idSubject := idEntry.Subject
-			_, ok := monitoredIdentityMap[idSubject]
-			if ok {
-				monitoredIdentityMap[idSubject] = append(monitoredIdentityMap[idSubject], idEntry)
-			} else {
-				monitoredIdentityMap[idSubject] = []LogEntry{idEntry}
-			}
-		}
-	}
-
-	parsedMonitoredIdentities := []MonitoredIdentity{}
-	for id, idEntries := range monitoredIdentityMap {
-		parsedMonitoredIdentities = append(parsedMonitoredIdentities, MonitoredIdentity{
-			Identity:             id,
-			FoundIdentityEntries: idEntries,
-		})
-	}
-
-	return parsedMonitoredIdentities
 }
 
 // MonitoredValuesExist checks if there are monitored values in an input and returns accordingly.
