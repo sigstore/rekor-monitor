@@ -45,20 +45,7 @@ type MonitorFlags struct {
 	TUFRootPath   string
 }
 
-// MonitorLoopParams contains the parameters for the LoopLogs function
-type MonitorLoopParams struct {
-	Interval                 time.Duration
-	Config                   *notifications.IdentityMonitorConfiguration
-	MonitoredValues          identity.MonitoredValues
-	Once                     bool
-	NotificationContextNewFn notifications.NotificationContextNew
-	RunConsistencyCheckFn    func(ctx context.Context) (Checkpoint, LogInfo, error)
-	WriteCheckpointFn        func(prev Checkpoint, cur LogInfo) error
-	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
-	GetEndIndexFn            func(cur LogInfo) *int
-	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
-}
-
+// MonitorLogic is the interface for the monitor loop logic
 type MonitorLogic interface {
 	Interval() time.Duration
 	Config() *notifications.IdentityMonitorConfiguration
