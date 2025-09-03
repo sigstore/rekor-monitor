@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"regexp"
 	"strconv"
 	"strings"
@@ -119,12 +118,36 @@ func NewMatchedEntries(entries ...LogEntry) MatchedEntries {
 // Add adds a log entry to the monitored identity list
 func (matchedEntries MatchedEntries) Add(entries ...LogEntry) {
 	for _, entry := range entries {
-		matchedEntries.Entries[fmt.Sprintf("%s:%d", entry.UUID, entry.Index)] = entry
+		if existingEntry, ok := matchedEntries.Entries[fmt.Sprintf("%s:%d", entry.UUID, entry.Index)]; ok {
+			if existingEntry.CertSubject == "" {
+				existingEntry.CertSubject = entry.CertSubject
+			}
+			if existingEntry.Issuer == "" {
+				existingEntry.Issuer = entry.Issuer
+			}
+			if existingEntry.Fingerprint == "" {
+				existingEntry.Fingerprint = entry.Fingerprint
+			}
+			if existingEntry.Subject == "" {
+				existingEntry.Subject = entry.Subject
+			}
+			if existingEntry.OIDExtension == nil {
+				existingEntry.OIDExtension = entry.OIDExtension
+			}
+			if existingEntry.ExtensionValue == "" {
+				existingEntry.ExtensionValue = entry.ExtensionValue
+			}
+			matchedEntries.Entries[fmt.Sprintf("%s:%d", entry.UUID, entry.Index)] = existingEntry
+		} else {
+			matchedEntries.Entries[fmt.Sprintf("%s:%d", entry.UUID, entry.Index)] = entry
+		}
 	}
 }
 
 func (matchedEntries MatchedEntries) Merge(other MatchedEntries) {
-	maps.Copy(matchedEntries.Entries, other.Entries)
+	for _, entry := range other.Entries {
+		matchedEntries.Add(entry)
+	}
 }
 
 func (matchedEntries MatchedEntries) Len() int {
