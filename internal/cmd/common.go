@@ -255,11 +255,16 @@ func MonitorLoop(loopLogic MonitorLogic) {
 
 		prevCheckpoint, curCheckpoint, err := loopLogic.RunConsistencyCheck(ctx)
 		if err != nil {
-			handleError("error running consistency check", err, loopLogic.Once())
-			if !loopLogic.Once() {
+			fmt.Fprintf(os.Stderr, "error running consistency check: %v\n", err)
+			if strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
+				return
+			}
+			if loopLogic.Once() {
+				return
+			} else {
+				server.IncLogIndexVerificationFailure()
 				goto waitForTick
 			}
-			return
 		}
 
 		if identity.MonitoredValuesExist(loopLogic.MonitoredValues()) {
@@ -267,7 +272,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 				if prevCheckpoint != nil {
 					config.StartIndex = loopLogic.GetStartIndex(prevCheckpoint, curCheckpoint)
 				} else {
-					handleError("no start index set and no log checkpoint", nil, loopLogic.Once())
+					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, just saving checkpoint\n")
 					if !loopLogic.Once() {
 						goto waitForTick
 					}
@@ -280,18 +285,19 @@ func MonitorLoop(loopLogic MonitorLogic) {
 
 			if config.StartIndex != nil && config.EndIndex != nil {
 				if *config.StartIndex > *config.EndIndex {
-					handleError(fmt.Sprintf("start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex), nil, loopLogic.Once())
-					if !loopLogic.Once() {
-						goto waitForTick
+					fmt.Fprintf(os.Stderr, "start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex)
+					if loopLogic.Once() {
+						return
+					} else {
+						server.IncLogIndexVerificationFailure()
 					}
-					return
 				}
 
 				foundEntries, failedEntries, err := loopLogic.IdentitySearch(ctx, config, loopLogic.MonitoredValues())
 				if err != nil {
-					handleError("failed to successfully complete identity search", err, loopLogic.Once())
-					if !loopLogic.Once() {
-						goto waitForTick
+					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v\n", err)
+					if wErr := loopLogic.WriteCheckpoint(prevCheckpoint, curCheckpoint); wErr != nil {
+						fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v\n", wErr)
 					}
 					return
 				}
