@@ -96,6 +96,10 @@ func (l RekorV1MonitorLogic) Once() bool {
 	return l.flags.Once
 }
 
+func (l RekorV1MonitorLogic) MonitorPort() int {
+	return l.flags.MonitorPort
+}
+
 func (l RekorV1MonitorLogic) NotificationContextNew() notifications.NotificationContext {
 	return notifications.CreateNotificationContext(
 		"rekor-monitor",
@@ -179,6 +183,10 @@ func (l RekorV2MonitorLogic) MonitoredValues() identity.MonitoredValues {
 
 func (l RekorV2MonitorLogic) Once() bool {
 	return l.flags.Once
+}
+
+func (l RekorV2MonitorLogic) MonitorPort() int {
+	return l.flags.MonitorPort
 }
 
 func (l RekorV2MonitorLogic) NotificationContextNew() notifications.NotificationContext {
