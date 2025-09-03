@@ -54,8 +54,8 @@ type MonitorLogic interface {
 	NotificationContextNew() notifications.NotificationContext
 	RunConsistencyCheck(ctx context.Context) (Checkpoint, LogInfo, error)
 	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
-	GetStartIndex(prev Checkpoint, cur LogInfo) *int
-	GetEndIndex(cur LogInfo) *int
+	GetStartIndex(prev Checkpoint, cur LogInfo) *int64
+	GetEndIndex(cur LogInfo) *int64
 	IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 }
 

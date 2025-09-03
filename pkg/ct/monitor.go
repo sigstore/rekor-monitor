@@ -25,8 +25,8 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
-func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIndex int, endIndex int) ([]ct.LogEntry, error) {
-	entries, err := logClient.GetEntries(ctx, int64(startIndex), int64(endIndex))
+func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIndex int64, endIndex int64) ([]ct.LogEntry, error) {
+	entries, err := logClient.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving certificate transparency log entries: %v", err)
 	}
@@ -112,7 +112,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int64, endIndex int64, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, err

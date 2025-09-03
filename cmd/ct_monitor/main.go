@@ -100,15 +100,15 @@ func (l CTMonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInfo) er
 	return nil
 }
 
-func (l CTMonitorLogic) GetStartIndex(prev cmd.Checkpoint, _ cmd.LogInfo) *int {
+func (l CTMonitorLogic) GetStartIndex(prev cmd.Checkpoint, _ cmd.LogInfo) *int64 {
 	prevSTH := prev.(*ctgo.SignedTreeHead)
-	checkpointStartIndex := int(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
+	checkpointStartIndex := int64(prevSTH.TreeSize) //nolint: gosec // G115, log will never be large enough to overflow
 	return &checkpointStartIndex
 }
 
-func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int {
+func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	currentSTH := cur.(*ctgo.SignedTreeHead)
-	checkpointEndIndex := int(currentSTH.TreeSize) //nolint: gosec // G115
+	checkpointEndIndex := int64(currentSTH.TreeSize) //nolint: gosec // G115
 	return &checkpointEndIndex
 }
 

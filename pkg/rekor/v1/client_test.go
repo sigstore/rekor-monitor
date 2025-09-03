@@ -45,12 +45,12 @@ func TestGetLogInfo(t *testing.T) {
 }
 
 func TestGetEntriesByIndexRange(t *testing.T) {
-	maxIndex := 100
+	maxIndex := int64(100)
 	var logEntries []*models.LogEntry
 
 	// the contents of the LogEntryAnon don't matter
 	// test will verify the indices returned by looking at the map keys
-	for i := 0; i <= maxIndex; i++ {
+	for i := int64(0); i <= maxIndex; i++ {
 		lea := models.LogEntryAnon{}
 		data := models.LogEntry{
 			fmt.Sprint(i): lea,
@@ -125,9 +125,9 @@ func TestGetEntriesByIndexRange(t *testing.T) {
 
 func Test_min(t *testing.T) {
 	tests := []struct {
-		a      int
-		b      int
-		result int
+		a      int64
+		b      int64
+		result int64
 	}{
 		{
 			a:      1,

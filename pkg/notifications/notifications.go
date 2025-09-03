@@ -90,8 +90,8 @@ type ConfigMonitoredValues struct {
 
 // IdentityMonitorConfiguration holds the configuration settings for an identity monitor workflow run.
 type IdentityMonitorConfiguration struct {
-	StartIndex                *int                       `yaml:"startIndex"`
-	EndIndex                  *int                       `yaml:"endIndex"`
+	StartIndex                *int64                     `yaml:"startIndex"`
+	EndIndex                  *int64                     `yaml:"endIndex"`
 	MonitoredValues           ConfigMonitoredValues      `yaml:"monitoredValues"`
 	OutputIdentitiesFile      string                     `yaml:"outputIdentities"`
 	LogInfoFile               string                     `yaml:"logInfoFile"`
