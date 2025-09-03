@@ -136,13 +136,6 @@ func validateMonitoredValues(t *testing.T, actual, expected notifications.Config
 	}
 }
 
-// patchExit patches exitFunc for tests and tracks if it was called
-func patchExit(called *bool) func() {
-	orig := exitFunc
-	exitFunc = func(int) { *called = true }
-	return func() { exitFunc = orig }
-}
-
 func TestLoadMonitorConfig(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -491,9 +484,6 @@ type TestMonitorLoop struct {
 	config *notifications.IdentityMonitorConfiguration
 	// once flag
 	once *bool
-	// monitorPort flag
-	monitorPort *int
-
 	// Output tracking
 	identitySearchCalled         int
 	notificationContextNewCalled int
@@ -540,10 +530,7 @@ func (b *TestMonitorLoop) Once() bool {
 }
 
 func (b *TestMonitorLoop) MonitorPort() int {
-	if b.monitorPort == nil {
-		return 9464
-	}
-	return *b.monitorPort
+	return 9464
 }
 
 func (b *TestMonitorLoop) NotificationContextNew() notifications.NotificationContext {
@@ -633,9 +620,6 @@ func TestMonitorLoop_BasicExecution(t *testing.T) {
 
 func TestMonitorLoop_ConsistencyCheckError(t *testing.T) {
 	// Test that MonitorLoop handles consistency check errors correctly
-	var calledExit bool
-	defer patchExit(&calledExit)()
-
 	loopLogic := &TestMonitorLoop{
 		runConsistencyError: true,
 	}
@@ -686,8 +670,6 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 
 func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
 	// Test that MonitorLoop handles invalid index ranges correctly
-	var calledExit bool
-	defer patchExit(&calledExit)()
 
 	loopLogic := &TestMonitorLoop{
 		config: &notifications.IdentityMonitorConfiguration{
@@ -769,10 +751,10 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 	}
 	MonitorLoop(loopLogic)
 
-	if loopLogic.runConsistencyCheckCalled != 5 {
+	if loopLogic.runConsistencyCheckCalled != 4 {
 		t.Errorf("Expected 4 consistency check calls, got %d", loopLogic.runConsistencyCheckCalled)
 	}
-	if loopLogic.identitySearchCalled != 4 {
+	if loopLogic.identitySearchCalled != 3 {
 		t.Errorf("Expected 3 identity search calls, got %d", loopLogic.identitySearchCalled)
 	}
 	if loopLogic.writeCheckpointCalled != 3 {

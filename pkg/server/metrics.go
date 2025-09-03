@@ -112,7 +112,7 @@ func StartMetricsServer(ctx context.Context, port int) error {
 	select {
 	case err := <-errCh:
 		return err
-	case <-time.After(100 * time.Millisecond):
+	default:
 		return nil
 	}
 }

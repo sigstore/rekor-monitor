@@ -114,7 +114,3 @@ func TestIncLogIndexVerificationFailure(t *testing.T) {
 		t.Errorf("expected failure counter incremented, got:\n%s", b)
 	}
 }
-
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
-}
