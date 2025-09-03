@@ -240,16 +240,28 @@ func (l RekorV2MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	return nil
 }
 
-func (l RekorV2MonitorLogic) GetStartIndex(_ cmd.Checkpoint, _ cmd.LogInfo) *int64 {
-	return nil
+func (l RekorV2MonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo) *int64 {
+	prevCheckpoint, ok := prev.(*tlog.Checkpoint)
+	if !ok && cur != nil {
+		return nil
+	}
+	index := int64(prevCheckpoint.Size) - 1 //nolint: gosec // G115, log will never be large enough to overflow
+	return &index
 }
 
-func (l RekorV2MonitorLogic) GetEndIndex(_ cmd.LogInfo) *int64 {
-	return nil
+func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
+	// TODO: interface is inconsistent between v1 and v2: cmd.LogInfo interface is used
+	// for LogInfo in v1 LogInfo but for Checkpoint in v2.
+	curCheckpoint, ok := cur.(*tlog.Checkpoint)
+	if !ok && cur != nil {
+		return nil
+	}
+	index := int64(curCheckpoint.Size) - 1 //nolint: gosec // G115, log will never be large enough to overflow
+	return &index
 }
 
-func (l RekorV2MonitorLogic) IdentitySearch(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return nil, nil, nil
+func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	return rekor_v2.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorShards, l.latestShardOrigin, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 }
 
 func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
@@ -299,7 +311,6 @@ func main() {
 	case 1:
 		mainLoopV1(flags, config, trustedRoot)
 	case 2:
-		fmt.Fprintf(os.Stderr, "Warning: the monitor currently only checks for the consistency of the log in Rekor v2 logs.\n")
 		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
 		if err != nil {
 			log.Fatal(err)
@@ -345,13 +356,26 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 }
 
 func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) {
+	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
+	if err != nil {
+		fmt.Printf("error parsing OID matchers: %v", err)
+	}
+
+	monitoredValues := identity.MonitoredValues{
+		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
+		Subjects:              config.MonitoredValues.Subjects,
+		Fingerprints:          config.MonitoredValues.Fingerprints,
+		OIDMatchers:           allOIDMatchers,
+	}
+
+	cmd.PrintMonitoredValues(monitoredValues)
 	rekorV2MonitorLogic := RekorV2MonitorLogic{
 		tufClient:         tufClient,
 		flags:             flags,
 		config:            config,
 		rekorShards:       rekorShards,
 		latestShardOrigin: latestShardOrigin,
-		monitoredValues:   identity.MonitoredValues{},
+		monitoredValues:   monitoredValues,
 	}
 	cmd.MonitorLoop(rekorV2MonitorLogic)
 }
