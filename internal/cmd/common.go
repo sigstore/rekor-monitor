@@ -256,13 +256,12 @@ func MonitorLoop(loopLogic MonitorLogic) {
 		prevCheckpoint, curCheckpoint, err := loopLogic.RunConsistencyCheck(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error running consistency check: %v\n", err)
-			if strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
-				return
-			}
 			if loopLogic.Once() {
 				return
 			} else {
-				server.IncLogIndexVerificationFailure()
+				if !strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
+					server.IncLogIndexVerificationFailure()
+				}
 				goto waitForTick
 			}
 		}
@@ -273,9 +272,6 @@ func MonitorLoop(loopLogic MonitorLogic) {
 					config.StartIndex = loopLogic.GetStartIndex(prevCheckpoint, curCheckpoint)
 				} else {
 					fmt.Fprintf(os.Stderr, "no start index set and no log checkpoint, just saving checkpoint\n")
-					if !loopLogic.Once() {
-						goto waitForTick
-					}
 				}
 			}
 
@@ -286,19 +282,12 @@ func MonitorLoop(loopLogic MonitorLogic) {
 			if config.StartIndex != nil && config.EndIndex != nil {
 				if *config.StartIndex > *config.EndIndex {
 					fmt.Fprintf(os.Stderr, "start index %d must be less or equal than end index %d", *config.StartIndex, *config.EndIndex)
-					if loopLogic.Once() {
-						return
-					} else {
-						server.IncLogIndexVerificationFailure()
-					}
+					return
 				}
 
 				foundEntries, failedEntries, err := loopLogic.IdentitySearch(ctx, config, loopLogic.MonitoredValues())
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v\n", err)
-					if wErr := loopLogic.WriteCheckpoint(prevCheckpoint, curCheckpoint); wErr != nil {
-						fmt.Fprintf(os.Stderr, "failed to write checkpoint: %v\n", wErr)
-					}
 					return
 				}
 
