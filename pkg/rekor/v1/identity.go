@@ -294,18 +294,18 @@ func extractAllIdentities(verifiers []pki.PublicKey) ([]string, []*x509.Certific
 }
 
 // GetCheckpointIndex fetches the index of a checkpoint and returns it.
-func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoint) int {
+func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoint) int64 {
 	// Get log size of inactive shards
-	totalSize := 0
+	totalSize := int64(0)
 	for _, s := range logInfo.InactiveShards {
-		totalSize += int(*s.TreeSize)
+		totalSize += *s.TreeSize
 	}
-	index := int(checkpoint.Size) + totalSize - 1 //nolint: gosec // G115
+	index := int64(checkpoint.Size) + totalSize - 1 //nolint: gosec // G115
 
 	return index
 }
 
-func IdentitySearch(ctx context.Context, startIndex int, endIndex int, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)

@@ -28,7 +28,7 @@ import (
 )
 
 // Helper functions for creating pointers to values
-func intPtr(v int) *int {
+func intPtr(v int64) *int64 {
 	return &v
 }
 
@@ -554,12 +554,12 @@ func (b *TestMonitorLoop) WriteCheckpoint(_ Checkpoint, _ LogInfo) error {
 	return nil
 }
 
-func (b *TestMonitorLoop) GetStartIndex(_ Checkpoint, _ LogInfo) *int {
+func (b *TestMonitorLoop) GetStartIndex(_ Checkpoint, _ LogInfo) *int64 {
 	b.getStartIndexCalled++
 	return intPtr(1)
 }
 
-func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int {
+func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int64 {
 	b.getEndIndexCalled++
 	return intPtr(10)
 }

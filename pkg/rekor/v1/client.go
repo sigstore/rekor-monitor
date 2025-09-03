@@ -44,7 +44,7 @@ func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo
 // GetEntriesByIndexRange fetches all entries by log index, from (start, end]
 // If start == end, returns a single entry for that index
 // Returns error if start > end
-func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, start, end int) ([]models.LogEntry, error) {
+func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, start, end int64) ([]models.LogEntry, error) {
 	if start > end {
 		return nil, fmt.Errorf("start (%d) must be less than or equal to end (%d)", start, end)
 	}
@@ -81,7 +81,7 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 }
 
 // computeMin calculates the minimum of two integers. Preferred over math.Min due to verbose type conversions
-func computeMin(a, b int) int {
+func computeMin(a, b int64) int64 {
 	if a < b {
 		return a
 	}

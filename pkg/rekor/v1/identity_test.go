@@ -928,7 +928,7 @@ func TestGetCheckpointIndex(t *testing.T) {
 	getCheckpointIndicesTests := map[string]struct {
 		inputLogInfo     *models.LogInfo
 		inputCheckpoint  *util.SignedCheckpoint
-		expectedEndIndex int
+		expectedEndIndex int64
 	}{
 		"populated inactive shards": {
 			inputLogInfo:     logInfo,

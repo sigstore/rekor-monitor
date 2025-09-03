@@ -28,7 +28,7 @@ import (
 )
 
 type IdentityMetadata struct {
-	LatestIndex int `json:"latestIndex"`
+	LatestIndex int64 `json:"latestIndex"`
 }
 
 func (idMetadata IdentityMetadata) String() string {
@@ -252,7 +252,7 @@ func ReadIdentityMetadata(metadataFile string) (*IdentityMetadata, error) {
 }
 
 // WriteMatchedIdentityEntries writes a list of matched identities to a file
-func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int) error {
+func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int64) error {
 	if len(matchedEntries) > 0 {
 		for _, idEntry := range matchedEntries {
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())

@@ -138,12 +138,12 @@ func (l RekorV1MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	return nil
 }
 
-func (l RekorV1MonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo) *int {
+func (l RekorV1MonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo) *int64 {
 	checkpointStartIndex := rekor_v1.GetCheckpointIndex(cur.(*models.LogInfo), prev.(*util.SignedCheckpoint))
 	return &checkpointStartIndex
 }
 
-func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int {
+func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	checkpoint, err := rekor_v1.ReadLatestCheckpoint(cur.(*models.LogInfo))
 	if err != nil {
 		return nil
@@ -240,11 +240,11 @@ func (l RekorV2MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	return nil
 }
 
-func (l RekorV2MonitorLogic) GetStartIndex(_ cmd.Checkpoint, _ cmd.LogInfo) *int {
+func (l RekorV2MonitorLogic) GetStartIndex(_ cmd.Checkpoint, _ cmd.LogInfo) *int64 {
 	return nil
 }
 
-func (l RekorV2MonitorLogic) GetEndIndex(_ cmd.LogInfo) *int {
+func (l RekorV2MonitorLogic) GetEndIndex(_ cmd.LogInfo) *int64 {
 	return nil
 }
 
