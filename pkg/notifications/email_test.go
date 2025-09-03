@@ -55,21 +55,18 @@ func TestEmailSendFailureCases(t *testing.T) {
 			SMTPHostURL:           "smtp.mail.com",
 		},
 	}
-	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
-		FoundIdentityEntries: []identity.LogEntry{
-			{
-				CertSubject: "test-cert-subject",
-				UUID:        "test-uuid",
-				Index:       0,
-			},
+	monitoredIdentity := identity.NewMatchedEntries(
+		identity.LogEntry{
+			CertSubject: "test-cert-subject",
+			UUID:        "test-uuid",
+			Index:       0,
 		},
-	}
+	)
 
 	for _, emailNotificationInput := range emailNotificationInputs {
 		notificationData := NotificationData{
 			Context: CreateNotificationContext("test-monitor", "test-subject"),
-			Payload: identity.MonitoredIdentityList{monitoredIdentity},
+			Payload: monitoredIdentity,
 		}
 		err := emailNotificationInput.Send(context.Background(), notificationData)
 		if err == nil {
@@ -85,16 +82,13 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Errorf("error starting server: %v", err)
 	}
-	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
-		FoundIdentityEntries: []identity.LogEntry{
-			{
-				CertSubject: "test-cert-subject",
-				UUID:        "test-uuid",
-				Index:       0,
-			},
+	monitoredIdentity := identity.NewMatchedEntries(
+		identity.LogEntry{
+			CertSubject: "test-cert-subject",
+			UUID:        "test-uuid",
+			Index:       0,
 		},
-	}
+	)
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example-sender@mail.com",
@@ -104,7 +98,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+		Payload: monitoredIdentity,
 	}
 	err := emailNotificationInput.Send(context.Background(), notificationData)
 	if err != nil {
@@ -120,16 +114,13 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Errorf("error starting server: %v", err)
 	}
-	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
-		FoundIdentityEntries: []identity.LogEntry{
-			{
-				CertSubject: "test-cert-subject",
-				UUID:        "test-uuid",
-				Index:       0,
-			},
+	monitoredIdentity := identity.NewMatchedEntries(
+		identity.LogEntry{
+			CertSubject: "test-cert-subject",
+			UUID:        "test-uuid",
+			Index:       0,
 		},
-	}
+	)
 	emailNotificationInput := EmailNotificationInput{
 		RecipientEmailAddress: "test-recipient@mail.com",
 		SenderEmailAddress:    "example-sender@mail.com",
@@ -139,7 +130,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 
 	notificationData := NotificationData{
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
-		Payload: identity.MonitoredIdentityList{monitoredIdentity},
+		Payload: monitoredIdentity,
 	}
 	err := emailNotificationInput.Send(context.Background(), notificationData)
 	if err == nil || !strings.Contains(err.Error(), "421 Service not available") {

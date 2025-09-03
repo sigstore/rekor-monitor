@@ -56,7 +56,7 @@ type MonitorLoopParams struct {
 	WriteCheckpointFn        func(prev Checkpoint, cur LogInfo) error
 	GetStartIndexFn          func(prev Checkpoint, cur LogInfo) *int
 	GetEndIndexFn            func(cur LogInfo) *int
-	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	IdentitySearchFn         func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error)
 }
 
 type MonitorLogic interface {
@@ -69,7 +69,7 @@ type MonitorLogic interface {
 	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
 	GetStartIndex(prev Checkpoint, cur LogInfo) *int
 	GetEndIndex(cur LogInfo) *int
-	IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error)
 }
 
 type Checkpoint interface{}
@@ -218,13 +218,13 @@ func MonitorLoop(loopLogic MonitorLogic) {
 					return
 				}
 
-				if len(foundEntries) > 0 || len(failedEntries) > 0 {
+				if foundEntries.Len() > 0 || len(failedEntries) > 0 {
 					notificationPool := notifications.CreateNotificationPool(*config)
 
-					if len(foundEntries) > 0 {
+					if foundEntries.Len() > 0 {
 						notificationData := notifications.NotificationData{
 							Context: loopLogic.NotificationContextNew(),
-							Payload: identity.MonitoredIdentityList(foundEntries),
+							Payload: foundEntries,
 						}
 
 						err = notifications.TriggerNotifications(notificationPool, notificationData)

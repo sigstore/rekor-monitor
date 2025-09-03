@@ -152,7 +152,7 @@ func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int {
 	return &checkpointEndIndex
 }
 
-func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
 }
 
@@ -248,8 +248,8 @@ func (l RekorV2MonitorLogic) GetEndIndex(_ cmd.LogInfo) *int {
 	return nil
 }
 
-func (l RekorV2MonitorLogic) IdentitySearch(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return nil, nil, nil
+func (l RekorV2MonitorLogic) IdentitySearch(_ context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
+	return identity.MatchedEntries{}, nil, nil
 }
 
 func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {

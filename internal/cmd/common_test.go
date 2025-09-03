@@ -477,7 +477,7 @@ type TestMonitorLoop struct {
 	// RunConsistencyCheckFn for custom RunConsistencyCheck logic (or nil if not set)
 	runConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
 	// IdentitySearchFn for custom IdentitySearch logic (or nil if not set)
-	identitySearchFn func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	identitySearchFn func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error)
 	// Monitored values to return (or default set if nil)
 	monitoredValues *identity.MonitoredValues
 	// config to return (or default set if nil)
@@ -564,7 +564,7 @@ func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int {
 	return intPtr(10)
 }
 
-func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 	b.identitySearchCalled++
 
 	if b.identitySearchFn != nil {
@@ -573,24 +573,21 @@ func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notificati
 
 	// Verify that the monitored values are passed correctly
 	if len(monitoredValues.CertificateIdentities) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 certificate identity, got %d", len(monitoredValues.CertificateIdentities))
+		return identity.MatchedEntries{}, nil, fmt.Errorf("Expected 1 certificate identity, got %d", len(monitoredValues.CertificateIdentities))
 	}
 	if len(monitoredValues.Fingerprints) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 fingerprint, got %d", len(monitoredValues.Fingerprints))
+		return identity.MatchedEntries{}, nil, fmt.Errorf("Expected 1 fingerprint, got %d", len(monitoredValues.Fingerprints))
 	}
 	if len(monitoredValues.Subjects) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 subject, got %d", len(monitoredValues.Subjects))
+		return identity.MatchedEntries{}, nil, fmt.Errorf("Expected 1 subject, got %d", len(monitoredValues.Subjects))
 	}
 
 	// Return some found identities to trigger notifications
-	return []identity.MonitoredIdentity{
-		{
-			Identity: "test-identity",
-			FoundIdentityEntries: []identity.LogEntry{
-				{CertSubject: "test-subject", Index: 5, UUID: "test-uuid"},
-			},
-		},
-	}, nil, nil
+	return identity.NewMatchedEntries(identity.LogEntry{
+		CertSubject: "test-subject",
+		Index:       5,
+		UUID:        "test-uuid",
+	}), nil, nil
 }
 
 func TestMonitorLoop_BasicExecution(t *testing.T) {
@@ -736,12 +733,12 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 				return "prev-checkpoint", "current-checkpoint", nil
 			}
 		},
-		identitySearchFn: func(ctx context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		identitySearchFn: func(ctx context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 			switch ctx.Value(TestContextKey("loopLogic")).(*TestMonitorLoop).identitySearchCalled {
 			case 3:
-				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
+				return identity.MatchedEntries{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
 			default:
-				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, nil
+				return identity.MatchedEntries{}, []identity.FailedLogEntry{}, nil
 			}
 		},
 	}

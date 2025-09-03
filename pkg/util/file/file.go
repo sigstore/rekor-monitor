@@ -252,12 +252,12 @@ func ReadIdentityMetadata(metadataFile string) (*IdentityMetadata, error) {
 }
 
 // WriteMatchedIdentityEntries writes a list of matched identities to a file
-func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int) error {
-	if len(matchedEntries) > 0 {
-		for _, idEntry := range matchedEntries {
-			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
+func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries identity.MatchedEntries, idMetadataFile *string, endIndex int) error {
+	if matchedEntries.Len() > 0 {
+		for _, entry := range matchedEntries.Entries {
+			fmt.Fprintf(os.Stderr, "Found %s\n", entry.String())
 
-			if err := WriteIdentity(identitiesFile, idEntry); err != nil {
+			if err := WriteIdentity(identitiesFile, entry); err != nil {
 				return fmt.Errorf("failed to write entry: %v", err)
 			}
 		}

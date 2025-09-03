@@ -33,22 +33,22 @@ func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIn
 	return entries, nil
 }
 
-func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
+func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) (identity.MatchedEntries, error) {
 	cert := logEntry.X509Cert
 	if cert == nil && logEntry.Precert != nil {
 		cert = logEntry.Precert.TBSCertificate
 	}
 
 	if cert == nil {
-		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
+		return identity.MatchedEntries{}, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
+	matchedEntries := identity.NewMatchedEntries()
 	for _, monitoredCertID := range monitoredCertIDs {
 		match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 		if err != nil {
-			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
+			return identity.MatchedEntries{}, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
 		} else if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
+			matchedEntries.Add(identity.LogEntry{
 				CertSubject: sub,
 				Issuer:      iss,
 				Index:       logEntry.Index,
@@ -58,23 +58,23 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.Cert
 	return matchedEntries, nil
 }
 
-func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
+func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) (identity.MatchedEntries, error) {
 	cert := logEntry.X509Cert
 	if cert == nil && logEntry.Precert != nil {
 		cert = logEntry.Precert.TBSCertificate
 	}
 
 	if cert == nil {
-		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
+		return identity.MatchedEntries{}, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
+	matchedEntries := identity.NewMatchedEntries()
 	for _, monitoredOID := range monitoredOIDMatchers {
 		match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 		if err != nil {
-			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
+			return identity.MatchedEntries{}, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
 		}
 		if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
+			matchedEntries.Add(identity.LogEntry{
 				Index:          logEntry.Index,
 				OIDExtension:   monitoredOID.ObjectIdentifier,
 				ExtensionValue: extValue,
@@ -84,8 +84,8 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	return matchedEntries, nil
 }
 
-func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
-	matchedEntries := []identity.LogEntry{}
+func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
+	matchedEntries := identity.NewMatchedEntries()
 	failedEntries := []identity.FailedLogEntry{}
 	for _, entry := range logEntries {
 		matchedCertSubjectEntries, err := ScanEntryCertSubject(entry, mvs.CertificateIdentities)
@@ -96,7 +96,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 			})
 			continue
 		}
-		matchedEntries = append(matchedEntries, matchedCertSubjectEntries...)
+		matchedEntries.Merge(matchedCertSubjectEntries)
 
 		matchedOIDEntries, err := ScanEntryOIDExtensions(entry, mvs.OIDMatchers)
 		if err != nil {
@@ -106,28 +106,26 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 			})
 			continue
 		}
-		matchedEntries = append(matchedEntries, matchedOIDEntries...)
+		matchedEntries.Merge(matchedOIDEntries)
 	}
 
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int, endIndex int, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) (identity.MatchedEntries, []identity.FailedLogEntry, error) {
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
-		return nil, nil, err
+		return identity.MatchedEntries{}, nil, err
 	}
 	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues)
 	if err != nil {
-		return nil, nil, err
+		return identity.MatchedEntries{}, nil, err
 	}
 
 	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
 	if err != nil {
-		return nil, nil, err
+		return identity.MatchedEntries{}, nil, err
 	}
 
-	identities := identity.CreateIdentitiesList(monitoredValues)
-	monitoredIdentities := identity.CreateMonitoredIdentities(matchedEntries, identities)
-	return monitoredIdentities, failedEntries, nil
+	return matchedEntries, failedEntries, nil
 }
