@@ -19,6 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
+	"github.com/sigstore/rekor-monitor/pkg/server"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -43,6 +45,7 @@ type MonitorFlags struct {
 	UserAgent     string
 	TUFRepository string
 	TUFRootPath   string
+	MonitorPort   int
 }
 
 // MonitorLogic is the interface for the monitor loop logic
@@ -51,6 +54,7 @@ type MonitorLogic interface {
 	Config() *notifications.IdentityMonitorConfiguration
 	MonitoredValues() identity.MonitoredValues
 	Once() bool
+	MonitorPort() int
 	NotificationContextNew() notifications.NotificationContext
 	RunConsistencyCheck(ctx context.Context) (Checkpoint, LogInfo, error)
 	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
@@ -68,6 +72,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	configYamlInput := flag.String("config", "", "string with YAML configuration containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
 	logInfoFile := flag.String("file", "", "path to the initial log info checkpoint file to be read from")
+	monitorPort := flag.Int("monitor-port", 9464, "Port for the Prometheus metrics server")
 	serverURL := flag.String("url", defaultServerURL, "URL to the server that is to be monitored")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
@@ -88,6 +93,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 		ConfigYaml:    *configYamlInput,
 		Once:          *once,
 		LogInfoFile:   *logInfoFile,
+		MonitorPort:   *monitorPort,
 		ServerURL:     *serverURL,
 		Interval:      *interval,
 		UserAgent:     finalUserAgent,
@@ -167,17 +173,31 @@ func MonitorLoop(loopLogic MonitorLogic) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if !loopLogic.Once() {
+		if err := server.StartMetricsServer(ctx, loopLogic.MonitorPort()); err != nil {
+			log.Fatalf("Failed to start Prometheus metrics server: %v", err)
+		}
+	}
+
 	config := loopLogic.Config()
 
 	// To get an immediate first tick, for-select is at the end of the loop
 	for {
 		fmt.Fprint(os.Stderr, "New monitor run at ", time.Now().Format(time.RFC3339), "\n")
+		server.IncLogIndexVerificationTotal()
 		inputEndIndex := config.EndIndex
 
 		prevCheckpoint, curCheckpoint, err := loopLogic.RunConsistencyCheck(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error running consistency check: %v", err)
-			return
+			fmt.Fprintf(os.Stderr, "error running consistency check: %v\n", err)
+			if loopLogic.Once() {
+				return
+			} else {
+				if !strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
+					server.IncLogIndexVerificationFailure()
+				}
+				goto waitForTick
+			}
 		}
 
 		if identity.MonitoredValuesExist(loopLogic.MonitoredValues()) {
@@ -201,7 +221,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 
 				foundEntries, failedEntries, err := loopLogic.IdentitySearch(ctx, config, loopLogic.MonitoredValues())
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v", err)
+					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v\n", err)
 					return
 				}
 
@@ -252,6 +272,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 			return
 		}
 
+	waitForTick:
 		select {
 		case <-ticker.C:
 			continue

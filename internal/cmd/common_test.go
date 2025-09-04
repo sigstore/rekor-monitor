@@ -484,7 +484,6 @@ type TestMonitorLoop struct {
 	config *notifications.IdentityMonitorConfiguration
 	// once flag
 	once *bool
-
 	// Output tracking
 	identitySearchCalled         int
 	notificationContextNewCalled int
@@ -528,6 +527,10 @@ func (b *TestMonitorLoop) Once() bool {
 		return true
 	}
 	return *b.once
+}
+
+func (b *TestMonitorLoop) MonitorPort() int {
+	return 9464
 }
 
 func (b *TestMonitorLoop) NotificationContextNew() notifications.NotificationContext {
@@ -667,6 +670,7 @@ func TestMonitorLoop_NoMonitoredValues(t *testing.T) {
 
 func TestMonitorLoop_InvalidIndexRange(t *testing.T) {
 	// Test that MonitorLoop handles invalid index ranges correctly
+
 	loopLogic := &TestMonitorLoop{
 		config: &notifications.IdentityMonitorConfiguration{
 			StartIndex: intPtr(20),
