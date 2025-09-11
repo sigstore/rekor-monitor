@@ -105,28 +105,6 @@ func TestWriteAndReadRekorV1(t *testing.T) {
 	}
 }
 
-func TestDeleteOldCheckpoints(t *testing.T) {
-	f := filepath.Join(t.TempDir(), "logfile")
-	file, _ := os.OpenFile(f, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	// log size will be 200 by end of loop
-	for i := 0; i < 200; i++ {
-		file.WriteString("\n")
-	}
-	fi, _ := os.Stat(f)
-	if fi.Size() != 200 {
-		t.Fatalf("log size should be 200, got %d", fi.Size())
-	}
-
-	if err := DeleteOldCheckpoints(f); err != nil {
-		t.Fatalf("error deleting: %v", err)
-	}
-
-	fi, _ = os.Stat(f)
-	if fi.Size() != 100 {
-		t.Fatalf("log size should be 100, got %d", fi.Size())
-	}
-}
-
 func TestReadWriteCTSignedTreeHead(t *testing.T) {
 	sth := &ct.SignedTreeHead{
 		TreeSize: 1,
