@@ -129,6 +129,12 @@ func (l RekorV1MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 		return fmt.Errorf("failed to read latest checkpoint: %v", err)
 	}
 
+	// Skip writing if the current checkpoint size is 0
+	if curCheckpoint.Size == 0 {
+		fmt.Fprintf(os.Stderr, "skipping write of checkpoint: size is 0\n")
+		return nil
+	}
+
 	// TODO: Switch to writing checkpoints to GitHub so that the history is preserved. Then we only need
 	// to persist the last checkpoint.
 	if err := file.WriteCheckpointRekorV1(curCheckpoint, prevCheckpoint, l.flags.LogInfoFile, false); err != nil {
@@ -234,6 +240,13 @@ func (l RekorV2MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	if !ok {
 		return fmt.Errorf("cur is not a Checkpoint")
 	}
+
+	// Skip writing if the current checkpoint size is 0
+	if curCheckpoint.Size == 0 {
+		fmt.Fprintf(os.Stderr, "skipping write of checkpoint: size is 0\n")
+		return nil
+	}
+
 	if err := file.WriteCheckpointRekorV2(curCheckpoint, prevCheckpoint, l.flags.LogInfoFile, false); err != nil {
 		return fmt.Errorf("failed to write checkpoint: %v", err)
 	}
