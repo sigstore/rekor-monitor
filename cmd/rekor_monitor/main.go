@@ -153,7 +153,7 @@ func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.TrustedCAs)
 }
 
 type RekorV2MonitorLogic struct {
