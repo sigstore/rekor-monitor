@@ -43,6 +43,7 @@ type MonitorFlags struct {
 	UserAgent     string
 	TUFRepository string
 	TUFRootPath   string
+	TrustedCAs    []string
 }
 
 // MonitorLogic is the interface for the monitor loop logic
@@ -73,6 +74,11 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default', 'staging' or a custom TUF repository URL.")
 	tufRootPath := flag.String("tuf-root-path", "", "path to the trusted root file (passed out of bounds), if custom TUF repository is used")
+	var trustedCAs []string
+	flag.Func("trusted-ca", "path to the trusted CA file (can be specified multiple times)", func(val string) error {
+		trustedCAs = append(trustedCAs, val)
+		return nil
+	})
 	flag.Parse()
 
 	finalUserAgent := strings.TrimSpace(fmt.Sprintf("%s/%s (%s; %s) %s",
@@ -93,6 +99,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 		UserAgent:     finalUserAgent,
 		TUFRepository: *tufRepository,
 		TUFRootPath:   *tufRootPath,
+		TrustedCAs:    trustedCAs,
 	}
 }
 
@@ -124,6 +131,10 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = defaultOutputFile
+	}
+
+	if flags.TrustedCAs != nil {
+		config.TrustedCAs = flags.TrustedCAs
 	}
 
 	if err := config.Validate(); err != nil {

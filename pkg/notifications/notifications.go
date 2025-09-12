@@ -23,7 +23,9 @@ package notifications
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
+	"os"
 	"regexp"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
@@ -100,6 +102,7 @@ type IdentityMonitorConfiguration struct {
 	EmailNotificationSMTP     *EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  *MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
 	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
+	TrustedCAs                []string                   `yaml:"trustedCAs"`
 }
 
 func (c *IdentityMonitorConfiguration) Validate() error {
@@ -118,6 +121,21 @@ func (c *IdentityMonitorConfiguration) Validate() error {
 	for _, subject := range c.MonitoredValues.Subjects {
 		if _, err := regexp.Compile(subject); err != nil {
 			return fmt.Errorf("invalid subject regex %s: %v", subject, err)
+		}
+	}
+	// Validate TrustedCAs files
+	for _, trustedCA := range c.TrustedCAs {
+		if _, err := os.Stat(trustedCA); err != nil {
+			return fmt.Errorf("invalid trusted CA file %s: %v", trustedCA, err)
+		}
+		// Check if the file is a valid PEM file
+		caBytes, err := os.ReadFile(trustedCA)
+		if err != nil {
+			return fmt.Errorf("failed to read trusted CA file %s: %v", trustedCA, err)
+		}
+		block, _ := pem.Decode(caBytes)
+		if block == nil {
+			return fmt.Errorf("invalid trusted CA file %s: not a valid PEM file", trustedCA)
 		}
 	}
 	return nil
