@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -127,7 +126,7 @@ func MatchLogEntryOIDs(logEntryAnon models.LogEntryAnon, uuid string, entryCerti
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
 func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
-	if err := verifyMonitoredValues(mvs); err != nil {
+	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
 
@@ -194,57 +193,6 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues) 
 	}
 
 	return matchedEntries, failedEntries, nil
-}
-
-// verifyMonitoredValues checks that monitored values are valid
-func verifyMonitoredValues(mvs identity.MonitoredValues) error {
-	if !identity.MonitoredValuesExist(mvs) {
-		return errors.New("no identities provided to monitor")
-	}
-	for _, certID := range mvs.CertificateIdentities {
-		if len(certID.CertSubject) == 0 {
-			return errors.New("certificate subject empty")
-		}
-		// issuers can be empty
-		for _, iss := range certID.Issuers {
-			if len(iss) == 0 {
-				return errors.New("issuer empty")
-			}
-		}
-	}
-	for _, fp := range mvs.Fingerprints {
-		if len(fp) == 0 {
-			return errors.New("fingerprint empty")
-		}
-	}
-	for _, sub := range mvs.Subjects {
-		if len(sub) == 0 {
-			return errors.New("subject empty")
-		}
-	}
-	err := verifyMonitoredOIDs(mvs)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
-func verifyMonitoredOIDs(mvs identity.MonitoredValues) error {
-	for _, oidMatcher := range mvs.OIDMatchers {
-		if len(oidMatcher.ObjectIdentifier) == 0 {
-			return errors.New("oid extension empty")
-		}
-		if len(oidMatcher.ExtensionValues) == 0 {
-			return errors.New("oid matched values empty")
-		}
-		for _, extensionValue := range oidMatcher.ExtensionValues {
-			if len(extensionValue) == 0 {
-				return errors.New("oid matched value empty")
-			}
-		}
-	}
-	return nil
 }
 
 // extractVerifiers extracts a set of keys or certificates that can verify an
