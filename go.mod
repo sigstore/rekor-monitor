@@ -12,12 +12,12 @@ require (
 	github.com/mocktools/go-smtp-mock/v2 v2.5.1
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/sigstore/rekor v1.4.0
-	github.com/sigstore/rekor-tiles v0.1.11-0.20250902195131-5b5645d06c87
+	github.com/sigstore/rekor-tiles v0.1.11
 	github.com/sigstore/sigstore v1.9.6-0.20250729224751-181c5d3339b3
 	github.com/sigstore/sigstore-go v1.1.2-0.20250811211025-bac873564adb
 	github.com/transparency-dev/formats v0.0.0-20250728090553-b6e25248e362
 	github.com/transparency-dev/merkle v0.0.2
-	github.com/transparency-dev/tessera v1.0.0-rc2
+	github.com/transparency-dev/tessera v1.0.0-rc3
 	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/mod v0.28.0
 	google.golang.org/protobuf v1.36.8
@@ -92,8 +92,8 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/cobra v1.9.1 // indirect
-	github.com/spf13/pflag v1.0.7 // indirect
+	github.com/spf13/cobra v1.10.1 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spf13/viper v1.20.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
@@ -113,7 +113,7 @@ require (
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
