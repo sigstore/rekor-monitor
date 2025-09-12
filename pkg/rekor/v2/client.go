@@ -233,7 +233,7 @@ func GetEntriesByIndexRange(ctx context.Context, shard ShardInfo, start, end int
 		// A partial bundle size of 0 means the start tile was read in full,
 		// so no need to read it again. Otherwise, we've only read the tile
 		// partially, and we need to read the remaining entries.
-		if partialBundleSize > 0 && partialBundleSize < 255 {
+		if partialBundleSize > 0 {
 			allStartEntries, err := getEntriesFromTile(ctx, shard, startTileIndex, 0)
 			if err != nil {
 				return nil, fmt.Errorf("error getting bundle for tile: %d. Error: %v", startTileIndex, err)

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -245,6 +246,9 @@ func (l RekorV2MonitorLogic) GetStartIndex(prev cmd.Checkpoint, cur cmd.LogInfo)
 	if !ok && cur != nil {
 		return nil
 	}
+	if prevCheckpoint.Size <= 0 || prevCheckpoint.Size > math.MaxInt64 {
+		return nil
+	}
 	index := int64(prevCheckpoint.Size) - 1 //nolint: gosec // G115, log will never be large enough to overflow
 	return &index
 }
@@ -254,6 +258,9 @@ func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	// for LogInfo in v1 LogInfo but for Checkpoint in v2.
 	curCheckpoint, ok := cur.(*tlog.Checkpoint)
 	if !ok && cur != nil {
+		return nil
+	}
+	if curCheckpoint.Size <= 0 || curCheckpoint.Size > math.MaxInt64 {
 		return nil
 	}
 	index := int64(curCheckpoint.Size) - 1 //nolint: gosec // G115, log will never be large enough to overflow
