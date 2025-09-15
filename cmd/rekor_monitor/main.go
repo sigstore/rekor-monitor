@@ -308,6 +308,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	cleanupTrustedCAs, err := cmd.ConfigureTrustedCAs(config, trustedRoot)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cleanupTrustedCAs()
+
 	allRekorServices := signingConfig.RekorLogURLs()
 	rekorVersion := getRekorVersion(allRekorServices, flags.ServerURL)
 	if flags.LogInfoFile == "" {

@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"os"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -152,6 +154,59 @@ func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFil
 		return nil, nil, err
 	}
 	return flags, config, nil
+}
+
+// ConfigureTrustedCAs configures the trusted CAs for the monitor, by either
+// using the configured CAs or, if they were not explicitly defined, using the
+// default one from the TUF data.
+func ConfigureTrustedCAs(config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) (func(), error) {
+	if config.TrustedCAs != nil {
+		return func() {}, nil
+	}
+
+	var tempFiles []string
+
+	for _, ca := range trustedRoot.FulcioCertificateAuthorities() {
+		fulcioCA := ca.(*root.FulcioCertificateAuthority)
+		tmpFile, err := os.CreateTemp("", "fulcio-root-*.pem")
+		if err != nil {
+			for _, name := range tempFiles {
+				os.Remove(name)
+			}
+			return nil, fmt.Errorf("failed to create temp file for Fulcio CA: %w", err)
+		}
+		// Write the root certificate
+		if err := pem.Encode(tmpFile, &pem.Block{Type: "CERTIFICATE", Bytes: fulcioCA.Root.Raw}); err != nil {
+			tmpFile.Close()
+			for _, name := range tempFiles {
+				os.Remove(name)
+			}
+			os.Remove(tmpFile.Name())
+			return nil, fmt.Errorf("failed to write Fulcio CA root to temp file: %w", err)
+		}
+		// Write any intermediate certificates
+		for _, intermediate := range fulcioCA.Intermediates {
+			if err := pem.Encode(tmpFile, &pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}); err != nil {
+				tmpFile.Close()
+				for _, name := range tempFiles {
+					os.Remove(name)
+				}
+				os.Remove(tmpFile.Name())
+				return nil, fmt.Errorf("failed to write Fulcio CA intermediate to temp file: %w", err)
+			}
+		}
+		tmpFile.Close()
+		config.TrustedCAs = append(config.TrustedCAs, tmpFile.Name())
+		tempFiles = append(tempFiles, tmpFile.Name())
+	}
+
+	cleanup := func() {
+		for _, name := range tempFiles {
+			os.Remove(name)
+		}
+	}
+
+	return cleanup, nil
 }
 
 // PrintMonitoredValues prints the monitored values to the console
