@@ -954,7 +954,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	trustedCAFile.Close()
 
 	// Create log entries for both certificates
-	createLogEntry := func(cert *x509.Certificate, key *ecdsa.PrivateKey, subject string, uuid string) models.LogEntry {
+	createLogEntry := func(cert *x509.Certificate, key *ecdsa.PrivateKey, uuid string) models.LogEntry {
 		signer, err := signature.LoadECDSASignerVerifier(key, crypto.SHA256)
 		if err != nil {
 			t.Fatal(err)
@@ -996,8 +996,8 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 		return models.LogEntry{uuid: logEntryAnon}
 	}
 
-	trustedLogEntry := createLogEntry(trustedLeafCert, trustedLeafKey, trustedSubject, "trusted-uuid")
-	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, untrustedSubject, "untrusted-uuid")
+	trustedLogEntry := createLogEntry(trustedLeafCert, trustedLeafKey, "trusted-uuid")
+	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, "untrusted-uuid")
 
 	// Test with trusted CAs provided - should only match trusted certificate
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
