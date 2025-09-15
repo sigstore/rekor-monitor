@@ -234,6 +234,57 @@ func MonitoredValuesExist(mvs MonitoredValues) bool {
 	return false
 }
 
+// verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
+func verifyMonitoredOIDs(mvs MonitoredValues) error {
+	for _, oidMatcher := range mvs.OIDMatchers {
+		if len(oidMatcher.ObjectIdentifier) == 0 {
+			return errors.New("oid extension empty")
+		}
+		if len(oidMatcher.ExtensionValues) == 0 {
+			return errors.New("oid matched values empty")
+		}
+		for _, extensionValue := range oidMatcher.ExtensionValues {
+			if len(extensionValue) == 0 {
+				return errors.New("oid matched value empty")
+			}
+		}
+	}
+	return nil
+}
+
+// VerifyMonitoredValues checks that monitored values are valid
+func VerifyMonitoredValues(mvs MonitoredValues) error {
+	if !MonitoredValuesExist(mvs) {
+		return errors.New("no identities provided to monitor")
+	}
+	for _, certID := range mvs.CertificateIdentities {
+		if len(certID.CertSubject) == 0 {
+			return errors.New("certificate subject empty")
+		}
+		// issuers can be empty
+		for _, iss := range certID.Issuers {
+			if len(iss) == 0 {
+				return errors.New("issuer empty")
+			}
+		}
+	}
+	for _, fp := range mvs.Fingerprints {
+		if len(fp) == 0 {
+			return errors.New("fingerprint empty")
+		}
+	}
+	for _, sub := range mvs.Subjects {
+		if len(sub) == 0 {
+			return errors.New("subject empty")
+		}
+	}
+	err := verifyMonitoredOIDs(mvs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // getExtension gets a certificate extension by OID where the extension value is an
 // ASN.1-encoded string
 func getExtension[Certificate *x509.Certificate | *google_x509.Certificate](certificate Certificate, oid asn1.ObjectIdentifier) (string, error) {
