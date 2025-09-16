@@ -200,7 +200,7 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, trustedCAs
 
 		// Validate that the certificate chain up to a trusted CA
 		if err := identity.ValidateCertificateChain(certs, trustedCAs); err != nil {
-			fmt.Fprintf(os.Stderr, "error validating certificate chain for log entry at index %d: %v\n", entry.Index, err)
+			fmt.Fprintf(os.Stderr, "Certificate chain for log entry (Index: %d) could not be verified against trusted CAs, skipping the entry: %v\n", entry.Index, err)
 			continue
 		}
 
