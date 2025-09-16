@@ -30,6 +30,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -154,6 +155,34 @@ func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFil
 		return nil, nil, err
 	}
 	return flags, config, nil
+}
+
+// GetTUFClient gets a TUF client based on the flags
+func GetTUFClient(flags *MonitorFlags) (*tuf.Client, error) {
+	switch flags.TUFRepository {
+	case "default":
+		if flags.TUFRootPath != "" {
+			return nil, fmt.Errorf("tuf-root-path is not supported when using the default TUF repository")
+		}
+		return tuf.DefaultClient()
+	case "staging":
+		if flags.TUFRootPath != "" {
+			return nil, fmt.Errorf("tuf-root-path is not supported when using the staging TUF repository")
+		}
+		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
+		return tuf.New(options)
+	default:
+		fmt.Printf("Using custom TUF repository: %s\n", flags.TUFRepository)
+		if flags.TUFRootPath == "" {
+			return nil, fmt.Errorf("tuf-root-path is required when using a custom TUF repository")
+		}
+		rootBytes, err := os.ReadFile(flags.TUFRootPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read TUF root path: %w", err)
+		}
+		options := tuf.DefaultOptions().WithRoot(rootBytes).WithRepositoryBaseURL(flags.TUFRepository)
+		return tuf.New(options)
+	}
 }
 
 // ConfigureTrustedCAs configures the trusted CAs for the monitor, by either

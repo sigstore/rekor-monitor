@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -413,15 +414,33 @@ func getSubjectAlternateNames[Certificate *x509.Certificate | *google_x509.Certi
 	return sans
 }
 
-func getCertPool(trustedCAs []string) (*x509.CertPool, error) {
-	roots := x509.NewCertPool()
+func getCertPool[T *x509.CertPool | *google_x509.CertPool](trustedCAs []string) (T, error) {
+	var roots T
+	switch any(roots).(type) {
+	case *x509.CertPool:
+		roots = any(x509.NewCertPool()).(T)
+	case *google_x509.CertPool:
+		roots = any(google_x509.NewCertPool()).(T)
+	default:
+		return nil, fmt.Errorf("unsupported CertPool type")
+	}
+
 	for _, caPath := range trustedCAs {
 		caBytes, err := os.ReadFile(caPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read trusted CA file %q: %w", caPath, err)
 		}
-		if !roots.AppendCertsFromPEM(caBytes) {
-			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
+		switch pool := any(roots).(type) {
+		case *x509.CertPool:
+			if !pool.AppendCertsFromPEM(caBytes) {
+				return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
+			}
+		case *google_x509.CertPool:
+			if !pool.AppendCertsFromPEM(caBytes) {
+				return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported CertPool type")
 		}
 	}
 	return roots, nil
@@ -433,22 +452,49 @@ func ValidateCertificateChain(certs []*x509.Certificate, trustedCAs []string) er
 		return nil // No trusted CAs or no certs, skip validation
 	}
 
-	roots, err := getCertPool(trustedCAs)
+	roots, err := getCertPool[*x509.CertPool](trustedCAs)
 	if err != nil {
 		return err
 	}
 
-	// Try to verify each certificate in the chain against the trusted roots.
 	for _, cert := range certs {
 		opts := x509.VerifyOptions{
 			CurrentTime: cert.NotBefore,
 			Roots:       roots,
-			KeyUsages: []x509.ExtKeyUsage{
-				x509.ExtKeyUsageCodeSigning,
-			},
+			KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		}
 		if _, err := cert.Verify(opts); err == nil {
-			return nil // At least one cert is signed by a trusted CA
+			return nil
+		}
+	}
+
+	return errors.New("no certificate in the chain is signed by a trusted CA")
+}
+
+func ValidatePreCertificateChain(certs []*google_x509.Certificate, trustedCAs []string) error {
+	if len(trustedCAs) == 0 || len(certs) == 0 {
+		return nil // No trusted CAs or no certs, skip validation
+	}
+
+	roots, err := getCertPool[*google_x509.CertPool](trustedCAs)
+	if err != nil {
+		return err
+	}
+
+	for _, cert := range certs {
+		opts := google_x509.VerifyOptions{
+			DisableTimeChecks:              true,
+			DisableCriticalExtensionChecks: true,
+			DisableEKUChecks:               true,
+			DisablePathLenChecks:           true,
+			DisableNameConstraintChecks:    true,
+			DisableNameChecks:              false,
+			CurrentTime:                    time.Now(),
+			Roots:                          roots,
+			KeyUsages:                      []google_x509.ExtKeyUsage{google_x509.ExtKeyUsageCodeSigning},
+		}
+		if _, err := cert.Verify(opts); err == nil {
+			return nil
 		}
 	}
 

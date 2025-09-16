@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"os"
 	"time"
 
 	"github.com/sigstore/rekor-monitor/internal/cmd"
@@ -46,32 +45,6 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 	logInfoFileNamePrefix    = "logInfo"
 )
-
-func getTUFClient(flags *cmd.MonitorFlags) (*tuf.Client, error) {
-	switch flags.TUFRepository {
-	case "default":
-		if flags.TUFRootPath != "" {
-			log.Fatal("tuf-root-path is not supported when using the default TUF repository")
-		}
-		return tuf.DefaultClient()
-	case "staging":
-		if flags.TUFRootPath != "" {
-			log.Fatal("tuf-root-path is not supported when using the staging TUF repository")
-		}
-		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
-		return tuf.New(options)
-	default:
-		if flags.TUFRootPath == "" {
-			log.Fatal("tuf-root-path is required when using a custom TUF repository")
-		}
-		rootBytes, err := os.ReadFile(flags.TUFRootPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		options := tuf.DefaultOptions().WithRoot(rootBytes).WithRepositoryBaseURL(flags.TUFRepository)
-		return tuf.New(options)
-	}
-}
 
 type RekorV1MonitorLogic struct {
 	rekorClient     *rekor_client.Rekor
@@ -294,7 +267,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tufClient, err := getTUFClient(flags)
+	tufClient, err := cmd.GetTUFClient(flags)
 	if err != nil {
 		log.Fatal(err)
 	}
