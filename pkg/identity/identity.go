@@ -64,16 +64,27 @@ type MonitoredValues struct {
 	OIDMatchers []extensions.OIDExtension `yaml:"oidMatchers"`
 }
 
+type MatchedIdentityType string
+
+const (
+	MatchedIdentityTypeCertSubject    MatchedIdentityType = "certSubject"
+	MatchedIdentityTypeExtensionValue MatchedIdentityType = "extensionValue"
+	MatchedIdentityTypeFingerprint    MatchedIdentityType = "fingerprint"
+	MatchedIdentityTypeSubject        MatchedIdentityType = "subject"
+)
+
 // LogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
 type LogEntry struct {
-	CertSubject    string
-	Issuer         string
-	Fingerprint    string
-	Subject        string
-	Index          int64
-	UUID           string
-	OIDExtension   asn1.ObjectIdentifier
-	ExtensionValue string
+	MatchedIdentity     string
+	MatchedIdentityType MatchedIdentityType
+	CertSubject         string
+	Issuer              string
+	Fingerprint         string
+	Subject             string
+	Index               int64
+	UUID                string
+	OIDExtension        asn1.ObjectIdentifier
+	ExtensionValue      string
 }
 
 func (e *LogEntry) String() string {
@@ -170,8 +181,13 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 
 	monitoredIdentityMap := make(map[string][]LogEntry)
 	for _, idEntry := range inputIdentityEntries {
-		switch {
-		case identityMap[idEntry.CertSubject]:
+		if _, ok := identityMap[idEntry.MatchedIdentity]; !ok {
+			fmt.Fprintf(os.Stderr, "Matched identity %s not found in identity map\n", idEntry.MatchedIdentity)
+			continue
+		}
+
+		switch idEntry.MatchedIdentityType {
+		case MatchedIdentityTypeCertSubject:
 			idCertSubject := idEntry.CertSubject
 			_, ok := monitoredIdentityMap[idCertSubject]
 			if ok {
@@ -179,7 +195,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 			} else {
 				monitoredIdentityMap[idCertSubject] = []LogEntry{idEntry}
 			}
-		case identityMap[idEntry.ExtensionValue]:
+		case MatchedIdentityTypeExtensionValue:
 			idExtValue := idEntry.ExtensionValue
 			_, ok := monitoredIdentityMap[idExtValue]
 			if ok {
@@ -187,7 +203,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 			} else {
 				monitoredIdentityMap[idExtValue] = []LogEntry{idEntry}
 			}
-		case identityMap[idEntry.Fingerprint]:
+		case MatchedIdentityTypeFingerprint:
 			idFingerprint := idEntry.Fingerprint
 			_, ok := monitoredIdentityMap[idFingerprint]
 			if ok {
@@ -195,7 +211,7 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 			} else {
 				monitoredIdentityMap[idFingerprint] = []LogEntry{idEntry}
 			}
-		case identityMap[idEntry.Subject]:
+		case MatchedIdentityTypeSubject:
 			idSubject := idEntry.Subject
 			_, ok := monitoredIdentityMap[idSubject]
 			if ok {

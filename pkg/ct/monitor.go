@@ -49,9 +49,11 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.Cert
 			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
 		} else if match {
 			matchedEntries = append(matchedEntries, identity.LogEntry{
-				CertSubject: sub,
-				Issuer:      iss,
-				Index:       logEntry.Index,
+				MatchedIdentity:     monitoredCertID.CertSubject,
+				MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
+				CertSubject:         sub,
+				Issuer:              iss,
+				Index:               logEntry.Index,
 			})
 		}
 	}
@@ -75,9 +77,11 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 		}
 		if match {
 			matchedEntries = append(matchedEntries, identity.LogEntry{
-				Index:          logEntry.Index,
-				OIDExtension:   monitoredOID.ObjectIdentifier,
-				ExtensionValue: extValue,
+				MatchedIdentity:     extValue,
+				MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
+				Index:               logEntry.Index,
+				OIDExtension:        monitoredOID.ObjectIdentifier,
+				ExtensionValue:      extValue,
 			})
 		}
 	}
