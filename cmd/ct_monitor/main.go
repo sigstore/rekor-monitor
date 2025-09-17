@@ -151,7 +151,8 @@ func main() {
 		UserAgent: flags.UserAgent,
 	})
 	if err != nil {
-		log.Fatalf("getting Fulcio client: %v", err)
+		log.Printf("getting Fulcio client: %v", err)
+		return
 	}
 
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()

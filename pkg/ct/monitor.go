@@ -99,8 +99,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRo
 					continue
 				}
 			}
-		}
-		if entry.Precert != nil {
+		} else if entry.Precert != nil {
 			cert, err := google_x509.ParseCertificate(entry.Precert.Submitted.Data)
 			if err == nil {
 				if err = identity.ValidatePreCertificateChain([]*google_x509.Certificate{cert}, caRoots, caIntermediates); err != nil {
