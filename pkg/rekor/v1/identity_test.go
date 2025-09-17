@@ -101,7 +101,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 			{
 				CertSubject: subject,
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -131,7 +131,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 				CertSubject: subject,
 				Issuers:     []string{issuer},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -149,7 +149,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 				CertSubject: ".*ubje.*",
 				Issuers:     []string{".+@domain.com"},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -196,7 +196,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 					CertSubject: ".*ubje.*",
 					Issuers:     []string{".+@domain.com"},
 				},
-			}}, []string{})
+			}}, "", "")
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
@@ -226,7 +226,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, []string{})
+		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
@@ -293,7 +293,7 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 				CertSubject: subject,
 				Issuers:     []string{issuer},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -371,7 +371,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			fp,
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -395,7 +395,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			"other-fp",
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching fingerprints, got %v", err)
 	}
@@ -456,7 +456,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			subject,
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -480,7 +480,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			"other-sub",
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching subjects, got %v", err)
 	}
@@ -556,7 +556,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -592,7 +592,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, []string{})
+		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -674,7 +674,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -703,7 +703,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -786,7 +786,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: renderedOIDMatchers}, []string{})
+		OIDMatchers: renderedOIDMatchers}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -820,7 +820,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: renderedOIDMatchers}, []string{})
+		OIDMatchers: renderedOIDMatchers}, "", "")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -901,7 +901,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 
 	for name, testCase := range monitoredValuesTests {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := MatchedIndices(nil, testCase.input, []string{})
+			_, _, err := MatchedIndices(nil, testCase.input, "", "")
 			if err == nil || !strings.Contains(err.Error(), testCase.errorString) {
 				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
 			}
@@ -1007,7 +1007,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 				Issuers:     []string{issuer},
 			},
 		},
-	}, []string{trustedCAFile.Name()})
+	}, trustedCAFile.Name(), "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1031,7 +1031,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 				Issuers:     []string{issuer},
 			},
 		},
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1051,6 +1051,137 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	}
 	if !subjects[trustedSubject] || !subjects[untrustedSubject] {
 		t.Fatalf("expected both subjects to be present, got %v", subjects)
+	}
+}
+
+func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
+	// Create trusted root CA
+	trustedRootCert, trustedRootKey, err := test.GenerateRootCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create untrusted root CA
+	untrustedRootCert, untrustedRootKey, err := test.GenerateRootCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create leaf certificates signed by both root CAs
+	trustedSubject := "trusted@example.com"
+	untrustedSubject := "untrusted@example.com"
+	issuer := "oidc-issuer@domain.com"
+
+	trustedLeafCert, trustedLeafKey, err := test.GenerateLeafCert(trustedSubject, issuer, trustedRootCert, trustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	untrustedLeafCert, untrustedLeafKey, err := test.GenerateLeafCert(untrustedSubject, issuer, untrustedRootCert, untrustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create temporary file for the trusted root CA
+	trustedRootFile, err := os.CreateTemp("", "trusted-root-ca-*.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(trustedRootFile.Name())
+
+	trustedRootPEM, err := cryptoutils.MarshalCertificateToPEM(trustedRootCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := trustedRootFile.Write(trustedRootPEM); err != nil {
+		t.Fatal(err)
+	}
+	trustedRootFile.Close()
+
+	// Create temporary file for the untrusted root CA (as "intermediate")
+	untrustedRootFile, err := os.CreateTemp("", "untrusted-root-ca-*.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(untrustedRootFile.Name())
+
+	untrustedRootPEM, err := cryptoutils.MarshalCertificateToPEM(untrustedRootCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := untrustedRootFile.Write(untrustedRootPEM); err != nil {
+		t.Fatal(err)
+	}
+	untrustedRootFile.Close()
+
+	// Create log entries for both certificates
+	createLogEntry := func(cert *x509.Certificate, key *ecdsa.PrivateKey, uuid string) models.LogEntry {
+		signer, err := signature.LoadECDSASignerVerifier(key, crypto.SHA256)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pemCert, _ := cryptoutils.MarshalCertificateToPEM(cert)
+
+		payload := []byte{1, 2, 3, 4}
+		sig, err := signer.SignMessage(bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		hashedrekord := &hashedrekord_v001.V001Entry{}
+		hash := sha256.Sum256(payload)
+		pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+			ArtifactHash:   hex.EncodeToString(hash[:]),
+			SignatureBytes: sig,
+			PublicKeyBytes: [][]byte{pemCert},
+			PKIFormat:      "x509",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := types.UnmarshalEntry(pe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		leaf, err := entry.Canonicalize(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		integratedTime := time.Now()
+		logIndex := int64(1234)
+		logEntryAnon := models.LogEntryAnon{
+			Body:           base64.StdEncoding.EncodeToString(leaf),
+			IntegratedTime: swag.Int64(integratedTime.Unix()),
+			LogIndex:       swag.Int64(logIndex),
+		}
+		return models.LogEntry{uuid: logEntryAnon}
+	}
+
+	trustedLogEntry := createLogEntry(trustedLeafCert, trustedLeafKey, "trusted-uuid")
+	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, "untrusted-uuid")
+
+	// Test with both caRoots and caIntermediates provided - should only match trusted certificate
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, trustedRootFile.Name(), untrustedRootFile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should only match the trusted certificate (signed by the root CA in caRoots)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].CertSubject != trustedSubject {
+		t.Fatalf("expected subject %s, got %s", trustedSubject, matches[0].CertSubject)
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
 	}
 }
 

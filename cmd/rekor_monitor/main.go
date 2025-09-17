@@ -127,7 +127,7 @@ func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.TrustedCAs)
+	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARoots, config.CAIntermediates)
 }
 
 type RekorV2MonitorLogic struct {
@@ -241,7 +241,7 @@ func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v2.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorShards, l.latestShardOrigin, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.TrustedCAs)
+	return rekor_v2.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorShards, l.latestShardOrigin, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARoots, config.CAIntermediates)
 }
 
 func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {

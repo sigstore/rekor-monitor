@@ -126,7 +126,7 @@ func MatchLogEntryOIDs(logEntryAnon models.LogEntryAnon, uuid string, entryCerti
 }
 
 // MatchedIndices returns a list of log indices that contain the requested identities.
-func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues, trustedCAs []string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
@@ -156,7 +156,7 @@ func MatchedIndices(logEntries []models.LogEntry, mvs identity.MonitoredValues, 
 			}
 
 			// Validate that the certificate chain up to a trusted CA
-			if err := identity.ValidateCertificateChain(certs, trustedCAs); err != nil {
+			if err := identity.ValidateCertificateChain(certs, caRoots, caIntermediates); err != nil {
 				fmt.Fprintf(os.Stderr, "Certificate chain for log entry (UUID: %s, Index: %d) could not be verified against trusted CAs, skipping the entry: %v\n", uuid, *entry.LogIndex, err)
 				continue
 			}
@@ -260,12 +260,12 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 	return index
 }
 
-func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, trustedCAs []string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, caRoots string, caIntermediates string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, trustedCAs)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, caRoots, caIntermediates)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}

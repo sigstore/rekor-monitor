@@ -414,7 +414,7 @@ func getSubjectAlternateNames[Certificate *x509.Certificate | *google_x509.Certi
 	return sans
 }
 
-func getCertPool[T *x509.CertPool | *google_x509.CertPool](trustedCAs []string) (T, error) {
+func getCertPool[T *x509.CertPool | *google_x509.CertPool](pemFile string) (T, error) {
 	var roots T
 	switch any(roots).(type) {
 	case *x509.CertPool:
@@ -425,43 +425,58 @@ func getCertPool[T *x509.CertPool | *google_x509.CertPool](trustedCAs []string) 
 		return nil, fmt.Errorf("unsupported CertPool type")
 	}
 
-	for _, caPath := range trustedCAs {
-		caBytes, err := os.ReadFile(caPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read trusted CA file %q: %w", caPath, err)
+	caBytes, err := os.ReadFile(pemFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read trusted CA file %q: %w", pemFile, err)
+	}
+	switch pool := any(roots).(type) {
+	case *x509.CertPool:
+		if !pool.AppendCertsFromPEM(caBytes) {
+			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", pemFile)
 		}
-		switch pool := any(roots).(type) {
-		case *x509.CertPool:
-			if !pool.AppendCertsFromPEM(caBytes) {
-				return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
-			}
-		case *google_x509.CertPool:
-			if !pool.AppendCertsFromPEM(caBytes) {
-				return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
-			}
-		default:
-			return nil, fmt.Errorf("unsupported CertPool type")
+	case *google_x509.CertPool:
+		if !pool.AppendCertsFromPEM(caBytes) {
+			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", pemFile)
 		}
+	default:
+		return nil, fmt.Errorf("unsupported CertPool type")
 	}
 	return roots, nil
 }
 
 // ValidateCertificateChain checks that at least one certificate in the chain is signed by a trusted CA.
-func ValidateCertificateChain(certs []*x509.Certificate, trustedCAs []string) error {
-	if len(trustedCAs) == 0 || len(certs) == 0 {
+func ValidateCertificateChain(certs []*x509.Certificate, caRoots string, caIntermediates string) error {
+	if (caRoots == "" && caIntermediates == "") || len(certs) == 0 {
 		return nil // No trusted CAs or no certs, skip validation
 	}
 
-	roots, err := getCertPool[*x509.CertPool](trustedCAs)
-	if err != nil {
-		return err
+	var roots *x509.CertPool
+	var err error
+	if caRoots != "" {
+		roots, err = getCertPool[*x509.CertPool](caRoots)
+		if err != nil {
+			return err
+		}
+	} else {
+		roots = nil
+	}
+
+	var intermediates *x509.CertPool
+	if caIntermediates != "" {
+		intermediates, err = getCertPool[*x509.CertPool](caIntermediates)
+		if err != nil {
+			return err
+		}
+	} else {
+		intermediates = nil
 	}
 
 	for _, cert := range certs {
 		opts := x509.VerifyOptions{
-			CurrentTime: cert.NotBefore,
-			Roots:       roots,
-			KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+			CurrentTime:   cert.NotBefore,
+			Roots:         roots,
+			Intermediates: intermediates,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		}
 		if _, err := cert.Verify(opts); err == nil {
 			return nil
@@ -471,14 +486,30 @@ func ValidateCertificateChain(certs []*x509.Certificate, trustedCAs []string) er
 	return errors.New("no certificate in the chain is signed by a trusted CA")
 }
 
-func ValidatePreCertificateChain(certs []*google_x509.Certificate, trustedCAs []string) error {
-	if len(trustedCAs) == 0 || len(certs) == 0 {
+func ValidatePreCertificateChain(certs []*google_x509.Certificate, caRoots string, caIntermediates string) error {
+	if (caRoots == "" && caIntermediates == "") || len(certs) == 0 {
 		return nil // No trusted CAs or no certs, skip validation
 	}
 
-	roots, err := getCertPool[*google_x509.CertPool](trustedCAs)
-	if err != nil {
-		return err
+	var roots *google_x509.CertPool
+	var err error
+	if caRoots != "" {
+		roots, err = getCertPool[*google_x509.CertPool](caRoots)
+		if err != nil {
+			return err
+		}
+	} else {
+		roots = nil
+	}
+
+	var intermediates *google_x509.CertPool
+	if caIntermediates != "" {
+		intermediates, err = getCertPool[*google_x509.CertPool](caIntermediates)
+		if err != nil {
+			return err
+		}
+	} else {
+		intermediates = nil
 	}
 
 	for _, cert := range certs {
@@ -491,6 +522,7 @@ func ValidatePreCertificateChain(certs []*google_x509.Certificate, trustedCAs []
 			DisableNameChecks:              false,
 			CurrentTime:                    time.Now(),
 			Roots:                          roots,
+			Intermediates:                  intermediates,
 			KeyUsages:                      []google_x509.ExtKeyUsage{google_x509.ExtKeyUsageCodeSigning},
 		}
 		if _, err := cert.Verify(opts); err == nil {
