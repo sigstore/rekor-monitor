@@ -62,6 +62,10 @@ func (l CTMonitorLogic) Once() bool {
 	return l.flags.Once
 }
 
+func (l CTMonitorLogic) MonitorPort() int {
+	return l.flags.MonitorPort
+}
+
 func (l CTMonitorLogic) NotificationContextNew() notifications.NotificationContext {
 	return notifications.CreateNotificationContext(
 		"ct-monitor",
