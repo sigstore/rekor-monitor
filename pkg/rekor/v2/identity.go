@@ -38,8 +38,10 @@ func MatchLogEntryFingerprints(entry Entry, entryFingerprints []string, monitore
 		for _, fp := range entryFingerprints {
 			if fp == monitoredFp {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Fingerprint: fp,
-					Index:       int64(entry.Index),
+					MatchedIdentity:     monitoredFp,
+					MatchedIdentityType: identity.MatchedIdentityTypeFingerprint,
+					Fingerprint:         fp,
+					Index:               int64(entry.Index),
 				})
 			}
 		}
@@ -56,9 +58,11 @@ func MatchLogEntryCertificateIdentities(entry Entry, entryCertificates []*x509.C
 				return nil, fmt.Errorf("error with policy matching at index %d: %w", entry.Index, err)
 			} else if match {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					CertSubject: sub,
-					Issuer:      iss,
-					Index:       int64(entry.Index),
+					MatchedIdentity:     monitoredCertID.CertSubject,
+					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
+					CertSubject:         sub,
+					Issuer:              iss,
+					Index:               int64(entry.Index),
 				})
 			}
 		}
@@ -76,8 +80,10 @@ func MatchLogEntrySubjects(entry Entry, entrySubjects []string, monitoredSubject
 		for _, sub := range entrySubjects {
 			if regex.MatchString(sub) {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Subject: sub,
-					Index:   int64(entry.Index),
+					MatchedIdentity:     monitoredSub,
+					MatchedIdentityType: identity.MatchedIdentityTypeSubject,
+					Subject:             sub,
+					Index:               int64(entry.Index),
 				})
 			}
 		}
@@ -95,9 +101,11 @@ func MatchLogEntryOIDs(entry Entry, entryCertificates []*x509.Certificate, monit
 			}
 			if match {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Index:          int64(entry.Index),
-					OIDExtension:   oid,
-					ExtensionValue: extValue,
+					MatchedIdentity:     extValue,
+					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
+					Index:               int64(entry.Index),
+					OIDExtension:        oid,
+					ExtensionValue:      extValue,
 				})
 			}
 		}
