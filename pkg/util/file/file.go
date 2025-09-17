@@ -106,7 +106,7 @@ func ReadLatestCTSignedTreeHead(logInfoFile string) (*ct.SignedTreeHead, error) 
 
 // WriteCTSignedTreeHead writes a signed tree head to a given log file
 func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, prev *ct.SignedTreeHead, logInfoFile string, force bool) error {
-	// Skip writing if the current checkpoint size is 0
+	// Skip writing if the current tree size is 0
 	if sth.TreeSize == 0 {
 		fmt.Fprintf(os.Stderr, "skipping write of tree head: tree size is 0\n")
 		return nil
