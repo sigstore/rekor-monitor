@@ -235,7 +235,6 @@ func (l RekorV2MonitorLogic) WriteCheckpoint(prev cmd.Checkpoint, cur cmd.LogInf
 	if !ok {
 		return fmt.Errorf("cur is not a Checkpoint")
 	}
-
 	if err := file.WriteCheckpointRekorV2(curCheckpoint, prevCheckpoint, l.flags.LogInfoFile, false); err != nil {
 		return fmt.Errorf("failed to write checkpoint: %v", err)
 	}
