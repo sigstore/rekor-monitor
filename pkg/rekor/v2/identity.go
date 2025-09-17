@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
+	"os"
 	"regexp"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
@@ -171,7 +172,7 @@ func extractAllIdentities(verifiers []verifier.Verifier) ([]string, []*x509.Cert
 }
 
 // MatchedIndices returns a list of log entries that contain the requested identities.
-func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, trustedCAs []string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
@@ -196,6 +197,13 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues) ([]identit
 			})
 			continue
 		}
+
+		// Validate that the certificate chain up to a trusted CA
+		if err := identity.ValidateCertificateChain(certs, trustedCAs); err != nil {
+			fmt.Fprintf(os.Stderr, "Certificate chain for log entry (Index: %d) could not be verified against trusted CAs, skipping the entry: %v\n", entry.Index, err)
+			continue
+		}
+
 		matchedFingerprintEntries := MatchLogEntryFingerprints(entry, fps, mvs.Fingerprints)
 		matchedEntries = append(matchedEntries, matchedFingerprintEntries...)
 
@@ -233,7 +241,7 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues) ([]identit
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, trustedCAs []string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]
 	entries, err := GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex)
@@ -241,7 +249,7 @@ func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekor
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, trustedCAs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}

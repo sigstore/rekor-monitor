@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -410,6 +411,48 @@ func getSubjectAlternateNames[Certificate *x509.Certificate | *google_x509.Certi
 		return sans
 	}
 	return sans
+}
+
+func getCertPool(trustedCAs []string) (*x509.CertPool, error) {
+	roots := x509.NewCertPool()
+	for _, caPath := range trustedCAs {
+		caBytes, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read trusted CA file %q: %w", caPath, err)
+		}
+		if !roots.AppendCertsFromPEM(caBytes) {
+			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", caPath)
+		}
+	}
+	return roots, nil
+}
+
+// ValidateCertificateChain checks that at least one certificate in the chain is signed by a trusted CA.
+func ValidateCertificateChain(certs []*x509.Certificate, trustedCAs []string) error {
+	if len(trustedCAs) == 0 || len(certs) == 0 {
+		return nil // No trusted CAs or no certs, skip validation
+	}
+
+	roots, err := getCertPool(trustedCAs)
+	if err != nil {
+		return err
+	}
+
+	// Try to verify each certificate in the chain against the trusted roots.
+	for _, cert := range certs {
+		opts := x509.VerifyOptions{
+			CurrentTime: cert.NotBefore,
+			Roots:       roots,
+			KeyUsages: []x509.ExtKeyUsage{
+				x509.ExtKeyUsageCodeSigning,
+			},
+		}
+		if _, err := cert.Verify(opts); err == nil {
+			return nil // At least one cert is signed by a trusted CA
+		}
+	}
+
+	return errors.New("no certificate in the chain is signed by a trusted CA")
 }
 
 // CertMatchesPolicy returns true if a certificate contains a given subject and optionally a given issuer
