@@ -259,9 +259,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 			if loopLogic.Once() {
 				return
 			} else {
-				if !strings.Contains(err.Error(), "consistency proofs can not be computed starting from an empty log") {
-					server.IncLogIndexVerificationFailure()
-				}
+				server.IncLogIndexVerificationFailure()
 				goto waitForTick
 			}
 		}
