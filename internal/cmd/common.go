@@ -20,7 +20,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -241,7 +240,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 
 	if !loopLogic.Once() {
 		if err := server.StartMetricsServer(ctx, loopLogic.MonitorPort()); err != nil {
-			log.Fatalf("Failed to start Prometheus metrics server: %v", err)
+			fmt.Fprintf(os.Stderr, "failed to start Prometheus metrics server: %v\n", err)
 		}
 	}
 
@@ -258,10 +257,9 @@ func MonitorLoop(loopLogic MonitorLogic) {
 			fmt.Fprintf(os.Stderr, "error running consistency check: %v\n", err)
 			if loopLogic.Once() {
 				return
-			} else {
-				server.IncLogIndexVerificationFailure()
-				goto waitForTick
 			}
+			server.IncLogIndexVerificationFailure()
+			goto waitForTick
 		}
 
 		if identity.MonitoredValuesExist(loopLogic.MonitoredValues()) {
