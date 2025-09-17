@@ -186,39 +186,23 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 			continue
 		}
 
+		identityValue := ""
 		switch idEntry.MatchedIdentityType {
 		case MatchedIdentityTypeCertSubject:
-			idCertSubject := idEntry.CertSubject
-			_, ok := monitoredIdentityMap[idCertSubject]
-			if ok {
-				monitoredIdentityMap[idCertSubject] = append(monitoredIdentityMap[idCertSubject], idEntry)
-			} else {
-				monitoredIdentityMap[idCertSubject] = []LogEntry{idEntry}
-			}
+			identityValue = idEntry.CertSubject
 		case MatchedIdentityTypeExtensionValue:
-			idExtValue := idEntry.ExtensionValue
-			_, ok := monitoredIdentityMap[idExtValue]
-			if ok {
-				monitoredIdentityMap[idExtValue] = append(monitoredIdentityMap[idExtValue], idEntry)
-			} else {
-				monitoredIdentityMap[idExtValue] = []LogEntry{idEntry}
-			}
+			identityValue = idEntry.ExtensionValue
 		case MatchedIdentityTypeFingerprint:
-			idFingerprint := idEntry.Fingerprint
-			_, ok := monitoredIdentityMap[idFingerprint]
-			if ok {
-				monitoredIdentityMap[idFingerprint] = append(monitoredIdentityMap[idFingerprint], idEntry)
-			} else {
-				monitoredIdentityMap[idFingerprint] = []LogEntry{idEntry}
-			}
+			identityValue = idEntry.Fingerprint
 		case MatchedIdentityTypeSubject:
-			idSubject := idEntry.Subject
-			_, ok := monitoredIdentityMap[idSubject]
-			if ok {
-				monitoredIdentityMap[idSubject] = append(monitoredIdentityMap[idSubject], idEntry)
-			} else {
-				monitoredIdentityMap[idSubject] = []LogEntry{idEntry}
-			}
+			identityValue = idEntry.Subject
+		}
+
+		_, ok := monitoredIdentityMap[identityValue]
+		if ok {
+			monitoredIdentityMap[identityValue] = append(monitoredIdentityMap[identityValue], idEntry)
+		} else {
+			monitoredIdentityMap[identityValue] = []LogEntry{idEntry}
 		}
 	}
 

@@ -17,6 +17,8 @@ package ct
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -34,6 +36,12 @@ func GetCTLogEntries(ctx context.Context, logClient *ctclient.LogClient, startIn
 }
 
 func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
+	type entryCertSubjectKey struct {
+		MatchedIdentity string
+		CertSubject     string
+		Issuer          string
+	}
+
 	cert := logEntry.X509Cert
 	if cert == nil && logEntry.Precert != nil {
 		cert = logEntry.Precert.TBSCertificate
@@ -42,25 +50,32 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.Cert
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
+	matchedEntries := make(map[entryCertSubjectKey]identity.LogEntry)
 	for _, monitoredCertID := range monitoredCertIDs {
 		match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 		if err != nil {
 			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
 		} else if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
+			key := entryCertSubjectKey{MatchedIdentity: monitoredCertID.CertSubject, CertSubject: sub, Issuer: iss}
+			matchedEntries[key] = identity.LogEntry{
 				MatchedIdentity:     monitoredCertID.CertSubject,
 				MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
 				CertSubject:         sub,
 				Issuer:              iss,
 				Index:               logEntry.Index,
-			})
+			}
 		}
 	}
-	return matchedEntries, nil
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries)), nil
 }
 
 func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
+	type entryOIDExtensionKey struct {
+		MatchedIdentity string
+		OIDExtension    string
+		ExtensionValue  string
+	}
+
 	cert := logEntry.X509Cert
 	if cert == nil && logEntry.Precert != nil {
 		cert = logEntry.Precert.TBSCertificate
@@ -69,23 +84,28 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
+	matchedEntries := make(map[entryOIDExtensionKey]identity.LogEntry)
 	for _, monitoredOID := range monitoredOIDMatchers {
 		match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
 		if err != nil {
 			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
 		}
 		if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
+			key := entryOIDExtensionKey{
+				MatchedIdentity: extValue,
+				OIDExtension:    monitoredOID.ObjectIdentifier.String(),
+				ExtensionValue:  extValue,
+			}
+			matchedEntries[key] = identity.LogEntry{
 				MatchedIdentity:     extValue,
 				MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
 				Index:               logEntry.Index,
 				OIDExtension:        monitoredOID.ObjectIdentifier,
 				ExtensionValue:      extValue,
-			})
+			}
 		}
 	}
-	return matchedEntries, nil
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries)), nil
 }
 
 func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {

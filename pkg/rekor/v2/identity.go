@@ -19,8 +19,10 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
@@ -33,45 +35,60 @@ import (
 )
 
 func MatchLogEntryFingerprints(entry Entry, entryFingerprints []string, monitoredFingerprints []string) []identity.LogEntry {
-	matchedEntries := []identity.LogEntry{}
+	type entryFingerprintKey struct {
+		MatchedIdentity string
+		Fingerprint     string
+	}
+	matchedEntries := make(map[entryFingerprintKey]identity.LogEntry)
 	for _, monitoredFp := range monitoredFingerprints {
 		for _, fp := range entryFingerprints {
 			if fp == monitoredFp {
-				matchedEntries = append(matchedEntries, identity.LogEntry{
+				key := entryFingerprintKey{MatchedIdentity: monitoredFp, Fingerprint: fp}
+				matchedEntries[key] = identity.LogEntry{
 					MatchedIdentity:     monitoredFp,
 					MatchedIdentityType: identity.MatchedIdentityTypeFingerprint,
 					Fingerprint:         fp,
 					Index:               int64(entry.Index),
-				})
+				}
 			}
 		}
 	}
-	return matchedEntries
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries))
 }
 
 func MatchLogEntryCertificateIdentities(entry Entry, entryCertificates []*x509.Certificate, monitoredCertIDs []identity.CertificateIdentity) ([]identity.LogEntry, error) {
-	matchedEntries := []identity.LogEntry{}
+	type entryCertificateIdentityKey struct {
+		MatchedIdentity string
+		CertSubject     string
+		Issuer          string
+	}
+	matchedEntries := make(map[entryCertificateIdentityKey]identity.LogEntry)
 	for _, monitoredCertID := range monitoredCertIDs {
 		for _, cert := range entryCertificates {
 			match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 			if err != nil {
 				return nil, fmt.Errorf("error with policy matching at index %d: %w", entry.Index, err)
 			} else if match {
-				matchedEntries = append(matchedEntries, identity.LogEntry{
+				key := entryCertificateIdentityKey{MatchedIdentity: monitoredCertID.CertSubject, CertSubject: sub, Issuer: iss}
+				matchedEntries[key] = identity.LogEntry{
 					MatchedIdentity:     monitoredCertID.CertSubject,
 					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
 					CertSubject:         sub,
 					Issuer:              iss,
 					Index:               int64(entry.Index),
-				})
+				}
 			}
 		}
 	}
-	return matchedEntries, nil
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries)), nil
 }
 
 func MatchLogEntrySubjects(entry Entry, entrySubjects []string, monitoredSubjects []string) ([]identity.LogEntry, error) {
-	matchedEntries := []identity.LogEntry{}
+	type entrySubjectKey struct {
+		MatchedIdentity string
+		Subject         string
+	}
+	matchedEntries := make(map[entrySubjectKey]identity.LogEntry)
 	for _, monitoredSub := range monitoredSubjects {
 		regex, err := regexp.Compile(monitoredSub)
 		if err != nil {
@@ -79,20 +96,26 @@ func MatchLogEntrySubjects(entry Entry, entrySubjects []string, monitoredSubject
 		}
 		for _, sub := range entrySubjects {
 			if regex.MatchString(sub) {
-				matchedEntries = append(matchedEntries, identity.LogEntry{
+				key := entrySubjectKey{MatchedIdentity: monitoredSub, Subject: sub}
+				matchedEntries[key] = identity.LogEntry{
 					MatchedIdentity:     monitoredSub,
 					MatchedIdentityType: identity.MatchedIdentityTypeSubject,
 					Subject:             sub,
 					Index:               int64(entry.Index),
-				})
+				}
 			}
 		}
 	}
-	return matchedEntries, nil
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries)), nil
 }
 
 func MatchLogEntryOIDs(entry Entry, entryCertificates []*x509.Certificate, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
-	matchedEntries := []identity.LogEntry{}
+	type entryOIDKey struct {
+		MatchedIdentity string
+		OIDExtension    string
+		ExtensionValue  string
+	}
+	matchedEntries := make(map[entryOIDKey]identity.LogEntry)
 	for _, monitoredOID := range monitoredOIDMatchers {
 		for _, cert := range entryCertificates {
 			match, oid, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
@@ -100,17 +123,18 @@ func MatchLogEntryOIDs(entry Entry, entryCertificates []*x509.Certificate, monit
 				return nil, fmt.Errorf("error with policy matching at index %d: %w", entry.Index, err)
 			}
 			if match {
-				matchedEntries = append(matchedEntries, identity.LogEntry{
+				key := entryOIDKey{MatchedIdentity: extValue, OIDExtension: oid.String(), ExtensionValue: extValue}
+				matchedEntries[key] = identity.LogEntry{
 					MatchedIdentity:     extValue,
 					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
 					Index:               int64(entry.Index),
 					OIDExtension:        oid,
 					ExtensionValue:      extValue,
-				})
+				}
 			}
 		}
 	}
-	return matchedEntries, nil
+	return slices.AppendSeq([]identity.LogEntry{}, maps.Values(matchedEntries)), nil
 }
 
 // extractVerifiers extracts a set of keys or certificates that can verify an

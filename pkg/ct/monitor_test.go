@@ -17,6 +17,7 @@ package ct
 import (
 	"encoding/asn1"
 	"reflect"
+	"sort"
 	"testing"
 
 	google_asn1 "github.com/google/certificate-transparency-go/asn1"
@@ -33,6 +34,27 @@ const (
 	issuerName       = "test-issuer"
 	organizationName = "test-org"
 )
+
+func sortLogEntries(entries []identity.LogEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Index != entries[j].Index {
+			return entries[i].Index < entries[j].Index
+		}
+		if entries[i].MatchedIdentity != entries[j].MatchedIdentity {
+			return entries[i].MatchedIdentity < entries[j].MatchedIdentity
+		}
+		if entries[i].MatchedIdentityType != entries[j].MatchedIdentityType {
+			return entries[i].MatchedIdentityType < entries[j].MatchedIdentityType
+		}
+		if entries[i].CertSubject != entries[j].CertSubject {
+			return entries[i].CertSubject < entries[j].CertSubject
+		}
+		if entries[i].Issuer != entries[j].Issuer {
+			return entries[i].Issuer < entries[j].Issuer
+		}
+		return false
+	})
+}
 
 func TestScanEntryCertSubject(t *testing.T) {
 	testCases := map[string]struct {
@@ -157,20 +179,24 @@ func TestScanEntryCertSubject(t *testing.T) {
 	}
 
 	for testName, tc := range testCases {
-		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
-		if err != nil && !tc.expectedErr {
-			t.Errorf("%s: received unexpected error scanning entry for subjects. Received \"%v\"", testName, err)
-		}
-		expected := tc.expectedVal
-		if logEntries == nil {
-			if expected != nil {
-				t.Errorf("%s: received nil, expected log entry", testName)
+		t.Run(testName, func(t *testing.T) {
+			logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
+			if err != nil && !tc.expectedErr {
+				t.Errorf("%s: received unexpected error scanning entry for subjects. Received \"%v\"", testName, err)
 			}
-		} else {
-			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
+			expected := tc.expectedVal
+			if logEntries == nil {
+				if expected != nil {
+					t.Errorf("%s: received nil, expected log entry", testName)
+				}
+			} else {
+				sortLogEntries(logEntries)
+				sortLogEntries(expected)
+				if !reflect.DeepEqual(logEntries, expected) {
+					t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -264,20 +290,24 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 	}
 
 	for testName, tc := range testCases {
-		logEntries, err := ScanEntryOIDExtensions(tc.inputEntry, tc.inputOIDExtensions)
-		if err != nil && !tc.expectedErr {
-			t.Errorf("%s: received unexpected error scanning entry for oid extensions. Received \"%v\"", testName, err)
-		}
-		expected := tc.expectedVal
-		if logEntries == nil {
-			if expected != nil {
-				t.Errorf("%s: received nil, expected log entry", testName)
+		t.Run(testName, func(t *testing.T) {
+			logEntries, err := ScanEntryOIDExtensions(tc.inputEntry, tc.inputOIDExtensions)
+			if err != nil && !tc.expectedErr {
+				t.Errorf("%s: received unexpected error scanning entry for oid extensions. Received \"%v\"", testName, err)
 			}
-		} else {
-			if !reflect.DeepEqual(logEntries, expected) {
-				t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
+			expected := tc.expectedVal
+			if logEntries == nil {
+				if expected != nil {
+					t.Errorf("%s: received nil, expected log entry", testName)
+				}
+			} else {
+				sortLogEntries(logEntries)
+				sortLogEntries(expected)
+				if !reflect.DeepEqual(logEntries, expected) {
+					t.Errorf("%s: expected %v, received %v", testName, expected, logEntries)
+				}
 			}
-		}
+		})
 	}
 }
 
