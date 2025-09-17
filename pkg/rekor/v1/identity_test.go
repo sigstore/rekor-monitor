@@ -1054,65 +1054,68 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	}
 }
 
+// Helper function to create a temporary PEM file from a certificate
+func createTempCertFile(t *testing.T, cert *x509.Certificate, prefix string) string {
+	file, err := os.CreateTemp("", prefix+"-*.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pem, err := cryptoutils.MarshalCertificateToPEM(cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write(pem); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+
+	// Register cleanup for the test
+	t.Cleanup(func() {
+		os.Remove(file.Name())
+	})
+
+	return file.Name()
+}
+
 func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
-	// Create trusted root CA
+	// Create certificate chains: Root CA -> Intermediate CA -> Leaf Cert
 	trustedRootCert, trustedRootKey, err := test.GenerateRootCA()
 	if err != nil {
 		t.Fatal(err)
 	}
+	trustedIntermediateCert, trustedIntermediateKey, err := test.GenerateSubordinateCA(trustedRootCert, trustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Create untrusted root CA
 	untrustedRootCert, untrustedRootKey, err := test.GenerateRootCA()
 	if err != nil {
 		t.Fatal(err)
 	}
+	untrustedIntermediateCert, untrustedIntermediateKey, err := test.GenerateSubordinateCA(untrustedRootCert, untrustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Create leaf certificates signed by both root CAs
+	// Create leaf certificates
 	trustedSubject := "trusted@example.com"
 	untrustedSubject := "untrusted@example.com"
 	issuer := "oidc-issuer@domain.com"
 
-	trustedLeafCert, trustedLeafKey, err := test.GenerateLeafCert(trustedSubject, issuer, trustedRootCert, trustedRootKey)
+	trustedLeafCert, trustedLeafKey, err := test.GenerateLeafCert(trustedSubject, issuer, trustedIntermediateCert, trustedIntermediateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedLeafCert, untrustedLeafKey, err := test.GenerateLeafCert(untrustedSubject, issuer, untrustedIntermediateCert, untrustedIntermediateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	untrustedLeafCert, untrustedLeafKey, err := test.GenerateLeafCert(untrustedSubject, issuer, untrustedRootCert, untrustedRootKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create temporary file for the trusted root CA
-	trustedRootFile, err := os.CreateTemp("", "trusted-root-ca-*.pem")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(trustedRootFile.Name())
-
-	trustedRootPEM, err := cryptoutils.MarshalCertificateToPEM(trustedRootCert)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := trustedRootFile.Write(trustedRootPEM); err != nil {
-		t.Fatal(err)
-	}
-	trustedRootFile.Close()
-
-	// Create temporary file for the untrusted root CA (as "intermediate")
-	untrustedRootFile, err := os.CreateTemp("", "untrusted-root-ca-*.pem")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(untrustedRootFile.Name())
-
-	untrustedRootPEM, err := cryptoutils.MarshalCertificateToPEM(untrustedRootCert)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := untrustedRootFile.Write(untrustedRootPEM); err != nil {
-		t.Fatal(err)
-	}
-	untrustedRootFile.Close()
+	// Create temporary files for certificates
+	trustedRootFile := createTempCertFile(t, trustedRootCert, "trusted-root-ca")
+	trustedIntermediateFile := createTempCertFile(t, trustedIntermediateCert, "trusted-intermediate-ca")
+	untrustedIntermediateFile := createTempCertFile(t, untrustedIntermediateCert, "untrusted-intermediate-ca")
 
 	// Create log entries for both certificates
 	createLogEntry := func(cert *x509.Certificate, key *ecdsa.PrivateKey, uuid string) models.LogEntry {
@@ -1160,7 +1163,8 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 	trustedLogEntry := createLogEntry(trustedLeafCert, trustedLeafKey, "trusted-uuid")
 	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, "untrusted-uuid")
 
-	// Test with both caRoots and caIntermediates provided - should only match trusted certificate
+	// Test the core functionality: proper root-intermediate-leaf chain validation
+	// Should only match the trusted certificate chain (Root CA -> Intermediate CA -> Leaf Cert)
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		CertificateIdentities: []identity.CertificateIdentity{
 			{
@@ -1168,12 +1172,12 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 				Issuers:     []string{issuer},
 			},
 		},
-	}, trustedRootFile.Name(), untrustedRootFile.Name())
+	}, trustedRootFile, trustedIntermediateFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should only match the trusted certificate (signed by the root CA in caRoots)
+	// Should only match the trusted certificate (signed by the trusted intermediate CA, which is signed by the trusted root CA)
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
 	}
@@ -1182,6 +1186,58 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 	}
 	if len(failedEntries) != 0 {
 		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
+	}
+
+	// Test that we should not match any certificates because the untrusted intermediate CA is not signed by the trusted root CA
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, trustedRootFile, untrustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+
+	// Test that we should not match any certificates because the trusted intermediate CA is not signed by the untrusted root CA
+	untrustedRootFile := createTempCertFile(t, untrustedRootCert, "untrusted-root-ca")
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, untrustedRootFile, trustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+
+	// Make sure the untrusted chain is actually good to use with the right caRoots and caIntermediates
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, untrustedRootFile, untrustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 matches, got %d", len(matches))
+	}
+	if matches[0].CertSubject != untrustedSubject {
+		t.Fatalf("expected subject %s, got %s", untrustedSubject, matches[0].CertSubject)
 	}
 }
 
