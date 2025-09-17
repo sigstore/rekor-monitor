@@ -106,6 +106,12 @@ func ReadLatestCTSignedTreeHead(logInfoFile string) (*ct.SignedTreeHead, error) 
 
 // WriteCTSignedTreeHead writes a signed tree head to a given log file
 func WriteCTSignedTreeHead(sth *ct.SignedTreeHead, prev *ct.SignedTreeHead, logInfoFile string, force bool) error {
+	// Skip writing if the current tree size is 0
+	if sth.TreeSize == 0 {
+		fmt.Fprintf(os.Stderr, "skipping write of tree head: tree size is 0\n")
+		return nil
+	}
+
 	if force || prev == nil || prev.TreeSize != sth.TreeSize {
 		marshalledSTH, err := json.Marshal(sth)
 		if err != nil {
@@ -130,6 +136,12 @@ func writeCheckpointBytes(checkpoint []byte, logInfoFile string) error {
 
 // WriteCheckpointRekorV1 writes a signed checkpoint to the log file
 func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, prev *util.SignedCheckpoint, logInfoFile string, force bool) error {
+	// Skip writing if the current checkpoint size is 0
+	if checkpoint.Size == 0 {
+		fmt.Fprintf(os.Stderr, "skipping write of checkpoint: size is 0\n")
+		return nil
+	}
+
 	// Write if there was no stored checkpoint or the sizes differ
 	if force || prev == nil || prev.Size != checkpoint.Size {
 		// Write latest checkpoint to file
@@ -145,6 +157,12 @@ func WriteCheckpointRekorV1(checkpoint *util.SignedCheckpoint, prev *util.Signed
 
 // WriteCheckpointRekorV2 writes a checkpoint to the log file
 func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, prev *log.Checkpoint, logInfoFile string, force bool) error {
+	// Skip writing if the current checkpoint size is 0
+	if checkpoint.Size == 0 {
+		fmt.Fprintf(os.Stderr, "skipping write of checkpoint: size is 0\n")
+		return nil
+	}
+
 	if force || prev == nil || prev.Origin != checkpoint.Origin || prev.Size != checkpoint.Size {
 		// Write latest checkpoint to file
 		s := checkpoint.Marshal()
