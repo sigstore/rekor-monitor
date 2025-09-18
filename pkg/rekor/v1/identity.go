@@ -54,9 +54,11 @@ func MatchLogEntryFingerprints(logEntryAnon models.LogEntryAnon, uuid string, en
 		for _, fp := range entryFingerprints {
 			if fp == monitoredFp {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Fingerprint: fp,
-					Index:       *logEntryAnon.LogIndex,
-					UUID:        uuid,
+					MatchedIdentity:     monitoredFp,
+					MatchedIdentityType: identity.MatchedIdentityTypeFingerprint,
+					Fingerprint:         fp,
+					Index:               *logEntryAnon.LogIndex,
+					UUID:                uuid,
 				})
 			}
 		}
@@ -73,10 +75,12 @@ func MatchLogEntryCertificateIdentities(logEntryAnon models.LogEntryAnon, uuid s
 				return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
 			} else if match {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					CertSubject: sub,
-					Issuer:      iss,
-					Index:       *logEntryAnon.LogIndex,
-					UUID:        uuid,
+					MatchedIdentity:     monitoredCertID.CertSubject,
+					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
+					CertSubject:         sub,
+					Issuer:              iss,
+					Index:               *logEntryAnon.LogIndex,
+					UUID:                uuid,
 				})
 			}
 		}
@@ -94,9 +98,11 @@ func MatchLogEntrySubjects(logEntryAnon models.LogEntryAnon, uuid string, entryS
 		for _, sub := range entrySubjects {
 			if regex.MatchString(sub) {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Subject: sub,
-					Index:   *logEntryAnon.LogIndex,
-					UUID:    uuid,
+					MatchedIdentity:     monitoredSub,
+					MatchedIdentityType: identity.MatchedIdentityTypeSubject,
+					Subject:             sub,
+					Index:               *logEntryAnon.LogIndex,
+					UUID:                uuid,
 				})
 			}
 		}
@@ -114,10 +120,12 @@ func MatchLogEntryOIDs(logEntryAnon models.LogEntryAnon, uuid string, entryCerti
 			}
 			if match {
 				matchedEntries = append(matchedEntries, identity.LogEntry{
-					Index:          *logEntryAnon.LogIndex,
-					UUID:           uuid,
-					OIDExtension:   oid,
-					ExtensionValue: extValue,
+					MatchedIdentity:     extValue,
+					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
+					Index:               *logEntryAnon.LogIndex,
+					UUID:                uuid,
+					OIDExtension:        oid,
+					ExtensionValue:      extValue,
 				})
 			}
 		}
