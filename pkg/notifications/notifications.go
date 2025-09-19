@@ -102,8 +102,8 @@ type IdentityMonitorConfiguration struct {
 	EmailNotificationSMTP     *EmailNotificationInput    `yaml:"emailNotificationSMTP"`
 	EmailNotificationMailgun  *MailgunNotificationInput  `yaml:"emailNotificationMailgun"`
 	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
-	CARoots                   string                     `yaml:"caRoots"`
-	CAIntermediates           string                     `yaml:"caIntermediates"`
+	CARootsFile               string                     `yaml:"caRootsFile"`
+	CAIntermediatesFile       string                     `yaml:"caIntermediatesFile"`
 }
 
 func validatePEMFile(pemFile string) error {
@@ -145,11 +145,11 @@ func (c *IdentityMonitorConfiguration) Validate() error {
 		}
 	}
 	// Validate CARoots and CAIntermediates files
-	if err := validatePEMFile(c.CARoots); err != nil {
-		return fmt.Errorf("invalid CARoots file %s: %v", c.CARoots, err)
+	if err := validatePEMFile(c.CARootsFile); err != nil {
+		return fmt.Errorf("invalid CARoots file %s: %v", c.CARootsFile, err)
 	}
-	if err := validatePEMFile(c.CAIntermediates); err != nil {
-		return fmt.Errorf("invalid CAIntermediates file %s: %v", c.CAIntermediates, err)
+	if err := validatePEMFile(c.CAIntermediatesFile); err != nil {
+		return fmt.Errorf("invalid CAIntermediates file %s: %v", c.CAIntermediatesFile, err)
 	}
 	return nil
 }

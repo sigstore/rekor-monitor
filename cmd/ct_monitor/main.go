@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	ctgo "github.com/google/certificate-transparency-go"
@@ -119,13 +120,13 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l CTMonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return ct.IdentitySearch(ctx, l.fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARoots, config.CAIntermediates)
+	return ct.IdentitySearch(ctx, l.fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARootsFile, config.CAIntermediatesFile)
 }
 
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
-func main() {
+func mainWithReturn() int {
 	flags, config, err := cmd.ParseAndLoadConfig(publicCTServerURL, TUFRepository, outputIdentitiesFileName, "ct-monitor")
 	if err != nil {
 		log.Fatalf("error parsing flags and loading config: %v", err)
@@ -156,7 +157,7 @@ func main() {
 	})
 	if err != nil {
 		log.Printf("getting Fulcio client: %v", err)
-		return
+		return 1
 	}
 
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
@@ -178,4 +179,9 @@ func main() {
 		monitoredValues: monitoredValues,
 	}
 	cmd.MonitorLoop(ctMonitorLogic)
+	return 0
+}
+
+func main() {
+	os.Exit(mainWithReturn())
 }

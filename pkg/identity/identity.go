@@ -431,33 +431,30 @@ func getSubjectAlternateNames[Certificate *x509.Certificate | *google_x509.Certi
 }
 
 func getCertPool[T *x509.CertPool | *google_x509.CertPool](pemFile string) (T, error) {
-	var roots T
-	switch any(roots).(type) {
-	case *x509.CertPool:
-		roots = any(x509.NewCertPool()).(T)
-	case *google_x509.CertPool:
-		roots = any(google_x509.NewCertPool()).(T)
-	default:
-		return nil, fmt.Errorf("unsupported CertPool type")
-	}
-
 	caBytes, err := os.ReadFile(pemFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read trusted CA file %q: %w", pemFile, err)
 	}
-	switch pool := any(roots).(type) {
+
+	var genericRoots T
+	switch any(genericRoots).(type) {
 	case *x509.CertPool:
-		if !pool.AppendCertsFromPEM(caBytes) {
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(caBytes) {
 			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", pemFile)
 		}
+		genericRoots = any(roots).(T)
 	case *google_x509.CertPool:
-		if !pool.AppendCertsFromPEM(caBytes) {
+		roots := google_x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(caBytes) {
 			return nil, fmt.Errorf("failed to append trusted CA certificate in %q", pemFile)
 		}
+		genericRoots = any(roots).(T)
 	default:
 		return nil, fmt.Errorf("unsupported CertPool type")
 	}
-	return roots, nil
+
+	return genericRoots, nil
 }
 
 // ValidateCertificateChain checks that at least one certificate in the chain is signed by a trusted CA.
@@ -473,8 +470,6 @@ func ValidateCertificateChain(certs []*x509.Certificate, caRoots string, caInter
 		if err != nil {
 			return err
 		}
-	} else {
-		roots = nil
 	}
 
 	var intermediates *x509.CertPool
@@ -483,8 +478,6 @@ func ValidateCertificateChain(certs []*x509.Certificate, caRoots string, caInter
 		if err != nil {
 			return err
 		}
-	} else {
-		intermediates = nil
 	}
 
 	for _, cert := range certs {
@@ -514,8 +507,6 @@ func ValidatePreCertificateChain(certs []*google_x509.Certificate, caRoots strin
 		if err != nil {
 			return err
 		}
-	} else {
-		roots = nil
 	}
 
 	var intermediates *google_x509.CertPool
@@ -524,22 +515,30 @@ func ValidatePreCertificateChain(certs []*google_x509.Certificate, caRoots strin
 		if err != nil {
 			return err
 		}
-	} else {
-		intermediates = nil
 	}
 
 	for _, cert := range certs {
+		// These are the same verification options as in the Go library code for CT
+		// https://github.com/google/certificate-transparency-go/blob/856995301233fa52f69e283f5c3cdbef1bebca21/trillian/ctfe/cert_checker.go#L143-L146
 		opts := google_x509.VerifyOptions{
-			DisableTimeChecks:              true,
+			DisableTimeChecks: true,
+			// Precertificates have the poison extension; also the Go library code does not
+			// support the standard PolicyConstraints extension (which is required to be marked
+			// critical, RFC 5280 s4.2.1.11), so never check unhandled critical extensions.
 			DisableCriticalExtensionChecks: true,
-			DisableEKUChecks:               true,
-			DisablePathLenChecks:           true,
-			DisableNameConstraintChecks:    true,
-			DisableNameChecks:              false,
-			CurrentTime:                    time.Now(),
-			Roots:                          roots,
-			Intermediates:                  intermediates,
-			KeyUsages:                      []google_x509.ExtKeyUsage{google_x509.ExtKeyUsageCodeSigning},
+			// Pre-issued precertificates have the Certificate Transparency EKU; also some
+			// leaves have unknown EKUs that should not be bounced just because the intermediate
+			// does not also have them (cf. https://github.com/golang/go/issues/24590)
+			DisableEKUChecks: true,
+			// Path length checks get confused by the presence of an additional
+			// pre-issuer intermediate, so disable them.
+			DisablePathLenChecks:        true,
+			DisableNameConstraintChecks: true,
+			DisableNameChecks:           false,
+			CurrentTime:                 time.Now(),
+			Roots:                       roots,
+			Intermediates:               intermediates,
+			KeyUsages:                   []google_x509.ExtKeyUsage{google_x509.ExtKeyUsageCodeSigning},
 		}
 		if _, err := cert.Verify(opts); err == nil {
 			return nil

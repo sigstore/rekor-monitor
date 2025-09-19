@@ -38,18 +38,18 @@ import (
 
 // MonitorFlags contains all the command-line flags for monitor applications
 type MonitorFlags struct {
-	ConfigFile      string
-	ConfigYaml      string
-	Once            bool
-	LogInfoFile     string
-	ServerURL       string
-	Interval        time.Duration
-	UserAgent       string
-	TUFRepository   string
-	TUFRootPath     string
-	MonitorPort     int
-	CARoots         string
-	CAIntermediates string
+	ConfigFile          string
+	ConfigYaml          string
+	Once                bool
+	LogInfoFile         string
+	ServerURL           string
+	Interval            time.Duration
+	UserAgent           string
+	TUFRepository       string
+	TUFRootPath         string
+	MonitorPort         int
+	CARootsFile         string
+	CAIntermediatesFile string
 }
 
 // MonitorLogic is the interface for the monitor loop logic
@@ -71,7 +71,7 @@ type Checkpoint interface{}
 type LogInfo interface{}
 
 // ParseMonitorFlags parses command-line flags and returns a MonitorFlags struct
-func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAgentName string) *MonitorFlags {
+func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAgentName string) (*MonitorFlags, error) {
 	configFilePath := flag.String("config-file", "", "path to yaml configuration file containing identity monitor settings")
 	configYamlInput := flag.String("config", "", "string with YAML configuration containing identity monitor settings")
 	once := flag.Bool("once", true, "whether to run the monitor on a repeated interval or once")
@@ -82,9 +82,13 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default', 'staging' or a custom TUF repository URL.")
 	tufRootPath := flag.String("tuf-root-path", "", "path to the trusted root file (passed out of bounds), if custom TUF repository is used")
-	caRoots := flag.String("ca-roots", "", "path to a bundle file of CA certificates in PEM format")
-	caIntermediates := flag.String("ca-intermediates", "", "path to a bundle file of CA intermediate certificates in PEM format")
+	caRootsFilePath := flag.String("ca-roots", "", "path to a bundle file of CA certificates in PEM format")
+	caIntermediatesFilePath := flag.String("ca-intermediates", "", "path to a bundle file of CA intermediate certificates in PEM format. The flug must be used together with --ca-roots")
 	flag.Parse()
+
+	if *caIntermediatesFilePath != "" && *caRootsFilePath == "" {
+		return nil, fmt.Errorf("ca-intermediates must be used together with --ca-roots")
+	}
 
 	finalUserAgent := strings.TrimSpace(fmt.Sprintf("%s/%s (%s; %s) %s",
 		baseUserAgentName,
@@ -95,19 +99,19 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	))
 
 	return &MonitorFlags{
-		ConfigFile:      *configFilePath,
-		ConfigYaml:      *configYamlInput,
-		Once:            *once,
-		LogInfoFile:     *logInfoFile,
-		MonitorPort:     *monitorPort,
-		ServerURL:       *serverURL,
-		Interval:        *interval,
-		UserAgent:       finalUserAgent,
-		TUFRepository:   *tufRepository,
-		TUFRootPath:     *tufRootPath,
-		CARoots:         *caRoots,
-		CAIntermediates: *caIntermediates,
-	}
+		ConfigFile:          *configFilePath,
+		ConfigYaml:          *configYamlInput,
+		Once:                *once,
+		LogInfoFile:         *logInfoFile,
+		MonitorPort:         *monitorPort,
+		ServerURL:           *serverURL,
+		Interval:            *interval,
+		UserAgent:           finalUserAgent,
+		TUFRepository:       *tufRepository,
+		TUFRootPath:         *tufRootPath,
+		CARootsFile:         *caRootsFilePath,
+		CAIntermediatesFile: *caIntermediatesFilePath,
+	}, nil
 }
 
 // LoadMonitorConfig loads the monitor configuration from flags
@@ -140,12 +144,12 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 		config.OutputIdentitiesFile = defaultOutputFile
 	}
 
-	if flags.CARoots != "" {
-		config.CARoots = flags.CARoots
+	if flags.CARootsFile != "" {
+		config.CARootsFile = flags.CARootsFile
 	}
 
-	if flags.CAIntermediates != "" {
-		config.CAIntermediates = flags.CAIntermediates
+	if flags.CAIntermediatesFile != "" {
+		config.CAIntermediatesFile = flags.CAIntermediatesFile
 	}
 
 	if err := config.Validate(); err != nil {
@@ -157,7 +161,10 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 
 // ParseAndLoadConfig is a convenience function that parses flags and loads config
 func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFile, baseUserAgentName string) (*MonitorFlags, *notifications.IdentityMonitorConfiguration, error) {
-	flags := ParseMonitorFlags(defaultServerURL, defaultTUFRepository, baseUserAgentName)
+	flags, err := ParseMonitorFlags(defaultServerURL, defaultTUFRepository, baseUserAgentName)
+	if err != nil {
+		return nil, nil, err
+	}
 	config, err := LoadMonitorConfig(flags, defaultOutputFile)
 	if err != nil {
 		return nil, nil, err
@@ -197,72 +204,44 @@ func GetTUFClient(flags *MonitorFlags) (*tuf.Client, error) {
 // using the configured CAs or, if they were not explicitly defined, using the
 // default ones from the TUF data.
 func ConfigureTrustedCAs(config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) (func(), error) {
-	if config.CARoots == "" && config.CAIntermediates == "" {
+	if config.CARootsFile != "" {
 		return func() {}, nil
 	}
 
-	var fulcioRootFile, fulcioIntermediateFile *os.File
-	var err error
-	if config.CARoots == "" {
-		fulcioRootFile, err = os.CreateTemp("", "fulcio-root-*.pem")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create temp file for Fulcio CA: %w", err)
-		}
-		config.CARoots = fulcioRootFile.Name()
+	fulcioRootFile, err := os.CreateTemp("", "fulcio-root-*.pem")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file for Fulcio CA: %w", err)
+	}
+	defer fulcioRootFile.Close()
+	config.CARootsFile = fulcioRootFile.Name()
 
-		if config.CAIntermediates == "" {
-			fulcioIntermediateFile, err = os.CreateTemp("", "fulcio-intermediate-*.pem")
-			if err != nil {
-				return nil, fmt.Errorf("failed to create temp file for Fulcio CA intermediate: %w", err)
-			}
-			config.CAIntermediates = fulcioIntermediateFile.Name()
-		}
+	fulcioIntermediateFile, err := os.CreateTemp("", "fulcio-intermediate-*.pem")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file for Fulcio CA intermediate: %w", err)
+	}
+	defer fulcioIntermediateFile.Close()
+	config.CAIntermediatesFile = fulcioIntermediateFile.Name()
+
+	cleanup := func() {
+		os.Remove(fulcioRootFile.Name())
+		os.Remove(fulcioIntermediateFile.Name())
 	}
 
 	for _, ca := range trustedRoot.FulcioCertificateAuthorities() {
 		fulcioCA := ca.(*root.FulcioCertificateAuthority)
 
-		if fulcioRootFile != nil {
-			// Get the root certificate from TUF
-			if err := pem.Encode(fulcioRootFile, &pem.Block{Type: "CERTIFICATE", Bytes: fulcioCA.Root.Raw}); err != nil {
-				if fulcioIntermediateFile != nil {
-					fulcioIntermediateFile.Close()
-					os.Remove(fulcioIntermediateFile.Name())
-				}
-				fulcioRootFile.Close()
-				os.Remove(fulcioRootFile.Name())
-				return nil, fmt.Errorf("failed to write Fulcio CA root to temp file: %w", err)
-			}
-
-			if fulcioIntermediateFile != nil {
-				// Get the intermediate certificates from TUF
-				for _, intermediate := range fulcioCA.Intermediates {
-					if err := pem.Encode(fulcioIntermediateFile, &pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}); err != nil {
-						if fulcioIntermediateFile != nil {
-							fulcioIntermediateFile.Close()
-							os.Remove(fulcioIntermediateFile.Name())
-						}
-						fulcioRootFile.Close()
-						os.Remove(fulcioRootFile.Name())
-						return nil, fmt.Errorf("failed to write Fulcio CA intermediate to temp file: %w", err)
-					}
-				}
-			}
+		// Get the root certificate from TUF
+		if err := pem.Encode(fulcioRootFile, &pem.Block{Type: "CERTIFICATE", Bytes: fulcioCA.Root.Raw}); err != nil {
+			cleanup()
+			return nil, fmt.Errorf("failed to write Fulcio CA root to temp file: %w", err)
 		}
-	}
-	if fulcioRootFile != nil {
-		fulcioRootFile.Close()
-	}
-	if fulcioIntermediateFile != nil {
-		fulcioIntermediateFile.Close()
-	}
 
-	cleanup := func() {
-		if fulcioRootFile != nil {
-			os.Remove(fulcioRootFile.Name())
-		}
-		if fulcioIntermediateFile != nil {
-			os.Remove(fulcioIntermediateFile.Name())
+		// Get the intermediate certificates from TUF
+		for _, intermediate := range fulcioCA.Intermediates {
+			if err := pem.Encode(fulcioIntermediateFile, &pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}); err != nil {
+				cleanup()
+				return nil, fmt.Errorf("failed to write Fulcio CA intermediate to temp file: %w", err)
+			}
 		}
 	}
 
