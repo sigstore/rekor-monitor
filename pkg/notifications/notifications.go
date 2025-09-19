@@ -145,6 +145,9 @@ func (c *IdentityMonitorConfiguration) Validate() error {
 		}
 	}
 	// Validate CARoots and CAIntermediates files
+	if c.CAIntermediatesFile != "" && c.CARootsFile == "" {
+		return fmt.Errorf("intermediates CA file is set but roots CA file is not set")
+	}
 	if err := validatePEMFile(c.CARootsFile); err != nil {
 		return fmt.Errorf("invalid CARoots file %s: %v", c.CARootsFile, err)
 	}
