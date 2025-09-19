@@ -47,32 +47,6 @@ const (
 	logInfoFileNamePrefix    = "logInfo"
 )
 
-func getTUFClient(flags *cmd.MonitorFlags) (*tuf.Client, error) {
-	switch flags.TUFRepository {
-	case "default":
-		if flags.TUFRootPath != "" {
-			log.Fatal("tuf-root-path is not supported when using the default TUF repository")
-		}
-		return tuf.DefaultClient()
-	case "staging":
-		if flags.TUFRootPath != "" {
-			log.Fatal("tuf-root-path is not supported when using the staging TUF repository")
-		}
-		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
-		return tuf.New(options)
-	default:
-		if flags.TUFRootPath == "" {
-			log.Fatal("tuf-root-path is required when using a custom TUF repository")
-		}
-		rootBytes, err := os.ReadFile(flags.TUFRootPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		options := tuf.DefaultOptions().WithRoot(rootBytes).WithRepositoryBaseURL(flags.TUFRepository)
-		return tuf.New(options)
-	}
-}
-
 type RekorV1MonitorLogic struct {
 	rekorClient     *rekor_client.Rekor
 	verifier        signature.Verifier
@@ -158,7 +132,7 @@ func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.TrustedCAs)
+	return rekor_v1.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorClient, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARootsFile, config.CAIntermediatesFile)
 }
 
 type RekorV2MonitorLogic struct {
@@ -276,7 +250,7 @@ func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v2.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorShards, l.latestShardOrigin, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.TrustedCAs)
+	return rekor_v2.IdentitySearch(ctx, *config.StartIndex, *config.EndIndex, l.rekorShards, l.latestShardOrigin, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARootsFile, config.CAIntermediatesFile)
 }
 
 func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
@@ -292,7 +266,7 @@ func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
-func main() {
+func mainWithReturn() int {
 	flags, config, err := cmd.ParseAndLoadConfig(publicRekorServerURL, TUFRepository, outputIdentitiesFileName, "rekor-monitor")
 	if err != nil {
 		log.Fatalf("error parsing flags and loading config: %v", err)
@@ -302,7 +276,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tufClient, err := getTUFClient(flags)
+	tufClient, err := cmd.GetTUFClient(flags)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -330,37 +304,37 @@ func main() {
 	}
 	switch rekorVersion {
 	case 1:
-		mainLoopV1(flags, config, trustedRoot)
+		return mainLoopV1(flags, config, trustedRoot)
 	case 2:
 		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
 		if err != nil {
 			log.Printf("error getting Rekor shards: %v\n", err)
-			return
+			return 1
 		}
-		mainLoopV2(tufClient, flags, config, rekorShards, latestShardOrigin)
+		return mainLoopV2(tufClient, flags, config, rekorShards, latestShardOrigin)
 	default:
 		log.Printf("Unsupported server version %v, only '1' and '2' are supported\n", rekorVersion)
-		return
+		return 1
 	}
 }
 
-func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) {
+func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) int {
 	rekorClient, err := client.GetRekorClient(flags.ServerURL, client.WithUserAgent(flags.UserAgent))
 	if err != nil {
 		log.Printf("getting Rekor client: %v\n", err)
-		return
+		return 1
 	}
 
 	verifier, err := rekor_v1.GetLogVerifier(context.Background(), rekorClient, trustedRoot)
 	if err != nil {
 		log.Printf("error getting log verifier: %v\n", err)
-		return
+		return 1
 	}
 
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
 	if err != nil {
 		log.Printf("error parsing OID matchers: %v\n", err)
-		return
+		return 1
 	}
 
 	monitoredValues := identity.MonitoredValues{
@@ -379,12 +353,14 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		monitoredValues: monitoredValues,
 	}
 	cmd.MonitorLoop(rekorV1MonitorLogic)
+	return 0
 }
 
-func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) {
+func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) int {
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
 	if err != nil {
 		fmt.Printf("error parsing OID matchers: %v", err)
+		return 1
 	}
 
 	monitoredValues := identity.MonitoredValues{
@@ -404,4 +380,9 @@ func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifica
 		monitoredValues:   monitoredValues,
 	}
 	cmd.MonitorLoop(rekorV2MonitorLogic)
+	return 0
+}
+
+func main() {
+	os.Exit(mainWithReturn())
 }

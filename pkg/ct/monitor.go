@@ -16,10 +16,13 @@ package ct
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
+	"os"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
+	google_x509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
@@ -88,10 +91,28 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	return matchedEntries, nil
 }
 
-func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	matchedEntries := []identity.LogEntry{}
 	failedEntries := []identity.FailedLogEntry{}
 	for _, entry := range logEntries {
+		if entry.X509Cert != nil {
+			cert, err := x509.ParseCertificate(entry.X509Cert.Raw)
+			if err == nil {
+				if err = identity.ValidateCertificateChain([]*x509.Certificate{cert}, caRoots, caIntermediates); err != nil {
+					fmt.Fprintf(os.Stderr, "error validating certificate chain for log entry at index %d: %v\n", entry.Index, err)
+					continue
+				}
+			}
+		} else if entry.Precert != nil {
+			cert, err := google_x509.ParseCertificate(entry.Precert.Submitted.Data)
+			if err == nil {
+				if err = identity.ValidatePreCertificateChain([]*google_x509.Certificate{cert}, caRoots, caIntermediates); err != nil {
+					fmt.Fprintf(os.Stderr, "error validating pre-certificate chain for log entry at index %d: %v\n", entry.Index, err)
+					continue
+				}
+			}
+		}
+
 		matchedCertSubjectEntries, err := ScanEntryCertSubject(entry, mvs.CertificateIdentities)
 		if err != nil {
 			failedEntries = append(failedEntries, identity.FailedLogEntry{
@@ -116,12 +137,12 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues) ([]i
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int64, endIndex int64, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int64, endIndex int64, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, caRoots string, caIntermediates string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, err
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, caRoots, caIntermediates)
 	if err != nil {
 		return nil, nil, err
 	}

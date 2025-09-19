@@ -180,7 +180,7 @@ func extractAllIdentities(verifiers []verifier.Verifier) ([]string, []*x509.Cert
 }
 
 // MatchedIndices returns a list of log entries that contain the requested identities.
-func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, trustedCAs []string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
@@ -207,7 +207,7 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, trustedCAs
 		}
 
 		// Validate that the certificate chain up to a trusted CA
-		if err := identity.ValidateCertificateChain(certs, trustedCAs); err != nil {
+		if err := identity.ValidateCertificateChain(certs, caRoots, caIntermediates); err != nil {
 			fmt.Fprintf(os.Stderr, "Certificate chain for log entry (Index: %d) could not be verified against trusted CAs, skipping the entry: %v\n", entry.Index, err)
 			continue
 		}
@@ -249,7 +249,7 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, trustedCAs
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, trustedCAs []string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, caRoots string, caIntermediates string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]
 	entries, err := GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex)
@@ -257,7 +257,7 @@ func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekor
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, trustedCAs)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, caRoots, caIntermediates)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}

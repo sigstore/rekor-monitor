@@ -408,7 +408,7 @@ func TestMatchedIndices(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		matchedEntries, failedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues)
+		matchedEntries, failedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues, "", "")
 		if err != nil {
 			t.Errorf("error matching indices: %v", err)
 		}

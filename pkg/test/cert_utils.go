@@ -85,6 +85,33 @@ func GenerateRootCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	return cert, priv, nil
 }
 
+func GenerateSubordinateCA(parentTemplate *x509.Certificate, parentPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+	subTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			CommonName:   "sigstore-intermediate",
+			Organization: []string{"sigstore.dev"},
+		},
+		NotBefore:             time.Now().Add(-5 * time.Hour),
+		NotAfter:              time.Now().Add(5 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := createCertificate(subTemplate, parentTemplate, &priv.PublicKey, parentPriv)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cert, priv, nil
+}
+
 func GenerateLeafCert(subject string, oidcIssuer string, parentTemplate *x509.Certificate, parentPriv crypto.Signer, exts ...pkix.Extension) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	val, err := asn1.MarshalWithParams(oidcIssuer, "utf8")
 	if err != nil {
