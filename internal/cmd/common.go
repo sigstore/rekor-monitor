@@ -83,7 +83,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default', 'staging' or a custom TUF repository URL.")
 	tufRootPath := flag.String("tuf-root-path", "", "path to the trusted root file (passed out of bounds), if custom TUF repository is used")
 	caRootsFilePath := flag.String("ca-roots", "", "path to a bundle file of CA certificates in PEM format")
-	caIntermediatesFilePath := flag.String("ca-intermediates", "", "path to a bundle file of CA intermediate certificates in PEM format. The flug must be used together with --ca-roots")
+	caIntermediatesFilePath := flag.String("ca-intermediates", "", "path to a bundle file of CA intermediate certificates in PEM format. The flag must be used together with --ca-roots")
 	flag.Parse()
 
 	if *caIntermediatesFilePath != "" && *caRootsFilePath == "" {
