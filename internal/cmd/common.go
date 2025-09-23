@@ -208,44 +208,61 @@ func ConfigureTrustedCAs(config *notifications.IdentityMonitorConfiguration, tru
 		return func() {}, nil
 	}
 
-	fulcioRootFile, err := os.CreateTemp("", "fulcio-root-*.pem")
+	var fulcioRootFile, fulcioIntermediateFile *os.File
+	var err error
+
+	closeFiles := func() {
+		if fulcioRootFile != nil {
+			fulcioRootFile.Close()
+		}
+		if fulcioIntermediateFile != nil {
+			fulcioIntermediateFile.Close()
+		}
+	}
+	cleanupFiles := func() {
+		if fulcioRootFile != nil {
+			os.Remove(fulcioRootFile.Name())
+		}
+		if fulcioIntermediateFile != nil {
+			os.Remove(fulcioIntermediateFile.Name())
+		}
+	}
+
+	fulcioRootFile, err = os.CreateTemp("", "fulcio-root-*.pem")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file for Fulcio CA: %w", err)
 	}
-	defer fulcioRootFile.Close()
 	config.CARootsFile = fulcioRootFile.Name()
 
-	fulcioIntermediateFile, err := os.CreateTemp("", "fulcio-intermediate-*.pem")
+	fulcioIntermediateFile, err = os.CreateTemp("", "fulcio-intermediate-*.pem")
 	if err != nil {
+		closeFiles()
+		cleanupFiles()
 		return nil, fmt.Errorf("failed to create temp file for Fulcio CA intermediate: %w", err)
 	}
-	defer fulcioIntermediateFile.Close()
 	config.CAIntermediatesFile = fulcioIntermediateFile.Name()
-
-	cleanup := func() {
-		os.Remove(fulcioRootFile.Name())
-		os.Remove(fulcioIntermediateFile.Name())
-	}
 
 	for _, ca := range trustedRoot.FulcioCertificateAuthorities() {
 		fulcioCA := ca.(*root.FulcioCertificateAuthority)
 
 		// Get the root certificate from TUF
 		if err := pem.Encode(fulcioRootFile, &pem.Block{Type: "CERTIFICATE", Bytes: fulcioCA.Root.Raw}); err != nil {
-			cleanup()
+			closeFiles()
+			cleanupFiles()
 			return nil, fmt.Errorf("failed to write Fulcio CA root to temp file: %w", err)
 		}
 
 		// Get the intermediate certificates from TUF
 		for _, intermediate := range fulcioCA.Intermediates {
 			if err := pem.Encode(fulcioIntermediateFile, &pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}); err != nil {
-				cleanup()
+				closeFiles()
+				cleanupFiles()
 				return nil, fmt.Errorf("failed to write Fulcio CA intermediate to temp file: %w", err)
 			}
 		}
 	}
-
-	return cleanup, nil
+	closeFiles()
+	return cleanupFiles, nil
 }
 
 // PrintMonitoredValues prints the monitored values to the console
