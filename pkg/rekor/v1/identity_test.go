@@ -101,7 +101,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 			{
 				CertSubject: subject,
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -131,7 +131,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 				CertSubject: subject,
 				Issuers:     []string{issuer},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -149,7 +149,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 				CertSubject: ".*ubje.*",
 				Issuers:     []string{".+@domain.com"},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -196,7 +196,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 					CertSubject: ".*ubje.*",
 					Issuers:     []string{".+@domain.com"},
 				},
-			}}, []string{})
+			}}, "", "")
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
@@ -226,7 +226,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, []string{})
+		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
@@ -293,7 +293,7 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 				CertSubject: subject,
 				Issuers:     []string{issuer},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -371,7 +371,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			fp,
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -395,7 +395,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Fingerprints: []string{
 			"other-fp",
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching fingerprints, got %v", err)
 	}
@@ -456,7 +456,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			subject,
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -480,7 +480,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		Subjects: []string{
 			"other-sub",
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching subjects, got %v", err)
 	}
@@ -556,7 +556,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 				ObjectIdentifier: oid,
 				ExtensionValues:  []string{extValueString},
 			},
-		}}, []string{})
+		}}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -592,7 +592,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, []string{})
+		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -674,7 +674,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -703,7 +703,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	}
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
 		OIDMatchers: renderedOIDMatchers,
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -786,7 +786,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: renderedOIDMatchers}, []string{})
+		OIDMatchers: renderedOIDMatchers}, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -820,7 +820,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
-		OIDMatchers: renderedOIDMatchers}, []string{})
+		OIDMatchers: renderedOIDMatchers}, "", "")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -901,7 +901,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 
 	for name, testCase := range monitoredValuesTests {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := MatchedIndices(nil, testCase.input, []string{})
+			_, _, err := MatchedIndices(nil, testCase.input, "", "")
 			if err == nil || !strings.Contains(err.Error(), testCase.errorString) {
 				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
 			}
@@ -1007,7 +1007,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 				Issuers:     []string{issuer},
 			},
 		},
-	}, []string{trustedCAFile.Name()})
+	}, trustedCAFile.Name(), "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1031,7 +1031,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 				Issuers:     []string{issuer},
 			},
 		},
-	}, []string{})
+	}, "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1051,6 +1051,193 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	}
 	if !subjects[trustedSubject] || !subjects[untrustedSubject] {
 		t.Fatalf("expected both subjects to be present, got %v", subjects)
+	}
+}
+
+// Helper function to create a temporary PEM file from a certificate
+func createTempCertFile(t *testing.T, cert *x509.Certificate, prefix string) string {
+	file, err := os.CreateTemp("", prefix+"-*.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pem, err := cryptoutils.MarshalCertificateToPEM(cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write(pem); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+
+	// Register cleanup for the test
+	t.Cleanup(func() {
+		os.Remove(file.Name())
+	})
+
+	return file.Name()
+}
+
+func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
+	// Create certificate chains: Root CA -> Intermediate CA -> Leaf Cert
+	trustedRootCert, trustedRootKey, err := test.GenerateRootCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	trustedIntermediateCert, trustedIntermediateKey, err := test.GenerateSubordinateCA(trustedRootCert, trustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	untrustedRootCert, untrustedRootKey, err := test.GenerateRootCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedIntermediateCert, untrustedIntermediateKey, err := test.GenerateSubordinateCA(untrustedRootCert, untrustedRootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create leaf certificates
+	trustedSubject := "trusted@example.com"
+	untrustedSubject := "untrusted@example.com"
+	issuer := "oidc-issuer@domain.com"
+
+	trustedLeafCert, trustedLeafKey, err := test.GenerateLeafCert(trustedSubject, issuer, trustedIntermediateCert, trustedIntermediateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedLeafCert, untrustedLeafKey, err := test.GenerateLeafCert(untrustedSubject, issuer, untrustedIntermediateCert, untrustedIntermediateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create temporary files for certificates
+	trustedRootFile := createTempCertFile(t, trustedRootCert, "trusted-root-ca")
+	trustedIntermediateFile := createTempCertFile(t, trustedIntermediateCert, "trusted-intermediate-ca")
+	untrustedIntermediateFile := createTempCertFile(t, untrustedIntermediateCert, "untrusted-intermediate-ca")
+
+	// Create log entries for both certificates
+	createLogEntry := func(cert *x509.Certificate, key *ecdsa.PrivateKey, uuid string) models.LogEntry {
+		signer, err := signature.LoadECDSASignerVerifier(key, crypto.SHA256)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pemCert, _ := cryptoutils.MarshalCertificateToPEM(cert)
+
+		payload := []byte{1, 2, 3, 4}
+		sig, err := signer.SignMessage(bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		hashedrekord := &hashedrekord_v001.V001Entry{}
+		hash := sha256.Sum256(payload)
+		pe, err := hashedrekord.CreateFromArtifactProperties(context.Background(), types.ArtifactProperties{
+			ArtifactHash:   hex.EncodeToString(hash[:]),
+			SignatureBytes: sig,
+			PublicKeyBytes: [][]byte{pemCert},
+			PKIFormat:      "x509",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := types.UnmarshalEntry(pe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		leaf, err := entry.Canonicalize(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		integratedTime := time.Now()
+		logIndex := int64(1234)
+		logEntryAnon := models.LogEntryAnon{
+			Body:           base64.StdEncoding.EncodeToString(leaf),
+			IntegratedTime: swag.Int64(integratedTime.Unix()),
+			LogIndex:       swag.Int64(logIndex),
+		}
+		return models.LogEntry{uuid: logEntryAnon}
+	}
+
+	trustedLogEntry := createLogEntry(trustedLeafCert, trustedLeafKey, "trusted-uuid")
+	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, "untrusted-uuid")
+
+	// Test the core functionality: proper root-intermediate-leaf chain validation
+	// Should only match the trusted certificate chain (Root CA -> Intermediate CA -> Leaf Cert)
+	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, trustedRootFile, trustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should only match the trusted certificate (signed by the trusted intermediate CA, which is signed by the trusted root CA)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
+	}
+	if matches[0].CertSubject != trustedSubject {
+		t.Fatalf("expected subject %s, got %s", trustedSubject, matches[0].CertSubject)
+	}
+	if len(failedEntries) != 0 {
+		t.Fatalf("expected 0 failed entries, got %d", len(failedEntries))
+	}
+
+	// Test that we should not match any certificates because the untrusted intermediate CA is not signed by the trusted root CA
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, trustedRootFile, untrustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+
+	// Test that we should not match any certificates because the trusted intermediate CA is not signed by the untrusted root CA
+	untrustedRootFile := createTempCertFile(t, untrustedRootCert, "untrusted-root-ca")
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, untrustedRootFile, trustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
+	}
+
+	// Make sure the untrusted chain is actually good to use with the right caRoots and caIntermediates
+	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+		CertificateIdentities: []identity.CertificateIdentity{
+			{
+				CertSubject: ".*@example.com",
+				Issuers:     []string{issuer},
+			},
+		},
+	}, untrustedRootFile, untrustedIntermediateFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 matches, got %d", len(matches))
+	}
+	if matches[0].CertSubject != untrustedSubject {
+		t.Fatalf("expected subject %s, got %s", untrustedSubject, matches[0].CertSubject)
 	}
 }
 

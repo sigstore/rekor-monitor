@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	ctgo "github.com/google/certificate-transparency-go"
@@ -30,6 +31,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 // Default values for monitoring job parameters
@@ -37,6 +39,7 @@ const (
 	publicCTServerURL        = "https://ctfe.sigstore.dev/2022"
 	logInfoFileName          = "ctLogInfo"
 	outputIdentitiesFileName = "ctIdentities.txt"
+	TUFRepository            = "default"
 )
 
 type CTMonitorLogic struct {
@@ -117,14 +120,14 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l CTMonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return ct.IdentitySearch(ctx, l.fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile)
+	return ct.IdentitySearch(ctx, l.fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARootsFile, config.CAIntermediatesFile)
 }
 
 // This main function performs a periodic identity search.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
-func main() {
-	flags, config, err := cmd.ParseAndLoadConfig(publicCTServerURL, logInfoFileName, outputIdentitiesFileName, "ct-monitor")
+func mainWithReturn() int {
+	flags, config, err := cmd.ParseAndLoadConfig(publicCTServerURL, TUFRepository, outputIdentitiesFileName, "ct-monitor")
 	if err != nil {
 		log.Fatalf("error parsing flags and loading config: %v", err)
 	}
@@ -133,11 +136,28 @@ func main() {
 		flags.LogInfoFile = logInfoFileName
 	}
 
+	tufClient, err := cmd.GetTUFClient(flags)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	trustedRoot, err := root.GetTrustedRoot(tufClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cleanupTrustedCAs, err := cmd.ConfigureTrustedCAs(config, trustedRoot)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cleanupTrustedCAs()
+
 	fulcioClient, err := ctclient.New(flags.ServerURL, http.DefaultClient, jsonclient.Options{
 		UserAgent: flags.UserAgent,
 	})
 	if err != nil {
-		log.Fatalf("getting Fulcio client: %v", err)
+		log.Printf("getting Fulcio client: %v", err)
+		return 1
 	}
 
 	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
@@ -159,4 +179,9 @@ func main() {
 		monitoredValues: monitoredValues,
 	}
 	cmd.MonitorLoop(ctMonitorLogic)
+	return 0
+}
+
+func main() {
+	os.Exit(mainWithReturn())
 }
