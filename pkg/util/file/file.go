@@ -172,15 +172,27 @@ func WriteCheckpointRekorV2(checkpoint *log.Checkpoint, prev *log.Checkpoint, lo
 }
 
 // WriteIdentity writes an identity found in the log to a file
-func WriteIdentity(idFile string, idEntry identity.LogEntry) error {
+func WriteIdentity(idFile string, idFileFormat string, idEntry identity.LogEntry) error {
 	file, err := os.OpenFile(idFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open identities file: %w", err)
 	}
 	defer file.Close()
 
-	if _, err := fmt.Fprintf(file, "%s\n", idEntry.String()); err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
+	switch idFileFormat {
+	case "text":
+		if _, err := fmt.Fprintf(file, "%s\n", idEntry.String()); err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+	case "json":
+		marshalled, err := json.Marshal(idEntry)
+		if err != nil {
+			return fmt.Errorf("failed to marshal identity: %w", err)
+		}
+		marshalled = append(marshalled, '\n')
+		if _, err := file.Write(marshalled); err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
 	}
 
 	return nil
@@ -216,12 +228,12 @@ func ReadIdentityMetadata(metadataFile string) (*IdentityMetadata, error) {
 }
 
 // WriteMatchedIdentityEntries writes a list of matched identities to a file
-func WriteMatchedIdentityEntries(identitiesFile string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int64) error {
+func WriteMatchedIdentityEntries(identitiesFile string, identitiesFileFormat string, matchedEntries []identity.LogEntry, idMetadataFile *string, endIndex int64) error {
 	if len(matchedEntries) > 0 {
 		for _, idEntry := range matchedEntries {
 			fmt.Fprintf(os.Stderr, "Found %s\n", idEntry.String())
 
-			if err := WriteIdentity(identitiesFile, idEntry); err != nil {
+			if err := WriteIdentity(identitiesFile, identitiesFileFormat, idEntry); err != nil {
 				return fmt.Errorf("failed to write entry: %v", err)
 			}
 		}
