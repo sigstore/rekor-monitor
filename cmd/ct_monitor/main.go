@@ -120,7 +120,7 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l CTMonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return ct.IdentitySearch(ctx, l.fulcioClient, *config.StartIndex, *config.EndIndex, monitoredValues, config.OutputIdentitiesFile, config.IdentityMetadataFile, config.CARootsFile, config.CAIntermediatesFile)
+	return ct.IdentitySearch(ctx, l.fulcioClient, config, monitoredValues)
 }
 
 // This main function performs a periodic identity search.

@@ -24,6 +24,7 @@ import (
 
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor-tiles/pkg/generated/protobuf"
 	"github.com/sigstore/rekor-tiles/pkg/verifier"
@@ -249,20 +250,20 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots st
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, startIndex int64, endIndex int64, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, caRoots string, caIntermediates string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]
-	entries, err := GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex)
+	entries, err := GetEntriesByIndexRange(ctx, activeShard, *config.StartIndex, *config.EndIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, caRoots, caIntermediates)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, config.CARootsFile, config.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
+	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
 	if err != nil {
 		return nil, nil, err
 	}

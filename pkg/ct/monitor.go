@@ -25,6 +25,7 @@ import (
 	google_x509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
 
@@ -137,17 +138,17 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRo
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, client *ctclient.LogClient, startIndex int64, endIndex int64, monitoredValues identity.MonitoredValues, outputIdentitiesFile string, idMetadataFile *string, caRoots string, caIntermediates string) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
+func IdentitySearch(ctx context.Context, client *ctclient.LogClient, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	entries, err := GetCTLogEntries(ctx, client, *config.StartIndex, *config.EndIndex)
 	if err != nil {
 		return nil, nil, err
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, caRoots, caIntermediates)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, config.CARootsFile, config.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = file.WriteMatchedIdentityEntries(outputIdentitiesFile, matchedEntries, idMetadataFile, endIndex)
+	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
 	if err != nil {
 		return nil, nil, err
 	}
