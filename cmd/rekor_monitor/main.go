@@ -43,7 +43,7 @@ import (
 const (
 	publicRekorServerURL     = "https://rekor.sigstore.dev"
 	TUFRepository            = "default"
-	outputIdentitiesFileName = "identities.txt"
+	outputIdentitiesFileName = "identities"
 	logInfoFileNamePrefix    = "logInfo"
 )
 
