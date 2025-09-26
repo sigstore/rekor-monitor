@@ -140,8 +140,18 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 		}
 	}
 
+	if config.OutputIdentitiesFormat == "" {
+		config.OutputIdentitiesFormat = "text"
+	}
+
 	if config.OutputIdentitiesFile == "" {
 		config.OutputIdentitiesFile = defaultOutputFile
+		switch config.OutputIdentitiesFormat {
+		case "text":
+			config.OutputIdentitiesFile += ".txt"
+		case "json":
+			config.OutputIdentitiesFile += ".json"
+		}
 	}
 
 	if flags.CARootsFile != "" {

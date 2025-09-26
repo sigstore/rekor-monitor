@@ -38,7 +38,7 @@ import (
 const (
 	publicCTServerURL        = "https://ctfe.sigstore.dev/2022"
 	logInfoFileName          = "ctLogInfo"
-	outputIdentitiesFileName = "ctIdentities.txt"
+	outputIdentitiesFileName = "ctIdentities"
 	TUFRepository            = "default"
 )
 
