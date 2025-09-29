@@ -111,3 +111,5 @@ bin/
 /mirroring
 /rekor_monitor
 /ct_monitor
+# Added by goreleaser init:
+dist/
