@@ -152,7 +152,7 @@ func TestLoadMonitorConfig(t *testing.T) {
 				ConfigFile: "test.yaml",
 				ConfigYaml: "test: yaml",
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           true,
 			expectedConfig:    nil,
 		},
@@ -161,7 +161,7 @@ func TestLoadMonitorConfig(t *testing.T) {
 			flags: &MonitorFlags{
 				ConfigFile: "test.yaml",
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           false,
 			expectedOutput:    "custom.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
@@ -200,7 +200,7 @@ monitoredValues:
 			flags: &MonitorFlags{
 				ConfigFile: "test.yaml",
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           true,
 			expectedConfig:    nil,
 			setupFiles: func(t *testing.T) (string, func()) {
@@ -221,7 +221,7 @@ monitoredValues:
 			flags: &MonitorFlags{
 				ConfigFile: "nonexistent.yaml",
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           true,
 			expectedConfig:    nil,
 		},
@@ -236,7 +236,7 @@ monitoredValues:
   fingerprints: ["test-fingerprint"]
   subjects: ["test-subject"]`,
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           false,
 			expectedOutput:    "custom.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
@@ -257,7 +257,7 @@ monitoredValues:
 			flags: &MonitorFlags{
 				ConfigYaml: `invalid: yaml: content: with: too: many: colons`,
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           true,
 			expectedConfig:    nil,
 		},
@@ -267,7 +267,7 @@ monitoredValues:
 				ConfigFile: "",
 				ConfigYaml: "",
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           false,
 			expectedOutput:    "default.txt",
 			expectedConfig:    &notifications.IdentityMonitorConfiguration{},
@@ -280,7 +280,7 @@ monitoredValues:
     - certSubject: "test-subject"
   fingerprints: ["test-fingerprint"]`,
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           false,
 			expectedOutput:    "default.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
@@ -309,7 +309,7 @@ monitoredValues:
       issuers: ["O=Test Org", "O=Another Org"]
     - certSubject: "CN=another.example.com"
       issuers: ["O=Test Org"]
-  fingerprints: 
+  fingerprints:
     - "sha256:abcdef1234567890"
     - "sha256:fedcba0987654321"
   subjects:
@@ -321,7 +321,7 @@ githubIssue:
 emailNotificationSMTP:
   SMTPHostURL: "smtp.example.com"`,
 			},
-			defaultOutputFile: "default.txt",
+			defaultOutputFile: "default",
 			wantErr:           false,
 			expectedOutput:    "complex.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
@@ -402,7 +402,7 @@ func TestLoadMonitorConfig_ConfigFilePermissions(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	_, err = LoadMonitorConfig(flags, "default.txt")
+	_, err = LoadMonitorConfig(flags, "default")
 	if err == nil {
 		t.Errorf("LoadMonitorConfig() expected error for file with no read permissions but got none")
 	}
@@ -422,7 +422,7 @@ func TestLoadMonitorConfig_EmptyConfigFile(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default.txt")
+	config, err := LoadMonitorConfig(flags, "default")
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for empty file: %v", err)
 		return
@@ -456,7 +456,7 @@ monitoredValues:
     - "user.name@domain.com"`,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default.txt")
+	config, err := LoadMonitorConfig(flags, "default")
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for YAML with special characters: %v", err)
 		return
