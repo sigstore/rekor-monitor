@@ -19,7 +19,7 @@ require (
 	github.com/transparency-dev/formats v0.0.0-20250728090553-b6e25248e362
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/tessera v1.0.0-rc3
-	github.com/wneessen/go-mail v0.7.0
+	github.com/wneessen/go-mail v0.7.1
 	golang.org/x/mod v0.28.0
 	google.golang.org/protobuf v1.36.9
 	gopkg.in/yaml.v2 v2.4.0
