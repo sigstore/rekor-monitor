@@ -266,7 +266,16 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected previous checkpoint size of 1, received size %d", prevCheckpoint.Size)
 	}
 
-	_, _, err = rekor_v1.IdentitySearch(context.Background(), 0, 1, rekorClient, monitoredVals, tempOutputIdentitiesFileName, nil, "", "")
+	startIndex := int64(0)
+	endIndex := int64(1)
+	config := &notifications.IdentityMonitorConfiguration{
+		StartIndex:           &startIndex,
+		EndIndex:             &endIndex,
+		CARootsFile:          "",
+		CAIntermediatesFile:  "",
+		OutputIdentitiesFile: tempOutputIdentitiesFileName,
+	}
+	_, _, err = rekor_v1.IdentitySearch(context.Background(), config, rekorClient, monitoredVals)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
