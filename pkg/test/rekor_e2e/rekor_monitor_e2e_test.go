@@ -269,11 +269,12 @@ func TestIdentitySearch(t *testing.T) {
 	startIndex := int64(0)
 	endIndex := int64(1)
 	config := &notifications.IdentityMonitorConfiguration{
-		StartIndex:           &startIndex,
-		EndIndex:             &endIndex,
-		CARootsFile:          "",
-		CAIntermediatesFile:  "",
-		OutputIdentitiesFile: tempOutputIdentitiesFileName,
+		StartIndex:             &startIndex,
+		EndIndex:               &endIndex,
+		CARootsFile:            "",
+		CAIntermediatesFile:    "",
+		OutputIdentitiesFile:   tempOutputIdentitiesFileName,
+		OutputIdentitiesFormat: "text",
 	}
 	_, _, err = rekor_v1.IdentitySearch(context.Background(), config, rekorClient, monitoredVals)
 	if err != nil {
