@@ -266,8 +266,8 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected previous checkpoint size of 1, received size %d", prevCheckpoint.Size)
 	}
 
-	startIndex := 0
-	endIndex := 1
+	startIndex := int64(0)
+	endIndex := int64(1)
 	config := &notifications.IdentityMonitorConfiguration{
 		StartIndex:           &startIndex,
 		EndIndex:             &endIndex,
