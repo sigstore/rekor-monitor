@@ -148,7 +148,7 @@ func IdentitySearch(ctx context.Context, client *ctclient.LogClient, config *not
 		return nil, nil, err
 	}
 
-	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
+	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, config.OutputIdentitiesFormat, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
 	if err != nil {
 		return nil, nil, err
 	}

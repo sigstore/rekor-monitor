@@ -279,7 +279,7 @@ func IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorCo
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
+	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, config.OutputIdentitiesFormat, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
 	if err != nil {
 		return nil, nil, err
 	}
