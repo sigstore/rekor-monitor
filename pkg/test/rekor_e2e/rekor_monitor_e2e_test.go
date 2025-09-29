@@ -266,9 +266,11 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("expected previous checkpoint size of 1, received size %d", prevCheckpoint.Size)
 	}
 
+	startIndex := 0
+	endIndex := 1
 	config := &notifications.IdentityMonitorConfiguration{
-		StartIndex:           intPtr(0),
-		EndIndex:             intPtr(1),
+		StartIndex:           &startIndex,
+		EndIndex:             &endIndex,
 		CARootsFile:          "",
 		CAIntermediatesFile:  "",
 		OutputIdentitiesFile: tempOutputIdentitiesFileName,
