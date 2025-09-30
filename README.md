@@ -63,6 +63,8 @@ monitoredValues:
 
 # Optional: Output file for found identities
 outputIdentities: identities.txt
+# Optional: Output format for found identities (`text` or `json`)
+outputIdentitiesFormat: text
 
 # Optional: Output file for last checkpoint
 logInfoFile: logInfo.txt
