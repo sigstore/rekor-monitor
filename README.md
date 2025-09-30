@@ -18,7 +18,7 @@ make build
 
 This will create `rekor_monitor` and `ct_monitor` binaries in the current directory.
 
-### Configuration File Format
+### Configuration file format
 
 The configuration file uses YAML format and supports monitoring specific identities and certificate attributes. Here's the structure:
 
