@@ -64,7 +64,7 @@ monitoredValues:
 # Optional: Output file for found identities
 outputIdentities: identities.txt
 
-# Optional: Log info checkpoint file
+# Optional: Output file for last checkpoint
 logInfoFile: logInfo.txt
 
 # Optional: Identity metadata output file
