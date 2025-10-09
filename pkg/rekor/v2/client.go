@@ -21,9 +21,9 @@ import (
 	"slices"
 	"time"
 
-	tiles_client "github.com/sigstore/rekor-tiles/pkg/client"
-	"github.com/sigstore/rekor-tiles/pkg/client/read"
-	"github.com/sigstore/rekor-tiles/pkg/generated/protobuf"
+	tiles_client "github.com/sigstore/rekor-tiles/v2/pkg/client"
+	"github.com/sigstore/rekor-tiles/v2/pkg/client/read"
+	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore/pkg/signature"

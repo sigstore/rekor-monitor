@@ -32,7 +32,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/test"
@@ -90,8 +90,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -185,8 +185,8 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		uuid := "123-456-123"
 		logEntryAnon := models.LogEntryAnon{
 			Body:           base64.StdEncoding.EncodeToString(leaf),
-			IntegratedTime: swag.Int64(integratedTime.Unix()),
-			LogIndex:       swag.Int64(int64(logIndex)),
+			IntegratedTime: conv.Pointer(integratedTime.Unix()),
+			LogIndex:       conv.Pointer(int64(logIndex)),
 		}
 		logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -281,8 +281,8 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -355,8 +355,8 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -447,8 +447,8 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -544,8 +544,8 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -657,8 +657,8 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -767,8 +767,8 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 	uuid := "123-456-123"
 	logEntryAnon := models.LogEntryAnon{
 		Body:           base64.StdEncoding.EncodeToString(leaf),
-		IntegratedTime: swag.Int64(integratedTime.Unix()),
-		LogIndex:       swag.Int64(int64(logIndex)),
+		IntegratedTime: conv.Pointer(integratedTime.Unix()),
+		LogIndex:       conv.Pointer(int64(logIndex)),
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
@@ -990,8 +990,8 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 		logIndex := int64(1234)
 		logEntryAnon := models.LogEntryAnon{
 			Body:           base64.StdEncoding.EncodeToString(leaf),
-			IntegratedTime: swag.Int64(integratedTime.Unix()),
-			LogIndex:       swag.Int64(logIndex),
+			IntegratedTime: conv.Pointer(integratedTime.Unix()),
+			LogIndex:       conv.Pointer(logIndex),
 		}
 		return models.LogEntry{uuid: logEntryAnon}
 	}
@@ -1154,8 +1154,8 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 		logIndex := int64(1234)
 		logEntryAnon := models.LogEntryAnon{
 			Body:           base64.StdEncoding.EncodeToString(leaf),
-			IntegratedTime: swag.Int64(integratedTime.Unix()),
-			LogIndex:       swag.Int64(logIndex),
+			IntegratedTime: conv.Pointer(integratedTime.Unix()),
+			LogIndex:       conv.Pointer(logIndex),
 		}
 		return models.LogEntry{uuid: logEntryAnon}
 	}

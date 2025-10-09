@@ -26,7 +26,7 @@ import (
 	"os"
 
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
-	"github.com/sigstore/rekor-tiles/pkg/client"
+	"github.com/sigstore/rekor-tiles/v2/pkg/client"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/transparency-dev/formats/log"

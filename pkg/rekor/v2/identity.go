@@ -26,10 +26,10 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
-	"github.com/sigstore/rekor-tiles/pkg/generated/protobuf"
-	"github.com/sigstore/rekor-tiles/pkg/verifier"
-	"github.com/sigstore/rekor-tiles/pkg/verifier/certificate"
-	"github.com/sigstore/rekor-tiles/pkg/verifier/publickey"
+	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
+	"github.com/sigstore/rekor-tiles/v2/pkg/verifier"
+	"github.com/sigstore/rekor-tiles/v2/pkg/verifier/certificate"
+	"github.com/sigstore/rekor-tiles/v2/pkg/verifier/publickey"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
