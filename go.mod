@@ -13,12 +13,12 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/sigstore/rekor v1.4.2
-	github.com/sigstore/rekor-tiles/v2 v2.0.0
+	github.com/sigstore/rekor-tiles/v2 v2.0.1
 	github.com/sigstore/sigstore v1.9.6-0.20250729224751-181c5d3339b3
 	github.com/sigstore/sigstore-go v1.1.3
-	github.com/transparency-dev/formats v0.0.0-20250728090553-b6e25248e362
+	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c
 	github.com/transparency-dev/merkle v0.0.2
-	github.com/transparency-dev/tessera v1.0.0
+	github.com/transparency-dev/tessera v1.0.1-0.20251104110637-ba6c65c4ae73
 	github.com/wneessen/go-mail v0.7.2
 	golang.org/x/mod v0.29.0
 	google.golang.org/protobuf v1.36.10
@@ -43,7 +43,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.3 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.24.1 // indirect
@@ -95,7 +95,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sassoftware/relic v7.2.1+incompatible // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
@@ -133,10 +133,10 @@ require (
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.36.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250929231259-57b25ae835d4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250929231259-57b25ae835d4 // indirect
-	google.golang.org/grpc v1.75.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8 // indirect
+	google.golang.org/grpc v1.76.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
