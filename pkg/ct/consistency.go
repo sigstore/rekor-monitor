@@ -16,11 +16,15 @@ package ct
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"os"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
+	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
@@ -28,11 +32,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
-const (
-	ctfe2022KeyID = "dd3d306ac6c7113263191e1c99673702a24a5eb8de3cadff878a72802f29ee8e"
-)
-
-func getCTLogVerifier() (*ct.SignatureVerifier, error) {
+func getCTLogVerifier(flags *cmd.MonitorFlags) (*ct.SignatureVerifier, error) {
 	client, err := tuf.DefaultClient()
 	if err != nil {
 		return nil, err
@@ -45,7 +45,19 @@ func getCTLogVerifier() (*ct.SignatureVerifier, error) {
 
 	ctLogs := trustedRoot.CTLogs()
 
-	if log, ok := ctLogs[ctfe2022KeyID]; ok {
+	var keyID string
+	for _, ctlog := range trustedRoot.CTLogs() {
+		if ctlog.BaseURL == flags.ServerURL {
+			derBytes, err := x509.MarshalPKIXPublicKey(ctlog.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+			sum := sha256.Sum256(derBytes)
+			keyID = hex.EncodeToString(sum[:])
+		}
+	}
+
+	if log, ok := ctLogs[keyID]; ok {
 		verifier, err := ct.NewSignatureVerifier(log.PublicKey)
 		if err != nil {
 			return nil, err
@@ -56,14 +68,15 @@ func getCTLogVerifier() (*ct.SignatureVerifier, error) {
 	return nil, fmt.Errorf("could not find certificate transparency log in trusted root")
 }
 
-func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
+func verifyCertificateTransparencyConsistency(flags *cmd.MonitorFlags, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
+	logInfoFile := flags.LogInfoFile
 	prevSTH, err := file.ReadLatestCTSignedTreeHead(logInfoFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading checkpoint: %v", err)
 	}
 
 	if logClient.Verifier == nil {
-		verifier, err := getCTLogVerifier()
+		verifier, err := getCTLogVerifier(flags)
 
 		if err != nil {
 			return nil, fmt.Errorf("error loading public key: %v", err)
@@ -95,7 +108,8 @@ func verifyCertificateTransparencyConsistency(logInfoFile string, logClient *ctc
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a certificate transparency log.
-func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
+func RunConsistencyCheck(logClient *ctclient.LogClient, flags *cmd.MonitorFlags) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
+	logInfoFile := flags.LogInfoFile
 	currentSTH, err := logClient.GetSTH(context.Background())
 	if err != nil {
 		return nil, nil, fmt.Errorf("error fetching latest STH: %v", err)
@@ -105,10 +119,28 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct
 	// File containing previous checkpoints exists
 	var prevSTH *ct.SignedTreeHead
 	if err == nil && fi.Size() != 0 {
-		prevSTH, err = verifyCertificateTransparencyConsistency(logInfoFile, logClient, currentSTH)
+		prevSTH, err = verifyCertificateTransparencyConsistency(flags, logClient, currentSTH)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
 		}
+	} else if os.IsNotExist(err) {
+		if logClient.Verifier == nil {
+			verifier, err := getCTLogVerifier(flags)
+
+			if err != nil {
+				return nil, nil, fmt.Errorf("error loading public key: %v", err)
+			}
+			logClient.Verifier = verifier
+		}
+	}
+	if logClient.Verifier.PubKey != nil {
+		logPubKey := logClient.Verifier.PubKey
+		derBytes, err := x509.MarshalPKIXPublicKey(logPubKey)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error converting public key to DER: %v", err)
+		}
+		hash := sha256.Sum256(derBytes)
+		currentSTH.LogID = hash
 	}
 
 	return prevSTH, currentSTH, nil
