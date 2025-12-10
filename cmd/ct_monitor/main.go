@@ -78,7 +78,7 @@ func (l CTMonitorLogic) NotificationContextNew() notifications.NotificationConte
 }
 
 func (l CTMonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
-	prev, cur, err := ct.RunConsistencyCheck(l.ctlogClient, l.flags)
+	prev, cur, err := ct.RunConsistencyCheck(l.ctlogClient, l.flags.LogInfoFile, l.flags.ServerURL)
 	if err != nil {
 		return nil, nil, err
 	}

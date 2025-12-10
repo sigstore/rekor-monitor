@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
-	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -63,9 +62,6 @@ func TestVerifyCertificateTransparencyConsistency(t *testing.T) {
 		t.Errorf("failed to create temp log file: %v", err)
 	}
 	tempLogInfoFileName := tempLogInfoFile.Name()
-	flags := cmd.MonitorFlags{
-		LogInfoFile: tempLogInfoFileName,
-	}
 	defer os.Remove(tempLogInfoFileName)
 
 	err = file.WriteCTSignedTreeHead(sth, nil, tempLogInfoFileName, false)
@@ -78,7 +74,7 @@ func TestVerifyCertificateTransparencyConsistency(t *testing.T) {
 		t.Errorf("error creating log client: %v", err)
 	}
 
-	prevSTH, err := verifyCertificateTransparencyConsistency(&flags, logClient, sth)
+	prevSTH, err := verifyCertificateTransparencyConsistency(tempLogInfoFileName, hs.URL, logClient, sth)
 	if err == nil {
 		t.Errorf("expected error verifying ct consistency, received nil")
 	}
