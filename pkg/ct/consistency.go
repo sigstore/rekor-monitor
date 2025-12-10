@@ -24,7 +24,6 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
-	"github.com/sigstore/rekor-monitor/internal/cmd"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
@@ -32,7 +31,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
-func getCTLogVerifier(flags *cmd.MonitorFlags) (*ct.SignatureVerifier, error) {
+func getCTLogVerifier(serverURL string) (*ct.SignatureVerifier, error) {
 	client, err := tuf.DefaultClient()
 	if err != nil {
 		return nil, err
@@ -47,7 +46,7 @@ func getCTLogVerifier(flags *cmd.MonitorFlags) (*ct.SignatureVerifier, error) {
 
 	var keyID string
 	for _, ctlog := range trustedRoot.CTLogs() {
-		if ctlog.BaseURL == flags.ServerURL {
+		if ctlog.BaseURL == serverURL {
 			derBytes, err := x509.MarshalPKIXPublicKey(ctlog.PublicKey)
 			if err != nil {
 				return nil, err
@@ -68,15 +67,14 @@ func getCTLogVerifier(flags *cmd.MonitorFlags) (*ct.SignatureVerifier, error) {
 	return nil, fmt.Errorf("could not find certificate transparency log in trusted root")
 }
 
-func verifyCertificateTransparencyConsistency(flags *cmd.MonitorFlags, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
-	logInfoFile := flags.LogInfoFile
+func verifyCertificateTransparencyConsistency(logInfoFile, serverURL string, logClient *ctclient.LogClient, signedTreeHead *ct.SignedTreeHead) (*ct.SignedTreeHead, error) {
 	prevSTH, err := file.ReadLatestCTSignedTreeHead(logInfoFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading checkpoint: %v", err)
 	}
 
 	if logClient.Verifier == nil {
-		verifier, err := getCTLogVerifier(flags)
+		verifier, err := getCTLogVerifier(serverURL)
 
 		if err != nil {
 			return nil, fmt.Errorf("error loading public key: %v", err)
@@ -108,8 +106,7 @@ func verifyCertificateTransparencyConsistency(flags *cmd.MonitorFlags, logClient
 }
 
 // RunConsistencyCheck periodically verifies the root hash consistency of a certificate transparency log.
-func RunConsistencyCheck(logClient *ctclient.LogClient, flags *cmd.MonitorFlags) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
-	logInfoFile := flags.LogInfoFile
+func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile, serverURL string) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
 	currentSTH, err := logClient.GetSTH(context.Background())
 	if err != nil {
 		return nil, nil, fmt.Errorf("error fetching latest STH: %v", err)
@@ -119,13 +116,13 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, flags *cmd.MonitorFlags)
 	// File containing previous checkpoints exists
 	var prevSTH *ct.SignedTreeHead
 	if err == nil && fi.Size() != 0 {
-		prevSTH, err = verifyCertificateTransparencyConsistency(flags, logClient, currentSTH)
+		prevSTH, err = verifyCertificateTransparencyConsistency(logInfoFile, serverURL, logClient, currentSTH)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
 		}
 	} else if os.IsNotExist(err) {
 		if logClient.Verifier == nil {
-			verifier, err := getCTLogVerifier(flags)
+			verifier, err := getCTLogVerifier(serverURL)
 
 			if err != nil {
 				return nil, nil, fmt.Errorf("error loading public key: %v", err)
