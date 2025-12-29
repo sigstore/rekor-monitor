@@ -16,11 +16,13 @@ package v2
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/url"
 	"slices"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/util"
 	tiles_client "github.com/sigstore/rekor-tiles/v2/pkg/client"
 	"github.com/sigstore/rekor-tiles/v2/pkg/client/read"
 	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
@@ -119,10 +121,21 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 	return false, nil
 }
 
-func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string) (map[string]ShardInfo, string, error) {
+func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string, certChain string) (map[string]ShardInfo, string, error) {
 	rekorV2Services := filterV2Shards(rekorServices)
 	if len(rekorV2Services) == 0 {
 		return nil, "", fmt.Errorf("failed to find any Rekor v2 shards")
+	}
+
+	clientOpts := []tiles_client.Option{tiles_client.WithUserAgent(userAgent)}
+	var tlsConfig *tls.Config
+	if certChain != "" {
+		var err error
+		tlsConfig, err = util.TLSConfigForCA(certChain)
+		if err != nil {
+			return nil, "", fmt.Errorf("getting TLS config: %w", err)
+		}
+		clientOpts = append(clientOpts, tiles_client.WithTLSConfig(tlsConfig))
 	}
 
 	rekorShards := make(map[string]ShardInfo)
@@ -143,12 +156,12 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 		if latestShardOrigin == "" {
 			latestShardOrigin = origin
 		}
-		verifier, err := GetLogVerifier(ctx, parsedURL, trustedRoot, userAgent)
+		verifier, err := GetLogVerifier(ctx, parsedURL, trustedRoot, userAgent, tlsConfig)
 		if err != nil {
 			return nil, "", err
 		}
 
-		rekorClient, err := read.NewReader(service.URL, origin, verifier, tiles_client.WithUserAgent(userAgent))
+		rekorClient, err := read.NewReader(service.URL, origin, verifier, clientOpts...)
 		if err != nil {
 			return nil, "", fmt.Errorf("getting Rekor client: %v", err)
 		}

@@ -50,6 +50,7 @@ type MonitorFlags struct {
 	MonitorPort         int
 	CARootsFile         string
 	CAIntermediatesFile string
+	HTTPSCertChainFile  string
 }
 
 // MonitorLogic is the interface for the monitor loop logic
@@ -84,6 +85,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	tufRootPath := flag.String("tuf-root-path", "", "path to the trusted root file (passed out of bounds), if custom TUF repository is used")
 	caRootsFilePath := flag.String("ca-roots", "", "path to a bundle file of CA certificates in PEM format")
 	caIntermediatesFilePath := flag.String("ca-intermediates", "", "path to a bundle file of CA intermediate certificates in PEM format. The flag must be used together with --ca-roots")
+	httpsChainPath := flag.String("https-cert-chain", "", "path to a list of CA certificates in PEM format for the HTTPS connection to the log server")
 	flag.Parse()
 
 	if *caIntermediatesFilePath != "" && *caRootsFilePath == "" {
@@ -111,6 +113,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 		TUFRootPath:         *tufRootPath,
 		CARootsFile:         *caRootsFilePath,
 		CAIntermediatesFile: *caIntermediatesFilePath,
+		HTTPSCertChainFile:  *httpsChainPath,
 	}, nil
 }
 
