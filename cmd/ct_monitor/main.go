@@ -43,7 +43,7 @@ const (
 )
 
 type CTMonitorLogic struct {
-	fulcioClient    *ctclient.LogClient
+	ctlogClient     *ctclient.LogClient
 	flags           *cmd.MonitorFlags
 	config          *notifications.IdentityMonitorConfiguration
 	monitoredValues identity.MonitoredValues
@@ -77,7 +77,7 @@ func (l CTMonitorLogic) NotificationContextNew() notifications.NotificationConte
 }
 
 func (l CTMonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
-	prev, cur, err := ct.RunConsistencyCheck(l.fulcioClient, l.flags.LogInfoFile)
+	prev, cur, err := ct.RunConsistencyCheck(l.ctlogClient, l.flags.LogInfoFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -120,7 +120,7 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 }
 
 func (l CTMonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return ct.IdentitySearch(ctx, l.fulcioClient, config, monitoredValues)
+	return ct.IdentitySearch(ctx, l.ctlogClient, config, monitoredValues)
 }
 
 // This main function performs a periodic identity search.
@@ -152,7 +152,7 @@ func mainWithReturn() int {
 	}
 	defer cleanupTrustedCAs()
 
-	fulcioClient, err := ctclient.New(flags.ServerURL, http.DefaultClient, jsonclient.Options{
+	ctlogClient, err := ctclient.New(flags.ServerURL, http.DefaultClient, jsonclient.Options{
 		UserAgent: flags.UserAgent,
 	})
 	if err != nil {
@@ -173,7 +173,7 @@ func mainWithReturn() int {
 	cmd.PrintMonitoredValues(monitoredValues)
 
 	ctMonitorLogic := CTMonitorLogic{
-		fulcioClient:    fulcioClient,
+		ctlogClient:     ctlogClient,
 		flags:           flags,
 		config:          config,
 		monitoredValues: monitoredValues,
