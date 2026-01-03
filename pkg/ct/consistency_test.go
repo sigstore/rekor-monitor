@@ -74,7 +74,7 @@ func TestVerifyCertificateTransparencyConsistency(t *testing.T) {
 		t.Errorf("error creating log client: %v", err)
 	}
 
-	prevSTH, err := verifyCertificateTransparencyConsistency(tempLogInfoFileName, hs.URL, logClient, sth)
+	prevSTH, err := verifyCertificateTransparencyConsistency(tempLogInfoFileName, logClient, sth)
 	if err == nil {
 		t.Errorf("expected error verifying ct consistency, received nil")
 	}
