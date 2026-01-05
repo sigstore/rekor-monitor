@@ -48,6 +48,7 @@ type CTMonitorLogic struct {
 	flags           *cmd.MonitorFlags
 	config          *notifications.IdentityMonitorConfiguration
 	monitoredValues identity.MonitoredValues
+	trustedRoot     *root.TrustedRoot
 }
 
 func (l CTMonitorLogic) Interval() time.Duration {
@@ -78,7 +79,7 @@ func (l CTMonitorLogic) NotificationContextNew() notifications.NotificationConte
 }
 
 func (l CTMonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpoint, cmd.LogInfo, error) {
-	prev, cur, err := ct.RunConsistencyCheck(l.ctlogClient, l.flags.LogInfoFile)
+	prev, cur, err := ct.RunConsistencyCheck(l.ctlogClient, l.flags.LogInfoFile, l.trustedRoot)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -191,6 +192,7 @@ func mainWithReturn() int {
 		flags:           flags,
 		config:          config,
 		monitoredValues: monitoredValues,
+		trustedRoot:     trustedRoot,
 	}
 	cmd.MonitorLoop(ctMonitorLogic)
 	return 0
