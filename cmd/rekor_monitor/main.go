@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
 	rekor_v2 "github.com/sigstore/rekor-monitor/pkg/rekor/v2"
+	rmutil "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
 	rekor_client "github.com/sigstore/rekor/pkg/generated/client"
@@ -187,7 +188,7 @@ func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpo
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting trusted root: %v", err)
 		}
-		l.rekorShards, l.latestShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), l.flags.UserAgent)
+		l.rekorShards, l.latestShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), l.flags.UserAgent, l.flags.HTTPSCertChainFile)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting shards: %v", err)
 		}
@@ -306,7 +307,7 @@ func mainWithReturn() int {
 	case 1:
 		return mainLoopV1(flags, config, trustedRoot)
 	case 2:
-		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent)
+		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent, flags.HTTPSCertChainFile)
 		if err != nil {
 			log.Printf("error getting Rekor shards: %v\n", err)
 			return 1
@@ -319,7 +320,16 @@ func mainWithReturn() int {
 }
 
 func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) int {
-	rekorClient, err := client.GetRekorClient(flags.ServerURL, client.WithUserAgent(flags.UserAgent))
+	clientOpts := []client.Option{client.WithUserAgent(flags.UserAgent)}
+	if flags.HTTPSCertChainFile != "" {
+		tlsConfig, err := rmutil.TLSConfigForCA(flags.HTTPSCertChainFile)
+		if err != nil {
+			log.Printf("error getting TLS config: %v", err)
+			return 1
+		}
+		clientOpts = append(clientOpts, client.WithTLSConfig(tlsConfig))
+	}
+	rekorClient, err := client.GetRekorClient(flags.ServerURL, clientOpts...)
 	if err != nil {
 		log.Printf("getting Rekor client: %v\n", err)
 		return 1

@@ -17,6 +17,7 @@ package v2
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -41,9 +42,15 @@ import (
 //
 // No verification of the checkpoint is performed, since this function is meant
 // to be called before we have a public key to verify against.
-func GetCheckpointKeyIDUnverified(ctx context.Context, baseURL *url.URL, userAgent string) ([]byte, error) {
+func GetCheckpointKeyIDUnverified(ctx context.Context, baseURL *url.URL, userAgent string, tlsConfig *tls.Config) ([]byte, error) {
+	transport := http.DefaultTransport
+	if tlsConfig != nil {
+		transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+	}
 	httpClient := &http.Client{
-		Transport: client.CreateRoundTripper(http.DefaultTransport, userAgent),
+		Transport: client.CreateRoundTripper(transport, userAgent),
 	}
 	tileClient, err := tclient.NewHTTPFetcher(baseURL, httpClient)
 	if err != nil {
@@ -81,8 +88,8 @@ func GetCheckpointKeyIDUnverified(ctx context.Context, baseURL *url.URL, userAge
 	return signatureBytes[:4], nil
 }
 
-func GetLogVerifier(ctx context.Context, baseURL *url.URL, trustedRoot root.TrustedMaterial, userAgent string) (signature.Verifier, error) {
-	checkpointKeyID, err := GetCheckpointKeyIDUnverified(ctx, baseURL, userAgent)
+func GetLogVerifier(ctx context.Context, baseURL *url.URL, trustedRoot root.TrustedMaterial, userAgent string, tlsConfig *tls.Config) (signature.Verifier, error) {
+	checkpointKeyID, err := GetCheckpointKeyIDUnverified(ctx, baseURL, userAgent, tlsConfig)
 	if err != nil {
 		return nil, err
 	}

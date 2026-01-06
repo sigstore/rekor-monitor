@@ -30,6 +30,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/ct"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
+	"github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
@@ -152,11 +153,24 @@ func mainWithReturn() int {
 	}
 	defer cleanupTrustedCAs()
 
-	fulcioClient, err := ctclient.New(flags.ServerURL, http.DefaultClient, jsonclient.Options{
+	httpClient := http.DefaultClient
+	if flags.HTTPSCertChainFile != "" {
+		tlsConfig, err := util.TLSConfigForCA(flags.HTTPSCertChainFile)
+		if err != nil {
+			log.Printf("error getting TLS config: %v", err)
+			return 1
+		}
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
+		}
+	}
+	fulcioClient, err := ctclient.New(flags.ServerURL, httpClient, jsonclient.Options{
 		UserAgent: flags.UserAgent,
 	})
 	if err != nil {
-		log.Printf("getting Fulcio client: %v", err)
+		log.Printf("getting CT client: %v", err)
 		return 1
 	}
 
