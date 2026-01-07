@@ -113,6 +113,16 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct
 		return nil, nil, fmt.Errorf("error fetching latest STH: %v", err)
 	}
 
+	// Ensure the verifier is always set if nil
+	if logClient.Verifier == nil {
+		verifier, err := getCTLogVerifier(logClient.BaseURI())
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("error loading public key: %v", err)
+		}
+		logClient.Verifier = verifier
+	}
+
 	fi, err := os.Stat(logInfoFile)
 	// File containing previous checkpoints exists
 	var prevSTH *ct.SignedTreeHead
@@ -120,15 +130,6 @@ func RunConsistencyCheck(logClient *ctclient.LogClient, logInfoFile string) (*ct
 		prevSTH, err = verifyCertificateTransparencyConsistency(logInfoFile, logClient, currentSTH)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error verifying consistency between previous and current STHs: %v", err)
-		}
-	} else if os.IsNotExist(err) {
-		if logClient.Verifier == nil {
-			verifier, err := getCTLogVerifier(logClient.BaseURI())
-
-			if err != nil {
-				return nil, nil, fmt.Errorf("error loading public key: %v", err)
-			}
-			logClient.Verifier = verifier
 		}
 	}
 	if logClient.Verifier.PubKey != nil {
