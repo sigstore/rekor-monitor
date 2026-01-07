@@ -15,6 +15,10 @@
 package ct
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/base64"
 	"net/http"
 	"os"
@@ -22,7 +26,9 @@ import (
 
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/sigstore/rekor-monitor/pkg/rekor/mock"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
+	"github.com/sigstore/sigstore-go/pkg/root"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
@@ -74,7 +80,12 @@ func TestVerifyCertificateTransparencyConsistency(t *testing.T) {
 		t.Errorf("error creating log client: %v", err)
 	}
 
-	prevSTH, err := verifyCertificateTransparencyConsistency(tempLogInfoFileName, logClient, sth)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ctLogs := make(map[string]*root.TransparencyLog)
+	ctLogs["00000001"] = &root.TransparencyLog{HashFunc: crypto.SHA256, PublicKey: &key.PublicKey}
+	trustedRoot := mock.NewTrustedRoot(ctLogs, nil)
+
+	prevSTH, err := verifyCertificateTransparencyConsistency(tempLogInfoFileName, logClient, sth, trustedRoot)
 	if err == nil {
 		t.Errorf("expected error verifying ct consistency, received nil")
 	}
