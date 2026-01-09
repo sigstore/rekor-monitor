@@ -179,7 +179,7 @@ func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpo
 	if err != nil {
 		return nil, nil, err
 	}
-	shouldUpdate, err := rekor_v2.ShardsNeedUpdating(l.rekorShards, signingConfig)
+	shouldUpdate, err := rekor_v2.ShardsNeedUpdating(l.rekorShards, signingConfig, l.flags.Origin)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -188,7 +188,7 @@ func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpo
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting trusted root: %v", err)
 		}
-		l.rekorShards, l.latestShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), l.flags.UserAgent, l.flags.HTTPSCertChainFile)
+		l.rekorShards, l.latestShardOrigin, err = rekor_v2.GetRekorShards(context.Background(), trustedRoot, signingConfig.RekorLogURLs(), l.flags.UserAgent, l.flags.Origin, l.flags.HTTPSCertChainFile)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting shards: %v", err)
 		}
@@ -307,7 +307,7 @@ func mainWithReturn() int {
 	case 1:
 		return mainLoopV1(flags, config, trustedRoot)
 	case 2:
-		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent, flags.HTTPSCertChainFile)
+		rekorShards, latestShardOrigin, err := rekor_v2.GetRekorShards(context.Background(), trustedRoot, allRekorServices, flags.UserAgent, flags.Origin, flags.HTTPSCertChainFile)
 		if err != nil {
 			log.Printf("error getting Rekor shards: %v\n", err)
 			return 1

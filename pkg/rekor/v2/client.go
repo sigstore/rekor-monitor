@@ -22,6 +22,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/tiles"
 	"github.com/sigstore/rekor-monitor/pkg/util"
 	tiles_client "github.com/sigstore/rekor-tiles/v2/pkg/client"
 	"github.com/sigstore/rekor-tiles/v2/pkg/client/read"
@@ -80,7 +81,7 @@ func filterV2Shards(rekorServices []root.Service) []root.Service {
 	return rekorV2Services
 }
 
-func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *root.SigningConfig) (bool, error) {
+func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *root.SigningConfig, origin string) (bool, error) {
 	newShards := newSigningConfig.RekorLogURLs()
 	newV2Shards := filterV2Shards(newShards)
 
@@ -94,11 +95,7 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 	}
 
 	for _, newShard := range newV2Shards {
-		newShardURL, err := url.Parse(newShard.URL)
-		if err != nil {
-			return false, fmt.Errorf("error parsing rekor shard URL: %v", err)
-		}
-		newShardOrigin, err := getOrigin(newShardURL)
+		newShardOrigin, err := tiles.GetOrigin(origin, newShard.URL)
 		if err != nil {
 			return false, err
 		}
@@ -121,7 +118,7 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 	return false, nil
 }
 
-func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string, certChain string) (map[string]ShardInfo, string, error) {
+func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent, origin, certChain string) (map[string]ShardInfo, string, error) {
 	rekorV2Services := filterV2Shards(rekorServices)
 	if len(rekorV2Services) == 0 {
 		return nil, "", fmt.Errorf("failed to find any Rekor v2 shards")
@@ -141,11 +138,8 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 	rekorShards := make(map[string]ShardInfo)
 	latestShardOrigin := ""
 	for _, service := range rekorV2Services {
-		parsedURL, err := url.Parse(service.URL)
-		if err != nil {
-			return nil, "", fmt.Errorf("error parsing Rekor url: %v", err)
-		}
-		origin, err := getOrigin(parsedURL)
+		var err error
+		origin, err = tiles.GetOrigin(origin, service.URL)
 		if err != nil {
 			return nil, "", err
 		}
@@ -156,6 +150,11 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 		if latestShardOrigin == "" {
 			latestShardOrigin = origin
 		}
+		parsedURL, err := url.Parse(service.URL)
+		if err != nil {
+			return nil, "", fmt.Errorf("error parsing Rekor url: %v", err)
+		}
+
 		verifier, err := GetLogVerifier(ctx, parsedURL, trustedRoot, userAgent, tlsConfig)
 		if err != nil {
 			return nil, "", err
@@ -176,26 +175,6 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 		rekorShards[checkpoint.Origin] = ShardInfo{&rekorClient, &verifier, service.ValidityPeriodEnd}
 	}
 	return rekorShards, latestShardOrigin, nil
-}
-
-func getOrigin(shardURL *url.URL) (string, error) {
-	prefixLen := len(shardURL.Scheme) + len("://")
-	if prefixLen >= len(shardURL.String()) {
-		return "", fmt.Errorf("error getting origin from URL %v", shardURL)
-	}
-	origin := shardURL.String()[len(shardURL.Scheme)+len("://"):]
-	return origin, nil
-}
-
-// GetTileIndex gets the index of the tile a checkpoint belongs to.
-func getTileIndex(checkpointIndex int64) int64 {
-	treeSize := checkpointIndex + 1
-	fullTilesCount := treeSize / layout.TileWidth
-
-	if treeSize%layout.TileWidth == 0 {
-		return fullTilesCount - 1
-	}
-	return fullTilesCount
 }
 
 func getEntriesFromTile(ctx context.Context, shard ShardInfo, fullTileIndex int64, partialTileWidth uint8) ([]Entry, error) {
@@ -234,9 +213,9 @@ func GetEntriesByIndexRange(ctx context.Context, shard ShardInfo, start, end int
 		return entries, nil
 	}
 
-	startTileIndex := getTileIndex(start)
+	startTileIndex := tiles.GetTileIndex(start)
 	startLogSize := start + 1
-	endTileIndex := getTileIndex(end)
+	endTileIndex := tiles.GetTileIndex(end)
 	endLogSize := end + 1
 
 	// If the start and end tiles are different, first we get any remaining unread
