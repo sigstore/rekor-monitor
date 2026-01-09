@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package v1
 
 import (
 	"context"
-	"crypto/x509"
 	"fmt"
 	"os"
 
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
-	google_x509 "github.com/google/certificate-transparency-go/x509"
+	"github.com/sigstore/rekor-monitor/pkg/ct/common"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 )
@@ -44,19 +43,7 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertID identity.CertIde
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
-	match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
-	if err != nil {
-		return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
-	} else if match {
-		matchedEntries = append(matchedEntries, identity.LogEntry{
-			MatchedIdentity: monitoredCertID,
-			CertSubject:     sub,
-			Issuer:          iss,
-			Index:           logEntry.Index,
-		})
-	}
-	return matchedEntries, nil
+	return common.ScanEntryCertSubject(cert, logEntry.Index, monitoredCertID)
 }
 
 func ScanEntryOIDExtension(logEntry ct.LogEntry, monitoredOID identity.OIDMatcherValue) ([]identity.LogEntry, error) {
@@ -68,42 +55,31 @@ func ScanEntryOIDExtension(logEntry ct.LogEntry, monitoredOID identity.OIDMatche
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
-	match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.OID, monitoredOID.ExtensionValues)
-	if err != nil {
-		return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
+	return common.ScanEntryOIDExtension(cert, logEntry.Index, monitoredOID)
+}
+
+func rawCert(logEntry ct.LogEntry) []byte {
+	if logEntry.X509Cert == nil {
+		return nil
 	}
-	if match {
-		matchedEntries = append(matchedEntries, identity.LogEntry{
-			MatchedIdentity: monitoredOID,
-			Index:           logEntry.Index,
-			OIDExtension:    monitoredOID.OID,
-			ExtensionValue:  extValue,
-		})
+	return logEntry.X509Cert.Raw
+}
+
+func rawPrecert(logEntry ct.LogEntry) []byte {
+	if logEntry.Precert == nil || logEntry.Precert.TBSCertificate == nil {
+		return nil
 	}
-	return matchedEntries, nil
+	return logEntry.Precert.TBSCertificate.Raw
 }
 
 func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	matchedEntries := []identity.LogEntry{}
 	failedEntries := []identity.FailedLogEntry{}
 	for _, entry := range logEntries {
-		if entry.X509Cert != nil {
-			cert, err := x509.ParseCertificate(entry.X509Cert.Raw)
-			if err == nil {
-				if err = identity.ValidateCertificateChain([]*x509.Certificate{cert}, caRoots, caIntermediates); err != nil {
-					fmt.Fprintf(os.Stderr, "error validating certificate chain for log entry at index %d: %v\n", entry.Index, err)
-					continue
-				}
-			}
-		} else if entry.Precert != nil {
-			cert, err := google_x509.ParseCertificate(entry.Precert.Submitted.Data)
-			if err == nil {
-				if err = identity.ValidatePreCertificateChain([]*google_x509.Certificate{cert}, caRoots, caIntermediates); err != nil {
-					fmt.Fprintf(os.Stderr, "error validating pre-certificate chain for log entry at index %d: %v\n", entry.Index, err)
-					continue
-				}
-			}
+		err := common.ValidateCertificateChain(rawCert(entry), rawPrecert(entry), caRoots, caIntermediates)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error validating chain for log entry at index %d: %v\n", entry.Index, err)
+			continue
 		}
 
 		// Iterate over each monitored value and match accordingly

@@ -1,4 +1,4 @@
-// Copyright 2025 The Sigstore Authors.
+// Copyright 2026 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,109 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package tiles
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/sigstore/rekor-tiles/v2/pkg/client/read"
-	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
 	"github.com/transparency-dev/formats/log"
+	"github.com/transparency-dev/tessera/api"
 	"github.com/transparency-dev/tessera/api/layout"
 	"golang.org/x/mod/sumdb/note"
-	"google.golang.org/protobuf/encoding/protojson"
 )
-
-// mockReadClient implements read.Client for testing
-type mockReadClient struct {
-	// entries maps tile index to a list of entries in that tile
-	entries map[int64][]Entry
-}
-
-var _ read.Client = (*mockReadClient)(nil)
-
-func (m *mockReadClient) ReadCheckpoint(_ context.Context) (*log.Checkpoint, *note.Note, error) {
-	return nil, nil, nil
-}
-
-func (m *mockReadClient) ReadTile(_ context.Context, _, _ uint64, _ uint8) ([]byte, error) {
-	return nil, nil
-}
-
-// ReadEntryBundle returns entries for a given tile index
-// If partialWidth > 0, it returns only the first partialWidth entries
-func (m *mockReadClient) ReadEntryBundle(_ context.Context, tileIndex uint64, partialWidth uint8) ([]byte, error) {
-	tileEntries, ok := m.entries[int64(tileIndex)]
-	if !ok {
-		return nil, fmt.Errorf("tile %d not found", tileIndex)
-	}
-
-	// Determine how many entries to return
-	count := len(tileEntries)
-	if partialWidth > 0 && int(partialWidth) < count {
-		count = int(partialWidth)
-	}
-
-	// Build an entry bundle in the tlog-tiles format:
-	// Each entry is: 2-byte size (big-endian uint16) + entry data
-	var buf bytes.Buffer
-	for i := 0; i < count; i++ {
-		entryBytes, err := protojson.Marshal(tileEntries[i].ProtoEntry)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal entry: %v", err)
-		}
-		// Write 2-byte size prefix
-		size := uint16(len(entryBytes))
-		if err := binary.Write(&buf, binary.BigEndian, size); err != nil {
-			return nil, fmt.Errorf("failed to write size: %v", err)
-		}
-		// Write entry data
-		if _, err := buf.Write(entryBytes); err != nil {
-			return nil, fmt.Errorf("failed to write entry: %v", err)
-		}
-	}
-
-	return buf.Bytes(), nil
-}
-
-// createMockEntry creates a minimal Entry for testing
-func createMockEntry(index int64) Entry {
-	return Entry{
-		ProtoEntry: &protobuf.Entry{
-			Kind: "hashedrekord",
-		},
-		Index: index,
-	}
-}
-
-// createMockShardWithEntries creates a ShardInfo with mock entries
-// The entries are organized by tile and indexed correctly
-func createMockShardWithEntries(maxIndex int64) ShardInfo {
-	mockClient := &mockReadClient{
-		entries: make(map[int64][]Entry),
-	}
-
-	// Populate tiles with entries
-	for i := int64(0); i <= maxIndex; i++ {
-		tileIndex := i / layout.TileWidth
-		entry := createMockEntry(i)
-
-		if mockClient.entries[tileIndex] == nil {
-			mockClient.entries[tileIndex] = make([]Entry, 0, layout.TileWidth)
-		}
-		mockClient.entries[tileIndex] = append(mockClient.entries[tileIndex], entry)
-	}
-
-	var client read.Client = mockClient
-	return ShardInfo{
-		client: &client,
-	}
-}
 
 func TestGetTileIndex(t *testing.T) {
 	tests := []struct {
@@ -151,19 +64,120 @@ func TestGetTileIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getTileIndex(tt.checkpointIdx)
+			result := GetTileIndex(tt.checkpointIdx)
 			if result != tt.expectedTileID {
-				t.Errorf("getTileIndex(%d) = %d, want %d", tt.checkpointIdx, result, tt.expectedTileID)
+				t.Errorf("GetTileIndex(%d) = %d, want %d", tt.checkpointIdx, result, tt.expectedTileID)
 			}
 		})
 	}
+}
+
+// mockReadClient implements Client for testing
+type mockReadClient struct {
+	// entries maps tile index to a list of entries in that tile
+	entries map[int64][]TestEntry
+}
+
+func (m *mockReadClient) ReadCheckpoint(_ context.Context) (*log.Checkpoint, *note.Note, error) {
+	return nil, nil, nil
+}
+
+func (m *mockReadClient) ReadTile(_ context.Context, _, _ uint64, _ uint8) ([]byte, error) {
+	return nil, nil
+}
+
+// ReadEntryBundle returns entries for a given tile index
+// If partialWidth > 0, it returns only the first partialWidth entries
+func (m *mockReadClient) ReadEntryBundle(_ context.Context, tileIndex uint64, partialWidth uint8) ([]byte, error) {
+	tileEntries, ok := m.entries[int64(tileIndex)]
+	if !ok {
+		return nil, fmt.Errorf("tile %d not found", tileIndex)
+	}
+
+	// Determine how many entries to return
+	count := len(tileEntries)
+	if partialWidth > 0 && int(partialWidth) < count {
+		count = int(partialWidth)
+	}
+
+	// Build an entry bundle in the tlog-tiles format:
+	// Each entry is: 2-byte size (big-endian uint16) + entry data
+	var buf bytes.Buffer
+	for i := 0; i < count; i++ {
+		entryBytes, err := json.Marshal(tileEntries[i])
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entry: %v", err)
+		}
+		// Write 2-byte size prefix
+		size := uint16(len(entryBytes))
+		if err := binary.Write(&buf, binary.BigEndian, size); err != nil {
+			return nil, fmt.Errorf("failed to write size: %v", err)
+		}
+		// Write entry data
+		if _, err := buf.Write(entryBytes); err != nil {
+			return nil, fmt.Errorf("failed to write entry: %v", err)
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+func getEntriesFromTile(ctx context.Context, client Client, fullTileIndex int64, partialTileWidth uint8) ([]TestEntry, error) {
+	bundleBytes, err := client.ReadEntryBundle(ctx, uint64(fullTileIndex), partialTileWidth) //nolint: gosec // G115
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch entry bundle")
+	}
+	var bundle api.EntryBundle
+	err = bundle.UnmarshalText(bundleBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse entry bundle")
+	}
+	var entries []TestEntry
+	for i, entryBytes := range bundle.Entries {
+		entries = append(entries, TestEntry{data: entryBytes, Index: fullTileIndex*layout.TileWidth + int64(i)})
+	}
+	return entries, nil
+}
+
+type TestEntry struct {
+	data  []byte
+	Index int64
+}
+
+// createMockEntry creates a minimal Entry for testing
+func createMockEntry(index int64) TestEntry {
+	return TestEntry{
+		data:  []byte("mockentry"),
+		Index: index,
+	}
+}
+
+// createMockShardWithEntries creates a Client with mock entries
+// The entries are organized by tile and indexed correctly
+func createMockShardWithEntries(maxIndex int64) Client {
+	mockClient := &mockReadClient{
+		entries: make(map[int64][]TestEntry),
+	}
+
+	// Populate tiles with entries
+	for i := int64(0); i <= maxIndex; i++ {
+		tileIndex := i / layout.TileWidth
+		entry := createMockEntry(i)
+
+		if mockClient.entries[tileIndex] == nil {
+			mockClient.entries[tileIndex] = make([]TestEntry, 0, layout.TileWidth)
+		}
+		mockClient.entries[tileIndex] = append(mockClient.entries[tileIndex], entry)
+	}
+
+	return mockClient
 }
 
 func TestGetEntriesByIndexRange_StartEqualsEnd(t *testing.T) {
 	shard := createMockShardWithEntries(100)
 
 	// When start == end, should return 0 entries
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 42, 42)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 42, 42, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -176,7 +190,7 @@ func TestGetEntriesByIndexRange_StartGreaterThanEnd(t *testing.T) {
 	shard := createMockShardWithEntries(100)
 
 	// When start > end, should return error
-	_, err := GetEntriesByIndexRange(context.Background(), shard, 50, 40)
+	_, err := GetEntriesByIndexRange(context.Background(), shard, 50, 40, getEntriesFromTile)
 	if err == nil {
 		t.Fatal("expected error when start > end")
 	}
@@ -189,7 +203,7 @@ func TestGetEntriesByIndexRange_SingleEntry(t *testing.T) {
 	shard := createMockShardWithEntries(100)
 
 	// Range (42, 43] should return exactly entry 43
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 42, 43)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 42, 43, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,7 +220,7 @@ func TestGetEntriesByIndexRange_SameTile(t *testing.T) {
 	shard := createMockShardWithEntries(300)
 
 	// Range (35, 37] should return entries 36 and 37 only (both in tile 0)
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 35, 37)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 35, 37, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -235,7 +249,7 @@ func TestGetEntriesByIndexRange_SameTile_LargeIndex(t *testing.T) {
 	shard := createMockShardWithEntries(maxIndex)
 
 	// Range (1344291, 1344292] should return exactly entry 1344292
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 1344291, 1344292)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 1344291, 1344292, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -262,7 +276,7 @@ func TestGetEntriesByIndexRange_CrossTiles(t *testing.T) {
 	shard := createMockShardWithEntries(300)
 
 	// Range (250, 260] should return entries 251-260
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 250, 260)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 250, 260, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -290,7 +304,7 @@ func TestGetEntriesByIndexRange_MultipleFullTiles(t *testing.T) {
 	// (100, 600] should return 500 entries (101-600)
 	start := int64(100)
 	end := int64(600)
-	result, err := GetEntriesByIndexRange(context.Background(), shard, start, end)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, start, end, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -321,7 +335,7 @@ func TestGetEntriesByIndexRange_FullTile(t *testing.T) {
 	shard := createMockShardWithEntries(int64(layout.TileWidth) + 10)
 
 	// Range (0, 256] should return entries 1-256 (a full tile worth minus first entry)
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 0, int64(layout.TileWidth))
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 0, int64(layout.TileWidth), getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -345,7 +359,7 @@ func TestGetEntriesByIndexRange_StartAtTileBoundary(t *testing.T) {
 
 	// Tile 0 ends at index 255
 	// Range (255, 260] should return entries 256-260 (all in tile 1)
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 255, 260)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 255, 260, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -369,7 +383,7 @@ func TestGetEntriesByIndexRange_EndAtTileBoundary(t *testing.T) {
 
 	// Tile 0 ends at index 255
 	// Range (250, 255] should return entries 251-255
-	result, err := GetEntriesByIndexRange(context.Background(), shard, 250, 255)
+	result, err := GetEntriesByIndexRange(context.Background(), shard, 250, 255, getEntriesFromTile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

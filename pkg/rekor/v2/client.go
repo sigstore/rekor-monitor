@@ -22,6 +22,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/sigstore/rekor-monitor/pkg/tiles"
 	"github.com/sigstore/rekor-monitor/pkg/util"
 	tiles_client "github.com/sigstore/rekor-tiles/v2/pkg/client"
 	"github.com/sigstore/rekor-tiles/v2/pkg/client/read"
@@ -29,8 +30,10 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/tessera/api"
 	"github.com/transparency-dev/tessera/api/layout"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -38,6 +41,18 @@ type ShardInfo struct {
 	client      *read.Client
 	verifier    *signature.Verifier
 	validityEnd time.Time
+}
+
+func (s ShardInfo) ReadCheckpoint(ctx context.Context) (*log.Checkpoint, *note.Note, error) {
+	return (*s.client).ReadCheckpoint(ctx)
+}
+
+func (s ShardInfo) ReadTile(ctx context.Context, level, index uint64, p uint8) ([]byte, error) {
+	return (*s.client).ReadTile(ctx, level, index, p)
+}
+
+func (s ShardInfo) ReadEntryBundle(ctx context.Context, index uint64, p uint8) ([]byte, error) {
+	return (*s.client).ReadEntryBundle(ctx, index, p)
 }
 
 type Entry struct {
@@ -94,11 +109,7 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 	}
 
 	for _, newShard := range newV2Shards {
-		newShardURL, err := url.Parse(newShard.URL)
-		if err != nil {
-			return false, fmt.Errorf("error parsing rekor shard URL: %v", err)
-		}
-		newShardOrigin, err := getOrigin(newShardURL)
+		newShardOrigin, err := tiles.GetOrigin(newShard.URL)
 		if err != nil {
 			return false, err
 		}
@@ -121,7 +132,7 @@ func ShardsNeedUpdating(currentShards map[string]ShardInfo, newSigningConfig *ro
 	return false, nil
 }
 
-func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent string, certChain string) (map[string]ShardInfo, string, error) {
+func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorServices []root.Service, userAgent, certChain string) (map[string]ShardInfo, string, error) {
 	rekorV2Services := filterV2Shards(rekorServices)
 	if len(rekorV2Services) == 0 {
 		return nil, "", fmt.Errorf("failed to find any Rekor v2 shards")
@@ -141,11 +152,8 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 	rekorShards := make(map[string]ShardInfo)
 	latestShardOrigin := ""
 	for _, service := range rekorV2Services {
-		parsedURL, err := url.Parse(service.URL)
-		if err != nil {
-			return nil, "", fmt.Errorf("error parsing Rekor url: %v", err)
-		}
-		origin, err := getOrigin(parsedURL)
+		var err error
+		origin, err := tiles.GetOrigin(service.URL)
 		if err != nil {
 			return nil, "", err
 		}
@@ -156,6 +164,11 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 		if latestShardOrigin == "" {
 			latestShardOrigin = origin
 		}
+		parsedURL, err := url.Parse(service.URL)
+		if err != nil {
+			return nil, "", fmt.Errorf("error parsing Rekor url: %v", err)
+		}
+
 		verifier, err := GetLogVerifier(ctx, parsedURL, trustedRoot, userAgent, tlsConfig)
 		if err != nil {
 			return nil, "", err
@@ -178,28 +191,7 @@ func GetRekorShards(ctx context.Context, trustedRoot *root.TrustedRoot, rekorSer
 	return rekorShards, latestShardOrigin, nil
 }
 
-func getOrigin(shardURL *url.URL) (string, error) {
-	prefixLen := len(shardURL.Scheme) + len("://")
-	if prefixLen >= len(shardURL.String()) {
-		return "", fmt.Errorf("error getting origin from URL %v", shardURL)
-	}
-	origin := shardURL.String()[len(shardURL.Scheme)+len("://"):]
-	return origin, nil
-}
-
-// GetTileIndex gets the index of the tile a checkpoint belongs to.
-func getTileIndex(checkpointIndex int64) int64 {
-	treeSize := checkpointIndex + 1
-	fullTilesCount := treeSize / layout.TileWidth
-
-	if treeSize%layout.TileWidth == 0 {
-		return fullTilesCount - 1
-	}
-	return fullTilesCount
-}
-
-func getEntriesFromTile(ctx context.Context, shard ShardInfo, fullTileIndex int64, partialTileWidth uint8) ([]Entry, error) {
-	client := *shard.client
+func getEntriesFromTile(ctx context.Context, client tiles.Client, fullTileIndex int64, partialTileWidth uint8) ([]Entry, error) {
 	bundleBytes, err := client.ReadEntryBundle(ctx, uint64(fullTileIndex), partialTileWidth) //nolint: gosec // G115
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch entry bundle")
@@ -218,67 +210,5 @@ func getEntriesFromTile(ctx context.Context, shard ShardInfo, fullTileIndex int6
 		}
 		entries = append(entries, Entry{ProtoEntry: &logEntry, Index: fullTileIndex*layout.TileWidth + int64(i)})
 	}
-	return entries, nil
-}
-
-// GetEntriesByIndexRange fetches all entries by log index, from (start, end]
-// If start == end, it doesn't return any entries
-// Returns error if start > end
-func GetEntriesByIndexRange(ctx context.Context, shard ShardInfo, start, end int64) ([]Entry, error) {
-	if start > end {
-		return nil, fmt.Errorf("start (%d) must be less than or equal to end (%d)", start, end)
-	}
-
-	var entries []Entry
-	if start == end {
-		return entries, nil
-	}
-
-	startTileIndex := getTileIndex(start)
-	startLogSize := start + 1
-	endTileIndex := getTileIndex(end)
-	endLogSize := end + 1
-
-	// If the start and end tiles are different, first we get any remaining unread
-	// entries from the start tile
-	if startTileIndex < endTileIndex {
-		partialBundleSize := startLogSize % layout.TileWidth
-		// A partial bundle size of 0 means the start tile was read in full,
-		// so no need to read it again. Otherwise, we've only read the tile
-		// partially, and we need to read the remaining entries.
-		if partialBundleSize > 0 {
-			allStartEntries, err := getEntriesFromTile(ctx, shard, startTileIndex, 0)
-			if err != nil {
-				return nil, fmt.Errorf("error getting bundle for tile: %d. Error: %v", startTileIndex, err)
-			}
-			unreadEntries := allStartEntries[partialBundleSize:]
-			entries = append(entries, unreadEntries...)
-		}
-	}
-
-	// We get all the entries from the full tiles in (start, end)
-	for i := startTileIndex + 1; i < endTileIndex; i++ {
-		currentEntries, err := getEntriesFromTile(ctx, shard, i, 0)
-		if err != nil {
-			return nil, fmt.Errorf("error getting bundle for tile: %d. Error: %v", i, err)
-		}
-		entries = append(entries, currentEntries...)
-	}
-
-	// Finally, we get all the entries available in the last tile
-	partialBundleSize := uint8(endLogSize % layout.TileWidth) //nolint: gosec // G115
-	endEntries, err := getEntriesFromTile(ctx, shard, endTileIndex, partialBundleSize)
-	if err != nil {
-		return nil, fmt.Errorf("error getting bundle for tile: %d, width: %d. Error: %v", endTileIndex, partialBundleSize, err)
-	}
-
-	// If start and end are in the same tile, we need to skip entries with index <= start
-	if startTileIndex == endTileIndex {
-		startOffset := startLogSize % layout.TileWidth
-		endEntries = endEntries[startOffset:]
-	}
-
-	entries = append(entries, endEntries...)
-
 	return entries, nil
 }
