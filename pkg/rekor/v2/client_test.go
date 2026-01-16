@@ -120,40 +120,40 @@ func TestGetTileIndex(t *testing.T) {
 	tests := []struct {
 		name           string
 		checkpointIdx  int64
-		expectedTileId int64
+		expectedTileID int64
 	}{
 		{
 			name:           "first entry",
 			checkpointIdx:  0,
-			expectedTileId: 0,
+			expectedTileID: 0,
 		},
 		{
 			name:           "last entry of first tile",
 			checkpointIdx:  layout.TileWidth - 1,
-			expectedTileId: 0,
+			expectedTileID: 0,
 		},
 		{
 			name:           "first entry of second tile",
 			checkpointIdx:  layout.TileWidth,
-			expectedTileId: 1,
+			expectedTileID: 1,
 		},
 		{
 			name:           "middle of second tile",
 			checkpointIdx:  layout.TileWidth + 100,
-			expectedTileId: 1,
+			expectedTileID: 1,
 		},
 		{
 			name:           "large index",
 			checkpointIdx:  1344291,
-			expectedTileId: 1344292 / layout.TileWidth, // 5251
+			expectedTileID: 1344292 / layout.TileWidth, // 5251
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getTileIndex(tt.checkpointIdx)
-			if result != tt.expectedTileId {
-				t.Errorf("getTileIndex(%d) = %d, want %d", tt.checkpointIdx, result, tt.expectedTileId)
+			if result != tt.expectedTileID {
+				t.Errorf("getTileIndex(%d) = %d, want %d", tt.checkpointIdx, result, tt.expectedTileID)
 			}
 		})
 	}
