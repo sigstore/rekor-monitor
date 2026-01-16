@@ -43,6 +43,7 @@ type MonitorFlags struct {
 	Once                bool
 	LogInfoFile         string
 	ServerURL           string
+	Origin              string
 	Interval            time.Duration
 	UserAgent           string
 	TUFRepository       string
@@ -79,6 +80,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 	logInfoFile := flag.String("file", "", "path to the initial log info checkpoint file to be read from")
 	monitorPort := flag.Int("monitor-port", 9464, "Port for the Prometheus metrics server")
 	serverURL := flag.String("url", defaultServerURL, "URL to the server that is to be monitored")
+	origin := flag.String("origin", "", "Origin name of the tiles-backed log server, if different from the URL")
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	userAgentString := flag.String("user-agent", "", "details to include in the user agent string")
 	tufRepository := flag.String("tuf-repository", defaultTUFRepository, "TUF repository to use. Can be 'default', 'staging' or a custom TUF repository URL.")
@@ -107,6 +109,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 		LogInfoFile:         *logInfoFile,
 		MonitorPort:         *monitorPort,
 		ServerURL:           *serverURL,
+		Origin:              *origin,
 		Interval:            *interval,
 		UserAgent:           finalUserAgent,
 		TUFRepository:       *tufRepository,

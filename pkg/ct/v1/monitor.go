@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package v1
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	ctclient "github.com/google/certificate-transparency-go/client"
 	google_x509 "github.com/google/certificate-transparency-go/x509"
+	"github.com/sigstore/rekor-monitor/pkg/ct/common"
 	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
@@ -46,22 +47,7 @@ func ScanEntryCertSubject(logEntry ct.LogEntry, monitoredCertIDs []identity.Cert
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
-	for _, monitoredCertID := range monitoredCertIDs {
-		match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
-		if err != nil {
-			return nil, fmt.Errorf("error with policy matching  at index %d: %w", logEntry.Index, err)
-		} else if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
-				MatchedIdentity:     monitoredCertID.CertSubject,
-				MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-				CertSubject:         sub,
-				Issuer:              iss,
-				Index:               logEntry.Index,
-			})
-		}
-	}
-	return matchedEntries, nil
+	return common.ScanEntryCertSubject(cert, logEntry.Index, monitoredCertIDs)
 }
 
 func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensions.OIDExtension) ([]identity.LogEntry, error) {
@@ -73,23 +59,7 @@ func ScanEntryOIDExtensions(logEntry ct.LogEntry, monitoredOIDMatchers []extensi
 	if cert == nil {
 		return nil, fmt.Errorf("unsupported CT log entry at index %d", logEntry.Index)
 	}
-	matchedEntries := []identity.LogEntry{}
-	for _, monitoredOID := range monitoredOIDMatchers {
-		match, _, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.ObjectIdentifier, monitoredOID.ExtensionValues)
-		if err != nil {
-			return nil, fmt.Errorf("error with policy matching at index %d: %w", logEntry.Index, err)
-		}
-		if match {
-			matchedEntries = append(matchedEntries, identity.LogEntry{
-				MatchedIdentity:     extValue,
-				MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
-				Index:               logEntry.Index,
-				OIDExtension:        monitoredOID.ObjectIdentifier,
-				ExtensionValue:      extValue,
-			})
-		}
-	}
-	return matchedEntries, nil
+	return common.ScanEntryOIDExtensions(cert, logEntry.Index, monitoredOIDMatchers)
 }
 
 func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
