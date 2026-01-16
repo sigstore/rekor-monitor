@@ -271,6 +271,13 @@ func GetEntriesByIndexRange(ctx context.Context, shard ShardInfo, start, end int
 	if err != nil {
 		return nil, fmt.Errorf("error getting bundle for tile: %d, width: %d. Error: %v", endTileIndex, partialBundleSize, err)
 	}
+
+	// If start and end are in the same tile, we need to skip entries with index <= start
+	if startTileIndex == endTileIndex {
+		startOffset := startLogSize % layout.TileWidth
+		endEntries = endEntries[startOffset:]
+	}
+
 	entries = append(entries, endEntries...)
 
 	return entries, nil
