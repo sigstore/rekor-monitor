@@ -293,6 +293,9 @@ func PrintMonitoredValues(monitoredValues identity.MonitoredValues) {
 	for _, sub := range monitoredValues.Subjects {
 		fmt.Printf("Monitoring subject %s\n", sub)
 	}
+	for _, oid := range monitoredValues.OIDMatchers {
+		fmt.Printf("Monitoring OID %s with values %s\n", oid.ObjectIdentifier.String(), strings.Join(oid.ExtensionValues, ","))
+	}
 }
 
 func MonitorLoop(loopLogic MonitorLogic) {

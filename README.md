@@ -51,15 +51,24 @@ monitoredValues:
   fingerprints:
     - A0B1C2D3E4F5
 
-  # Fulcio extensions to monitor
-  fulcioExtensions:
-    build-config-uri:
-      - https://example.com/owner/repository/build-config.yml
+  # OID extension matchers (see OID Extension Matchers section below for details)
+  oidMatchers:
+    # Fulcio extensions using human-readable field names
+    fulcioExtensions:
+      build-config-uri:
+        - https://example.com/owner/repository/build-config.yml
 
-  # Custom OID extensions
-  customExtensions:
-    - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-      extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    # OID extensions using integer array format
+    oidExtensions:
+      - objectIdentifier: [1, 3, 6, 1, 4, 1, 57264, 1, 1]
+        extensionValues:
+          - https://github.com/login/oauth
+
+    # Custom OID extensions using dot notation (more human-readable)
+    customExtensions:
+      - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+        extensionValues:
+          - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 
 # Optional: Output file for found identities
 outputIdentities: identities.txt
@@ -180,12 +189,18 @@ jobs:
             - subject@domain\.com
           fingerprints:
             - A0B1C2D3E4F5
-          fulcioExtensions:
-            build-config-uri:
-              - https://example.com/owner/repository/build-config.yml
-          customExtensions:
-            - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-              extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+          oidMatchers:
+            fulcioExtensions:
+              build-config-uri:
+                - https://example.com/owner/repository/build-config.yml
+            oidExtensions:
+              - objectIdentifier: [1, 3, 6, 1, 4, 1, 57264, 1, 1]
+                extensionValues:
+                  - https://github.com/login/oauth
+            customExtensions:
+              - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+                extensionValues:
+                  - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
 In this example, the monitor will log:
@@ -196,6 +211,7 @@ In this example, the monitor will log:
 * Non-certificate entries, such as PGP or SSH keys, whose subject matches `subject@domain.com`
 * Entries whose key or certificate fingerprint matches `A0B1C2D3E4F5`
 * Entries that contain a certificate with a Build Config URI Extension matching `https://example.com/owner/repository/build-config.yml`
+* Entries that contain a certificate with the deprecated Fulcio Issuer OID (`1.3.6.1.4.1.57264.1.1`) matching `https://github.com/login/oauth`
 * Entries that contain a certificate with OID extension `1.3.6.1.4.1.57264.1.9` (Fulcio OID for Build Signer URI) and an extension value matching `https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0`
 
 Fingerprint values are as follows:
@@ -204,6 +220,81 @@ Fingerprint values are as follows:
 * For SSH and PGP, the standard for each ecosystem:
    * For SSH, unpadded base-64 encoded SHA-256 digest of the key
 	 * For PGP, hex-encoded SHA-1 digest of a key, which can be either a primary key or subkey
+
+### OID Extension Matchers
+
+The monitor supports matching certificates based on X.509 OID extensions. This is useful for monitoring
+certificates issued by Fulcio that contain specific CI/CD workflow information. OID matchers can be
+specified in two ways: using named Fulcio extensions or custom OID extensions.
+
+Note: Extension values are matched exactly (not as regular expressions).
+
+#### Fulcio Extensions
+
+Fulcio extensions provide a convenient way to match well-known Fulcio OID extensions using human-readable
+YAML field names. The full list of Fulcio OID extensions is documented at
+[sigstore/fulcio OID Info](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md).
+
+Example configuration:
+
+```yaml
+monitoredValues:
+  oidMatchers:
+    fulcioExtensions:
+      # Match certificates signed by a specific GitHub Actions workflow
+      build-signer-uri:
+        - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/tags/v1.4.0
+      # Match certificates from a specific source repository
+      source-repository-uri:
+        - https://github.com/sigstore/cosign
+      # Match certificates with specific runner environment
+      runner-environment:
+        - github-hosted
+```
+
+
+#### OID Extensions (Array Format)
+
+For programmatic use cases or when you prefer specifying OIDs as integer arrays,
+use the `oidExtensions` format:
+
+```yaml
+monitoredValues:
+  oidMatchers:
+    oidExtensions:
+      # OID specified as an array of integers
+      - objectIdentifier: [1, 3, 6, 1, 4, 1, 57264, 1, 1]
+        extensionValues:
+          - https://github.com/login/oauth
+      - objectIdentifier: [1, 3, 6, 1, 4, 1, 57264, 1, 8]
+        extensionValues:
+          - https://accounts.google.com
+```
+
+Note: The `objectIdentifier` is specified as a YAML array of integers representing the OID components.
+For example, `[1, 3, 6, 1, 4, 1, 57264, 1, 8]` is equivalent to `1.3.6.1.4.1.57264.1.8` in dot notation.
+
+#### Custom OID Extensions (Dot Notation)
+
+For OID extensions not covered by the Fulcio named fields, or for non-Fulcio OID extensions,
+use the `customExtensions` format with the OID specified in dot notation (more human-readable):
+
+```yaml
+monitoredValues:
+  oidMatchers:
+    customExtensions:
+      # Match the Fulcio Issuer extension (OID 1.3.6.1.4.1.57264.1.1)
+      - objectIdentifier: 1.3.6.1.4.1.57264.1.1
+        extensionValues:
+          - https://github.com/login/oauth
+          - https://accounts.google.com
+      # Match a custom OID extension
+      - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+        extensionValues:
+          - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+```
+
+Note: Each custom extension entry requires both `objectIdentifier` (in dot notation) and `extensionValues` (a list of values to match).
 
 Upcoming features:
 
@@ -252,12 +343,18 @@ jobs:
             - subject@domain\.com
           fingerprints:
             - A0B1C2D3E4F5
-          fulcioExtensions:
-            build-config-uri:
-              - https://example.com/owner/repository/build-config.yml
-          customExtensions:
-            - objectIdentifier: 1.3.6.1.4.1.57264.1.9
-              extensionValues: https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+          oidMatchers:
+            fulcioExtensions:
+              build-config-uri:
+                - https://example.com/owner/repository/build-config.yml
+            oidExtensions:
+              - objectIdentifier: [1, 3, 6, 1, 4, 1, 57264, 1, 1]
+                extensionValues:
+                  - https://github.com/login/oauth
+            customExtensions:
+              - objectIdentifier: 1.3.6.1.4.1.57264.1.9
+                extensionValues:
+                  - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
 ## Security
