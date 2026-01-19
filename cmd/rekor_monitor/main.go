@@ -355,17 +355,10 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 		return 1
 	}
 
-	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
+	monitoredValues, err := config.MonitoredValues.ToMonitoredValues()
 	if err != nil {
-		log.Printf("error parsing OID matchers: %v\n", err)
+		log.Printf("error converting monitored values: %v\n", err)
 		return 1
-	}
-
-	monitoredValues := identity.MonitoredValues{
-		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
-		Subjects:              config.MonitoredValues.Subjects,
-		Fingerprints:          config.MonitoredValues.Fingerprints,
-		OIDMatchers:           allOIDMatchers,
 	}
 
 	cmd.PrintMonitoredValues(monitoredValues)
@@ -381,17 +374,10 @@ func mainLoopV1(flags *cmd.MonitorFlags, config *notifications.IdentityMonitorCo
 }
 
 func mainLoopV2(tufClient *tuf.Client, flags *cmd.MonitorFlags, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]rekor_v2.ShardInfo, latestShardOrigin string) int {
-	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
+	monitoredValues, err := config.MonitoredValues.ToMonitoredValues()
 	if err != nil {
-		fmt.Printf("error parsing OID matchers: %v", err)
+		fmt.Printf("error converting monitored values: %v", err)
 		return 1
-	}
-
-	monitoredValues := identity.MonitoredValues{
-		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
-		Subjects:              config.MonitoredValues.Subjects,
-		Fingerprints:          config.MonitoredValues.Fingerprints,
-		OIDMatchers:           allOIDMatchers,
 	}
 
 	cmd.PrintMonitoredValues(monitoredValues)

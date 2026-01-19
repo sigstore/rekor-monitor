@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 
 	google_asn1 "github.com/google/certificate-transparency-go/asn1"
@@ -39,53 +38,144 @@ var (
 	certExtensionOIDCIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
 )
 
-// CertificateIdentity holds a certificate subject and an optional list of identity issuers
-type CertificateIdentity struct {
-	CertSubject string   `yaml:"certSubject"`
-	Issuers     []string `yaml:"issuers"`
+// MonitoredValue is an interface representing a single monitored identity value
+type MonitoredValue interface {
+	// Type returns the type of identity this value represents
+	Type() MatchedIdentityType
+	// String returns a human-readable representation
+	String() string
+	// MarshalJSON marshals the value with type information included
+	MarshalJSON() ([]byte, error)
+	// Verify checks that the monitored value is valid
+	Verify() error
 }
 
-// MonitoredValues holds a set of values to compare against a given entry
-type MonitoredValues struct {
-	// CertificateIdentities contains a list of subjects and issuers
-	CertificateIdentities []CertificateIdentity `yaml:"certIdentities"`
-	// Fingerprints contains a list of key fingerprints. Values are as follows:
-	// For keys, certificates, and minisign, hex-encoded SHA-256 digest
-	// of the DER-encoded PKIX public key or certificate
-	// For SSH and PGP, the standard for each ecosystem:
-	// For SSH, unpadded base-64 encoded SHA-256 digest of the key
-	// For PGP, hex-encoded SHA-1 digest of a key, which can be either
-	// a primary key or subkey
-	Fingerprints []string `yaml:"fingerprints"`
-	// Subjects contains a list of subjects that are not specified in a
-	// certificate, such as a SSH key or PGP key email address
-	Subjects []string `yaml:"subjects"`
-	// OIDMatchers represents a list of OID extension fields and associated values,
-	// which includes those constructed directly, those supported by Fulcio, and any constructed via dot notation.
-	OIDMatchers []extensions.OIDExtension `yaml:"oidMatchers"`
+// CertIdentityValue holds a certificate subject and an optional list of identity issuers
+type CertIdentityValue struct {
+	CertSubject string   `json:"certSubject" yaml:"certSubject"`
+	Issuers     []string `json:"issuers,omitempty" yaml:"issuers"`
 }
+
+func (c CertIdentityValue) Type() MatchedIdentityType { return MatchedIdentityTypeCertIdentity }
+func (c CertIdentityValue) String() string {
+	return fmt.Sprintf("%s:%s:%v", c.Type(), c.CertSubject, c.Issuers)
+}
+func (c CertIdentityValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        c.Type(),
+		"certSubject": c.CertSubject,
+		"issuers":     c.Issuers,
+	})
+}
+func (c CertIdentityValue) Verify() error {
+	if len(c.CertSubject) == 0 {
+		return errors.New("certificate subject empty")
+	}
+	// issuers can be empty
+	for _, iss := range c.Issuers {
+		if len(iss) == 0 {
+			return errors.New("issuer empty")
+		}
+	}
+	return nil
+}
+
+type FingerprintValue struct {
+	Fingerprint string `json:"fingerprint"`
+}
+
+func (f FingerprintValue) Type() MatchedIdentityType { return MatchedIdentityTypeFingerprint }
+func (f FingerprintValue) String() string {
+	return fmt.Sprintf("%s:%s", f.Type(), f.Fingerprint)
+}
+func (f FingerprintValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        f.Type(),
+		"fingerprint": f.Fingerprint,
+	})
+}
+func (f FingerprintValue) Verify() error {
+	if len(f.Fingerprint) == 0 {
+		return errors.New("fingerprint empty")
+	}
+	return nil
+}
+
+type SubjectValue struct {
+	Subject string `json:"subject"`
+}
+
+func (s SubjectValue) Type() MatchedIdentityType { return MatchedIdentityTypeSubject }
+func (s SubjectValue) String() string {
+	return fmt.Sprintf("%s:%s", s.Type(), s.Subject)
+}
+func (s SubjectValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":    s.Type(),
+		"subject": s.Subject,
+	})
+}
+func (s SubjectValue) Verify() error {
+	if len(s.Subject) == 0 {
+		return errors.New("subject empty")
+	}
+	return nil
+}
+
+type OIDMatcherValue struct {
+	OID             asn1.ObjectIdentifier `json:"oid"`
+	ExtensionValues []string              `json:"extensionValues"`
+}
+
+func (o OIDMatcherValue) Type() MatchedIdentityType { return MatchedIdentityTypeOIDExtension }
+func (o OIDMatcherValue) String() string {
+	return fmt.Sprintf("%s:%s:%v", o.Type(), o.OID.String(), o.ExtensionValues)
+}
+func (o OIDMatcherValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":            o.Type(),
+		"oid":             o.OID,
+		"extensionValues": o.ExtensionValues,
+	})
+}
+func (o OIDMatcherValue) Verify() error {
+	if len(o.OID) == 0 {
+		return errors.New("oid extension empty")
+	}
+	if len(o.ExtensionValues) == 0 {
+		return errors.New("oid matched values empty")
+	}
+	for _, extensionValue := range o.ExtensionValues {
+		if len(extensionValue) == 0 {
+			return errors.New("oid matched value empty")
+		}
+	}
+	return nil
+}
+
+// MonitoredValues is a collection of identity values to monitor
+type MonitoredValues []MonitoredValue
 
 type MatchedIdentityType string
 
 const (
-	MatchedIdentityTypeCertSubject    MatchedIdentityType = "certSubject"
-	MatchedIdentityTypeExtensionValue MatchedIdentityType = "extensionValue"
-	MatchedIdentityTypeFingerprint    MatchedIdentityType = "fingerprint"
-	MatchedIdentityTypeSubject        MatchedIdentityType = "subject"
+	MatchedIdentityTypeCertIdentity MatchedIdentityType = "certIdentity"
+	MatchedIdentityTypeOIDExtension MatchedIdentityType = "oidExtension"
+	MatchedIdentityTypeFingerprint  MatchedIdentityType = "fingerprint"
+	MatchedIdentityTypeSubject      MatchedIdentityType = "subject"
 )
 
 // LogEntry holds a certificate subject, issuer, OID extension and associated value, and log entry metadata
 type LogEntry struct {
-	MatchedIdentity     string
-	MatchedIdentityType MatchedIdentityType
-	CertSubject         string
-	Issuer              string
-	Fingerprint         string
-	Subject             string
-	Index               int64
-	UUID                string
-	OIDExtension        asn1.ObjectIdentifier
-	ExtensionValue      string
+	MatchedIdentity MonitoredValue
+	CertSubject     string
+	Issuer          string
+	Fingerprint     string
+	Subject         string
+	Index           int64
+	UUID            string
+	OIDExtension    asn1.ObjectIdentifier
+	ExtensionValue  string
 }
 
 func (e *LogEntry) String() string {
@@ -107,8 +197,24 @@ type FailedLogEntry struct {
 
 // MonitoredIdentity holds an identity and associated log entries matching the identity being monitored.
 type MonitoredIdentity struct {
-	Identity             string     `json:"identity"`
-	FoundIdentityEntries []LogEntry `json:"foundIdentityEntries"`
+	Identity             MonitoredValue `json:"identity"`
+	FoundIdentityEntries []LogEntry     `json:"foundIdentityEntries"`
+}
+
+// MarshalJSON implements custom JSON marshaling for MonitoredIdentity
+func (m MonitoredIdentity) MarshalJSON() ([]byte, error) {
+	identityBytes, err := m.Identity.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(struct {
+		Identity             json.RawMessage `json:"identity"`
+		FoundIdentityEntries []LogEntry      `json:"foundIdentityEntries"`
+	}{
+		Identity:             identityBytes,
+		FoundIdentityEntries: m.FoundIdentityEntries,
+	})
 }
 
 // PrintMonitoredIdentities formats a list of monitored identities and corresponding log entries
@@ -151,66 +257,29 @@ func (failedEntries FailedLogEntryList) ToNotificationHeader() string {
 	return "Failed to parse the following log entries: "
 }
 
-// CreateIdentitiesList takes in a MonitoredValues input and returns a list of all currently monitored identities.
-// It returns a list of strings.
-func CreateIdentitiesList(mvs MonitoredValues) []string {
-	identities := []string{}
-
-	for _, certID := range mvs.CertificateIdentities {
-		identities = append(identities, certID.CertSubject)
-		identities = append(identities, certID.Issuers...)
-	}
-
-	identities = append(identities, mvs.Fingerprints...)
-	identities = append(identities, mvs.Subjects...)
-
-	for _, oidMatcher := range mvs.OIDMatchers {
-		identities = append(identities, oidMatcher.ExtensionValues...)
-	}
-
-	return identities
-}
-
-// CreateMonitoredIdentities takes in a list of IdentityEntries and groups them by
-// associated identity based on an input list of identities to monitor.
+// CreateMonitoredIdentities takes in a list of LogEntries and groups them by
+// their matched identity (MonitoredValue).
 // It returns a list of MonitoredIdentities.
-func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentities []string) []MonitoredIdentity {
-	identityMap := make(map[string]bool)
-	for _, id := range monitoredIdentities {
-		identityMap[id] = true
-	}
-
+func CreateMonitoredIdentities(inputIdentityEntries []LogEntry) []MonitoredIdentity {
+	// Group log entries by their matched identity's String() which includes type + full representation
+	// Use string key since MonitoredValue is an interface and can't be used as map key
 	monitoredIdentityMap := make(map[string][]LogEntry)
+	identityByKey := make(map[string]MonitoredValue)
+
 	for _, idEntry := range inputIdentityEntries {
-		if _, ok := identityMap[idEntry.MatchedIdentity]; !ok {
-			fmt.Fprintf(os.Stderr, "Matched identity %s not found in identity map\n", idEntry.MatchedIdentity)
+		if idEntry.MatchedIdentity == nil {
 			continue
 		}
-
-		identityValue := ""
-		switch idEntry.MatchedIdentityType {
-		case MatchedIdentityTypeCertSubject:
-			identityValue = idEntry.CertSubject
-		case MatchedIdentityTypeExtensionValue:
-			identityValue = idEntry.ExtensionValue
-		case MatchedIdentityTypeFingerprint:
-			identityValue = idEntry.Fingerprint
-		case MatchedIdentityTypeSubject:
-			identityValue = idEntry.Subject
-		}
-
-		_, ok := monitoredIdentityMap[identityValue]
-		if ok {
-			monitoredIdentityMap[identityValue] = append(monitoredIdentityMap[identityValue], idEntry)
-		} else {
-			monitoredIdentityMap[identityValue] = []LogEntry{idEntry}
-		}
+		key := idEntry.MatchedIdentity.String()
+		monitoredIdentityMap[key] = append(monitoredIdentityMap[key], idEntry)
+		identityByKey[key] = idEntry.MatchedIdentity
 	}
 
+	// Build the result
 	parsedMonitoredIdentities := []MonitoredIdentity{}
-	for id, idEntries := range monitoredIdentityMap {
+	for key, idEntries := range monitoredIdentityMap {
 		parsedMonitoredIdentities = append(parsedMonitoredIdentities, MonitoredIdentity{
-			Identity:             id,
+			Identity:             identityByKey[key],
 			FoundIdentityEntries: idEntries,
 		})
 	}
@@ -218,70 +287,15 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry, monitoredIdentit
 	return parsedMonitoredIdentities
 }
 
-// MonitoredValuesExist checks if there are monitored values in an input and returns accordingly.
-func MonitoredValuesExist(mvs MonitoredValues) bool {
-	if len(mvs.CertificateIdentities) > 0 {
-		return true
-	}
-	if len(mvs.Fingerprints) > 0 {
-		return true
-	}
-	if len(mvs.OIDMatchers) > 0 {
-		return true
-	}
-	if len(mvs.Subjects) > 0 {
-		return true
-	}
-	return false
-}
-
-// verifyMonitoredOIDs checks that monitored OID extensions and matching values are valid
-func verifyMonitoredOIDs(mvs MonitoredValues) error {
-	for _, oidMatcher := range mvs.OIDMatchers {
-		if len(oidMatcher.ObjectIdentifier) == 0 {
-			return errors.New("oid extension empty")
-		}
-		if len(oidMatcher.ExtensionValues) == 0 {
-			return errors.New("oid matched values empty")
-		}
-		for _, extensionValue := range oidMatcher.ExtensionValues {
-			if len(extensionValue) == 0 {
-				return errors.New("oid matched value empty")
-			}
-		}
-	}
-	return nil
-}
-
 // VerifyMonitoredValues checks that monitored values are valid
 func VerifyMonitoredValues(mvs MonitoredValues) error {
-	if !MonitoredValuesExist(mvs) {
+	if len(mvs) == 0 {
 		return errors.New("no identities provided to monitor")
 	}
-	for _, certID := range mvs.CertificateIdentities {
-		if len(certID.CertSubject) == 0 {
-			return errors.New("certificate subject empty")
+	for _, mv := range mvs {
+		if err := mv.Verify(); err != nil {
+			return err
 		}
-		// issuers can be empty
-		for _, iss := range certID.Issuers {
-			if len(iss) == 0 {
-				return errors.New("issuer empty")
-			}
-		}
-	}
-	for _, fp := range mvs.Fingerprints {
-		if len(fp) == 0 {
-			return errors.New("fingerprint empty")
-		}
-	}
-	for _, sub := range mvs.Subjects {
-		if len(sub) == 0 {
-			return errors.New("subject empty")
-		}
-	}
-	err := verifyMonitoredOIDs(mvs)
-	if err != nil {
-		return err
 	}
 	return nil
 }

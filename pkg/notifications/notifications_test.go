@@ -81,7 +81,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "valid configuration with valid regex patterns",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `^test\.example\.com$`,
 							Issuers:     []string{`^Test CA$`, `^Test Org$`},
@@ -103,7 +103,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "invalid certSubject regex",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `[invalid regex`,
 							Issuers:     []string{`^Test CA$`},
@@ -118,7 +118,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "invalid issuer regex",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `^test\.example\.com$`,
 							Issuers:     []string{`[invalid issuer regex`},
@@ -145,7 +145,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "multiple invalid patterns - first certSubject error",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `[invalid certSubject`,
 							Issuers:     []string{`[invalid issuer`},
@@ -163,7 +163,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "valid certSubject but invalid issuer",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `^test\.example\.com$`,
 							Issuers:     []string{`^Test CA$`, `[invalid issuer`},
@@ -178,7 +178,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "complex valid regex patterns",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: `^([a-zA-Z0-9\-\.]+)\.example\.com$`,
 							Issuers:     []string{`^([A-Za-z\s]+) CA$`, `^([A-Za-z\s]+)$`},
@@ -196,7 +196,7 @@ func TestIdentityMonitorConfiguration_Validate(t *testing.T) {
 			name: "empty strings are valid regex patterns",
 			config: IdentityMonitorConfiguration{
 				MonitoredValues: ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: ``,
 							Issuers:     []string{``, `^Test CA$`},

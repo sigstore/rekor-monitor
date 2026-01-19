@@ -72,7 +72,7 @@ func CreateNotificationContext(monitorType, subject string) NotificationContext 
 // via OID extensions supported by Fulcio, or via dot notation.
 type ConfigMonitoredValues struct {
 	// CertificateIdentities contains a list of subjects and issuers
-	CertificateIdentities []identity.CertificateIdentity `yaml:"certIdentities"`
+	CertificateIdentities []identity.CertIdentityValue `yaml:"certIdentities"`
 	// Fingerprints contains a list of key fingerprints. Values are as follows:
 	// For keys, certificates, and minisign, hex-encoded SHA-256 digest
 	// of the DER-encoded PKIX public key or certificate
@@ -88,6 +88,29 @@ type ConfigMonitoredValues struct {
 	// which includes those constructed directly, those supported by Fulcio, and any constructed via dot notation.
 	// These OIDMatchers are parsed into one list of OID extensions and matching values before being passed into MatchedIndices.
 	OIDMatchers extensions.OIDMatchers `yaml:"oidMatchers"`
+}
+
+// ToMonitoredValues converts ConfigMonitoredValues to identity.MonitoredValues.
+// It renders OID matchers internally.
+func (c ConfigMonitoredValues) ToMonitoredValues() (identity.MonitoredValues, error) {
+	var mvs identity.MonitoredValues
+	for _, certID := range c.CertificateIdentities {
+		mvs = append(mvs, certID)
+	}
+	for _, fp := range c.Fingerprints {
+		mvs = append(mvs, identity.FingerprintValue{Fingerprint: fp})
+	}
+	for _, sub := range c.Subjects {
+		mvs = append(mvs, identity.SubjectValue{Subject: sub})
+	}
+	renderedOIDMatchers, err := c.OIDMatchers.RenderOIDMatchers()
+	if err != nil {
+		return nil, fmt.Errorf("error rendering OID matchers: %w", err)
+	}
+	for _, oid := range renderedOIDMatchers {
+		mvs = append(mvs, identity.OIDMatcherValue{OID: oid.ObjectIdentifier, ExtensionValues: oid.ExtensionValues})
+	}
+	return mvs, nil
 }
 
 // IdentityMonitorConfiguration holds the configuration settings for an identity monitor workflow run.
