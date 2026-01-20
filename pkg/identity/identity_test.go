@@ -434,6 +434,149 @@ func TestGoogleOIDMatchesValue(t *testing.T) {
 	}
 }
 
+// mockCertificateWithRawExtension creates a certificate with a raw string extension
+// (not ASN.1 encoded), simulating the deprecated Fulcio extension format
+func mockCertificateWithRawExtension(oid asn1.ObjectIdentifier, value string) *x509.Certificate {
+	return &x509.Certificate{
+		Extensions: []pkix.Extension{
+			{
+				Id:       oid,
+				Critical: false,
+				Value:    []byte(value), // Raw bytes, not ASN.1 encoded
+			},
+		},
+	}
+}
+
+// mockGoogleCertificateWithRawExtension creates a google_x509 certificate with a raw string extension
+func mockGoogleCertificateWithRawExtension(oid asn1.ObjectIdentifier, value string) *google_x509.Certificate {
+	return &google_x509.Certificate{
+		Extensions: []google_pkix.Extension{
+			{
+				Id:       (google_asn1.ObjectIdentifier)(oid),
+				Critical: false,
+				Value:    []byte(value), // Raw bytes, not ASN.1 encoded
+			},
+		},
+	}
+}
+
+// Test OIDMatchesPolicy falls back to raw string when ASN.1 unmarshalling fails
+func TestOIDMatchesRawStringFallback(t *testing.T) {
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1} // Fulcio deprecated issuer OID
+	extValueString := "https://github.com/login/oauth"
+
+	// Create certificate with raw string extension (not ASN.1 encoded)
+	cert := mockCertificateWithRawExtension(oid, extValueString)
+
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, []string{extValueString})
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if !matches {
+		t.Errorf("Expected match to be true, got false")
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected OID %s, got %s", oid.String(), matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected extension value '%s', got '%s'", extValueString, extValue)
+	}
+}
+
+// Test OIDMatchesPolicy with raw string extension that doesn't match value
+func TestOIDRawStringNoMatch(t *testing.T) {
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	certValue := "https://github.com/login/oauth"
+	wrongValue := "https://accounts.google.com"
+
+	cert := mockCertificateWithRawExtension(oid, certValue)
+
+	matches, _, _, err := OIDMatchesPolicy(cert, oid, []string{wrongValue})
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if matches {
+		t.Errorf("Expected match to be false, got true")
+	}
+}
+
+// Test OIDMatchesPolicy falls back to raw string for google_x509 certificate
+func TestGoogleOIDMatchesRawStringFallback(t *testing.T) {
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	extValueString := "https://github.com/login/oauth"
+
+	cert := mockGoogleCertificateWithRawExtension(oid, extValueString)
+
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, []string{extValueString})
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if !matches {
+		t.Errorf("Expected match to be true, got false")
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected OID %s, got %s", oid.String(), matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected extension value '%s', got '%s'", extValueString, extValue)
+	}
+}
+
+// Test OIDMatchesPolicy with multiple extension values where one matches (raw string)
+func TestOIDRawStringMultipleValuesOneMatch(t *testing.T) {
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+	certValue := "https://github.com/login/oauth"
+
+	cert := mockCertificateWithRawExtension(oid, certValue)
+
+	extensionValues := []string{
+		"https://accounts.google.com",
+		"https://github.com/login/oauth",
+		"https://token.actions.githubusercontent.com",
+	}
+
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, extensionValues)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if !matches {
+		t.Errorf("Expected match to be true, got false")
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected OID %s, got %s", oid.String(), matchedOID.String())
+	}
+	if extValue != certValue {
+		t.Errorf("Expected extension value '%s', got '%s'", certValue, extValue)
+	}
+}
+
+// Test OIDMatchesPolicy prefers ASN.1 encoding over raw string when valid
+func TestOIDPrefersASN1OverRawString(t *testing.T) {
+	oid := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8} // Fulcio v2 issuer OID
+	extValueString := "https://accounts.google.com"
+
+	// Create certificate with properly ASN.1 encoded extension
+	cert, err := mockCertificateWithExtension(oid, extValueString)
+	if err != nil {
+		t.Fatalf("Failed to create mock certificate: %v", err)
+	}
+
+	matches, matchedOID, extValue, err := OIDMatchesPolicy(cert, oid, []string{extValueString})
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if !matches {
+		t.Errorf("Expected match to be true, got false")
+	}
+	if matchedOID.String() != oid.String() {
+		t.Errorf("Expected OID %s, got %s", oid.String(), matchedOID.String())
+	}
+	if extValue != extValueString {
+		t.Errorf("Expected extension value '%s', got '%s'", extValueString, extValue)
+	}
+}
+
 // Test when cert is present but the value does not match
 func TestCertDoesNotMatch(t *testing.T) {
 	emailAddr := "test@address.com"
