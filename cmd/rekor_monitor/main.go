@@ -289,7 +289,7 @@ func mainWithReturn() int {
 		log.Fatal(err)
 	}
 
-	tufClient, err := cmd.GetTUFClient(flags)
+	tufClient, err := rmutil.GetTUFClient(flags.TUFRepository, flags.TUFRootPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -303,10 +303,12 @@ func mainWithReturn() int {
 		log.Fatal(err)
 	}
 
-	cleanupTrustedCAs, err := cmd.ConfigureTrustedCAs(config, trustedRoot)
+	newCARootsFile, newCAIntermediatesFile, cleanupTrustedCAs, err := rmutil.ConfigureTrustedCAs(config.CARootsFile, config.CAIntermediatesFile, trustedRoot)
 	if err != nil {
 		log.Fatal(err)
 	}
+	config.CARootsFile = newCARootsFile
+	config.CAIntermediatesFile = newCAIntermediatesFile
 	defer cleanupTrustedCAs()
 
 	allRekorServices := signingConfig.RekorLogURLs()

@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"os"
@@ -30,8 +29,6 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/server"
-	"github.com/sigstore/sigstore-go/pkg/root"
-	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -183,99 +180,6 @@ func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFil
 		return nil, nil, err
 	}
 	return flags, config, nil
-}
-
-// GetTUFClient gets a TUF client based on the flags
-func GetTUFClient(flags *MonitorFlags) (*tuf.Client, error) {
-	switch flags.TUFRepository {
-	case "default":
-		if flags.TUFRootPath != "" {
-			return nil, fmt.Errorf("tuf-root-path is not supported when using the default TUF repository")
-		}
-		return tuf.DefaultClient()
-	case "staging":
-		if flags.TUFRootPath != "" {
-			return nil, fmt.Errorf("tuf-root-path is not supported when using the staging TUF repository")
-		}
-		options := tuf.DefaultOptions().WithRoot(tuf.StagingRoot()).WithRepositoryBaseURL(tuf.StagingMirror)
-		return tuf.New(options)
-	default:
-		fmt.Printf("Using custom TUF repository: %s\n", flags.TUFRepository)
-		if flags.TUFRootPath == "" {
-			return nil, fmt.Errorf("tuf-root-path is required when using a custom TUF repository")
-		}
-		rootBytes, err := os.ReadFile(flags.TUFRootPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read TUF root path: %w", err)
-		}
-		options := tuf.DefaultOptions().WithRoot(rootBytes).WithRepositoryBaseURL(flags.TUFRepository)
-		return tuf.New(options)
-	}
-}
-
-// ConfigureTrustedCAs configures the root/intermediate CAs for the monitor, by either
-// using the configured CAs or, if they were not explicitly defined, using the
-// default ones from the TUF data.
-func ConfigureTrustedCAs(config *notifications.IdentityMonitorConfiguration, trustedRoot *root.TrustedRoot) (func(), error) {
-	if config.CARootsFile != "" {
-		return func() {}, nil
-	}
-
-	var fulcioRootFile, fulcioIntermediateFile *os.File
-	var err error
-
-	closeFiles := func() {
-		if fulcioRootFile != nil {
-			fulcioRootFile.Close()
-		}
-		if fulcioIntermediateFile != nil {
-			fulcioIntermediateFile.Close()
-		}
-	}
-	cleanupFiles := func() {
-		if fulcioRootFile != nil {
-			os.Remove(fulcioRootFile.Name())
-		}
-		if fulcioIntermediateFile != nil {
-			os.Remove(fulcioIntermediateFile.Name())
-		}
-	}
-
-	fulcioRootFile, err = os.CreateTemp("", "fulcio-root-*.pem")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file for Fulcio CA: %w", err)
-	}
-	config.CARootsFile = fulcioRootFile.Name()
-
-	fulcioIntermediateFile, err = os.CreateTemp("", "fulcio-intermediate-*.pem")
-	if err != nil {
-		closeFiles()
-		cleanupFiles()
-		return nil, fmt.Errorf("failed to create temp file for Fulcio CA intermediate: %w", err)
-	}
-	config.CAIntermediatesFile = fulcioIntermediateFile.Name()
-
-	for _, ca := range trustedRoot.FulcioCertificateAuthorities() {
-		fulcioCA := ca.(*root.FulcioCertificateAuthority)
-
-		// Get the root certificate from TUF
-		if err := pem.Encode(fulcioRootFile, &pem.Block{Type: "CERTIFICATE", Bytes: fulcioCA.Root.Raw}); err != nil {
-			closeFiles()
-			cleanupFiles()
-			return nil, fmt.Errorf("failed to write Fulcio CA root to temp file: %w", err)
-		}
-
-		// Get the intermediate certificates from TUF
-		for _, intermediate := range fulcioCA.Intermediates {
-			if err := pem.Encode(fulcioIntermediateFile, &pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}); err != nil {
-				closeFiles()
-				cleanupFiles()
-				return nil, fmt.Errorf("failed to write Fulcio CA intermediate to temp file: %w", err)
-			}
-		}
-	}
-	closeFiles()
-	return cleanupFiles, nil
 }
 
 // PrintMonitoredValues prints the monitored values to the console
