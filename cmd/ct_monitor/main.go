@@ -138,7 +138,7 @@ func mainWithReturn() int {
 		flags.LogInfoFile = logInfoFileName
 	}
 
-	tufClient, err := cmd.GetTUFClient(flags)
+	tufClient, err := util.GetTUFClient(flags.TUFRepository, flags.TUFRootPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -148,10 +148,12 @@ func mainWithReturn() int {
 		log.Fatal(err)
 	}
 
-	cleanupTrustedCAs, err := cmd.ConfigureTrustedCAs(config, trustedRoot)
+	newCARootsFile, newCAIntermediatesFile, cleanupTrustedCAs, err := util.ConfigureTrustedCAs(config.CARootsFile, config.CAIntermediatesFile, trustedRoot)
 	if err != nil {
 		log.Fatal(err)
 	}
+	config.CARootsFile = newCARootsFile
+	config.CAIntermediatesFile = newCAIntermediatesFile
 	defer cleanupTrustedCAs()
 
 	httpClient := http.DefaultClient
