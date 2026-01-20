@@ -351,6 +351,7 @@ func getDeprecatedExtension[Certificate *x509.Certificate | *google_x509.Certifi
 // if true, it returns the OID extension and extension value that were matched on
 func OIDMatchesPolicy[Certificate *x509.Certificate | *google_x509.Certificate](cert Certificate, oid asn1.ObjectIdentifier, extensionValues []string) (bool, asn1.ObjectIdentifier, string, error) {
 	// Try ASN.1 encoded string first
+	// TODO: optimize by calling getDeprecatedExtension directly when the extension is not ASN.1 encoded
 	extValue, err := getExtension(cert, oid)
 	if err != nil {
 		// Fallback to raw string for deprecated extensions that don't use ASN.1 encoding
