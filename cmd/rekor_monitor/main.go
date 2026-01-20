@@ -194,10 +194,22 @@ func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpo
 		}
 	}
 
-	prev, cur, err := rekor_v2.RunConsistencyCheck(context.Background(), l.rekorShards, l.latestShardOrigin, l.flags.LogInfoFile)
+	var prev *tlog.Checkpoint
+
+	fi, err := os.Stat(l.flags.LogInfoFile)
+	if err == nil && fi.Size() != 0 {
+		// Read the latest saved checkpoint from the log file
+		prev, err = file.ReadLatestCheckpointRekorV2(l.flags.LogInfoFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("reading checkpoint log: %v", err)
+		}
+	}
+
+	cur, err := rekor_v2.VerifyConsistencyWithCheckpoint(context.Background(), l.rekorShards, l.latestShardOrigin, prev)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	var prevCheckpoint cmd.Checkpoint
 	if prev != nil {
 		prevCheckpoint = prev
