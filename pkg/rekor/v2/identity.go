@@ -23,7 +23,6 @@ import (
 	"regexp"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
 	"github.com/sigstore/rekor-tiles/v2/pkg/verifier"
@@ -243,20 +242,22 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots st
 	return matchedEntries, failedEntries, nil
 }
 
-func IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	o := identity.ApplyIdentitySearchOptions(opts...)
+
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]
-	entries, err := GetEntriesByIndexRange(ctx, activeShard, *config.StartIndex, *config.EndIndex)
+	entries, err := GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, config.CARootsFile, config.CAIntermediatesFile)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, config.OutputIdentitiesFormat, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
+	err = file.WriteMatchedIdentityEntries(o.OutputIdentitiesFile, o.OutputIdentitiesFormat, matchedEntries, o.IdentityMetadataFile, endIndex)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-openapi/runtime"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
@@ -262,17 +261,19 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 	return index
 }
 
-func IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	entries, err := GetEntriesByIndexRange(ctx, rekorClient, *config.StartIndex, *config.EndIndex)
+func IdentitySearch(ctx context.Context, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	o := identity.ApplyIdentitySearchOptions(opts...)
+
+	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, config.CARootsFile, config.CAIntermediatesFile)
+	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}
 
-	err = file.WriteMatchedIdentityEntries(config.OutputIdentitiesFile, config.OutputIdentitiesFormat, matchedEntries, config.IdentityMetadataFile, *config.EndIndex)
+	err = file.WriteMatchedIdentityEntries(o.OutputIdentitiesFile, o.OutputIdentitiesFormat, matchedEntries, o.IdentityMetadataFile, endIndex)
 	if err != nil {
 		return nil, nil, err
 	}

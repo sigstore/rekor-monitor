@@ -287,6 +287,57 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry) []MonitoredIdent
 	return parsedMonitoredIdentities
 }
 
+// IdentitySearchOptions holds the configuration for identity search operations.
+type IdentitySearchOptions struct {
+	CARootsFile            string
+	CAIntermediatesFile    string
+	OutputIdentitiesFile   *string
+	OutputIdentitiesFormat *string
+	IdentityMetadataFile   *string
+}
+
+// IdentitySearchOption is a functional option for configuring identity search operations.
+type IdentitySearchOption func(*IdentitySearchOptions)
+
+// WithCARootsFile sets the path to a bundle file of CA certificates in PEM format.
+func WithCARootsFile(path string) IdentitySearchOption {
+	return func(o *IdentitySearchOptions) {
+		o.CARootsFile = path
+	}
+}
+
+// WithCAIntermediatesFile sets the path to a bundle file of CA intermediate certificates in PEM format.
+func WithCAIntermediatesFile(path string) IdentitySearchOption {
+	return func(o *IdentitySearchOptions) {
+		o.CAIntermediatesFile = path
+	}
+}
+
+// WithOutputIdentitiesFile sets the path and format for writing matched identity entries.
+// Format should be "text" or "json". Pass nil to disable file output.
+func WithOutputIdentitiesFile(path, format *string) IdentitySearchOption {
+	return func(o *IdentitySearchOptions) {
+		o.OutputIdentitiesFile = path
+		o.OutputIdentitiesFormat = format
+	}
+}
+
+// WithIdentityMetadataFile sets the optional path to write identity metadata.
+func WithIdentityMetadataFile(path *string) IdentitySearchOption {
+	return func(o *IdentitySearchOptions) {
+		o.IdentityMetadataFile = path
+	}
+}
+
+// ApplyIdentitySearchOptions applies the given options and returns an IdentitySearchOptions struct.
+func ApplyIdentitySearchOptions(opts ...IdentitySearchOption) IdentitySearchOptions {
+	options := IdentitySearchOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return options
+}
+
 // VerifyMonitoredValues checks that monitored values are valid
 func VerifyMonitoredValues(mvs MonitoredValues) error {
 	if len(mvs) == 0 {

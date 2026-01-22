@@ -121,8 +121,8 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	return &checkpointEndIndex
 }
 
-func (l CTMonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return ct.IdentitySearch(ctx, l.ctlogClient, config, monitoredValues)
+func (l CTMonitorLogic) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	return ct.IdentitySearch(ctx, l.ctlogClient, monitoredValues, startIndex, endIndex, opts...)
 }
 
 // This main function performs a periodic identity search.

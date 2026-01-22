@@ -62,7 +62,7 @@ type MonitorLogic interface {
 	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
 	GetStartIndex(prev Checkpoint, cur LogInfo) *int64
 	GetEndIndex(cur LogInfo) *int64
-	IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 }
 
 type Checkpoint interface{}
@@ -140,17 +140,21 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 		}
 	}
 
-	if config.OutputIdentitiesFormat == "" {
-		config.OutputIdentitiesFormat = "text"
-	}
-
-	if config.OutputIdentitiesFile == "" {
-		config.OutputIdentitiesFile = defaultOutputFile
-		switch config.OutputIdentitiesFormat {
-		case "text":
-			config.OutputIdentitiesFile += ".txt"
-		case "json":
-			config.OutputIdentitiesFile += ".json"
+	// If outputIdentities is set, ensure format is also set
+	if config.OutputIdentitiesFile != nil {
+		if config.OutputIdentitiesFormat == nil {
+			// Infer format from file extension
+			var format string
+			switch {
+			case strings.HasSuffix(*config.OutputIdentitiesFile, ".txt"):
+				format = "text"
+			case strings.HasSuffix(*config.OutputIdentitiesFile, ".json"):
+				format = "json"
+			default:
+				// Default to text format
+				format = "text"
+			}
+			config.OutputIdentitiesFormat = &format
 		}
 	}
 
@@ -239,7 +243,16 @@ func MonitorLoop(loopLogic MonitorLogic) {
 					return
 				}
 
-				foundEntries, failedEntries, err := loopLogic.IdentitySearch(ctx, config, loopLogic.MonitoredValues())
+				foundEntries, failedEntries, err := loopLogic.IdentitySearch(
+					ctx,
+					loopLogic.MonitoredValues(),
+					*config.StartIndex,
+					*config.EndIndex,
+					identity.WithCARootsFile(config.CARootsFile),
+					identity.WithCAIntermediatesFile(config.CAIntermediatesFile),
+					identity.WithOutputIdentitiesFile(config.OutputIdentitiesFile, config.OutputIdentitiesFormat),
+					identity.WithIdentityMetadataFile(config.IdentityMetadataFile),
+				)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to successfully complete identity search: %v\n", err)
 					return
