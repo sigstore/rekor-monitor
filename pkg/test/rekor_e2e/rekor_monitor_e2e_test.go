@@ -168,7 +168,7 @@ func TestIdentitySearch(t *testing.T) {
 
 	configMonitoredValues := notifications.ConfigMonitoredValues{
 		Subjects: []string{subject},
-		CertificateIdentities: []identity.CertificateIdentity{
+		CertificateIdentities: []identity.CertIdentityValue{
 			{
 				CertSubject: ".*ubje.*",
 				Issuers:     []string{".+@domain.com"},
@@ -210,16 +210,9 @@ func TestIdentitySearch(t *testing.T) {
 		t.Errorf("error writing checkpoint: %v", err)
 	}
 
-	configRenderedOIDMatchers, err := configMonitoredValues.OIDMatchers.RenderOIDMatchers()
+	monitoredVals, err := configMonitoredValues.ToMonitoredValues()
 	if err != nil {
-		t.Errorf("error rendering OID matchers: %v", err)
-	}
-
-	monitoredVals := identity.MonitoredValues{
-		Subjects:              configMonitoredValues.Subjects,
-		Fingerprints:          configMonitoredValues.Fingerprints,
-		OIDMatchers:           configRenderedOIDMatchers,
-		CertificateIdentities: configMonitoredValues.CertificateIdentities,
+		t.Fatalf("error converting to monitored values: %v", err)
 	}
 
 	payload = []byte{1, 2, 3, 4, 5, 6}

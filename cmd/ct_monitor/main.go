@@ -177,14 +177,10 @@ func mainWithReturn() int {
 		return 1
 	}
 
-	allOIDMatchers, err := config.MonitoredValues.OIDMatchers.RenderOIDMatchers()
+	monitoredValues, err := config.MonitoredValues.ToMonitoredValues()
 	if err != nil {
-		fmt.Printf("error parsing OID matchers: %v", err)
-	}
-
-	monitoredValues := identity.MonitoredValues{
-		CertificateIdentities: config.MonitoredValues.CertificateIdentities,
-		OIDMatchers:           allOIDMatchers,
+		fmt.Printf("error converting monitored values: %v", err)
+		return 1
 	}
 
 	cmd.PrintMonitoredValues(monitoredValues)

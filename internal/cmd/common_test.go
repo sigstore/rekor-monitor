@@ -166,7 +166,7 @@ func TestLoadMonitorConfig(t *testing.T) {
 			expectedOutput:    "custom.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
 				MonitoredValues: notifications.ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: "test-subject",
 							Issuers:     []string{"test-issuer"},
@@ -241,7 +241,7 @@ monitoredValues:
 			expectedOutput:    "custom.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
 				MonitoredValues: notifications.ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: "test-subject",
 							Issuers:     []string{"test-issuer"},
@@ -285,7 +285,7 @@ monitoredValues:
 			expectedOutput:    "default.txt",
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
 				MonitoredValues: notifications.ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: "test-subject",
 							Issuers:     []string{},
@@ -330,7 +330,7 @@ emailNotificationSMTP:
 				LogInfoFile:          "log.txt",
 				IdentityMetadataFile: stringPtr("metadata.txt"),
 				MonitoredValues: notifications.ConfigMonitoredValues{
-					CertificateIdentities: []identity.CertificateIdentity{
+					CertificateIdentities: []identity.CertIdentityValue{
 						{
 							CertSubject: "CN=test.example.com",
 							Issuers:     []string{"O=Test Org", "O=Another Org"},
@@ -512,11 +512,9 @@ func (b *TestMonitorLoop) Config() *notifications.IdentityMonitorConfiguration {
 func (b *TestMonitorLoop) MonitoredValues() identity.MonitoredValues {
 	if b.monitoredValues == nil {
 		return identity.MonitoredValues{
-			CertificateIdentities: []identity.CertificateIdentity{
-				{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
-			},
-			Fingerprints: []string{"sha256:abcdef1234567890"},
-			Subjects:     []string{"test@example.com"},
+			identity.CertIdentityValue{CertSubject: "test-subject", Issuers: []string{"test-issuer"}},
+			identity.FingerprintValue{Fingerprint: "sha256:abcdef1234567890"},
+			identity.SubjectValue{Subject: "test@example.com"},
 		}
 	}
 	return *b.monitoredValues
@@ -575,20 +573,32 @@ func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notificati
 	}
 
 	// Verify that the monitored values are passed correctly
-	if len(monitoredValues.CertificateIdentities) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 certificate identity, got %d", len(monitoredValues.CertificateIdentities))
+	// Count each type
+	certCount, fpCount, subCount := 0, 0, 0
+	for _, mv := range monitoredValues {
+		switch mv.(type) {
+		case identity.CertIdentityValue:
+			certCount++
+		case identity.FingerprintValue:
+			fpCount++
+		case identity.SubjectValue:
+			subCount++
+		}
 	}
-	if len(monitoredValues.Fingerprints) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 fingerprint, got %d", len(monitoredValues.Fingerprints))
+	if certCount != 1 {
+		return nil, nil, fmt.Errorf("Expected 1 certificate identity, got %d", certCount)
 	}
-	if len(monitoredValues.Subjects) != 1 {
-		return nil, nil, fmt.Errorf("Expected 1 subject, got %d", len(monitoredValues.Subjects))
+	if fpCount != 1 {
+		return nil, nil, fmt.Errorf("Expected 1 fingerprint, got %d", fpCount)
+	}
+	if subCount != 1 {
+		return nil, nil, fmt.Errorf("Expected 1 subject, got %d", subCount)
 	}
 
 	// Return some found identities to trigger notifications
 	return []identity.MonitoredIdentity{
 		{
-			Identity: "test-identity",
+			Identity: identity.CertIdentityValue{CertSubject: "test-identity"},
 			FoundIdentityEntries: []identity.LogEntry{
 				{CertSubject: "test-subject", Index: 5, UUID: "test-uuid"},
 			},

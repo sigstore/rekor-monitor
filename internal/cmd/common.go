@@ -184,21 +184,8 @@ func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFil
 
 // PrintMonitoredValues prints the monitored values to the console
 func PrintMonitoredValues(monitoredValues identity.MonitoredValues) {
-	for _, certID := range monitoredValues.CertificateIdentities {
-		if len(certID.Issuers) == 0 {
-			fmt.Printf("Monitoring certificate subject %s\n", certID.CertSubject)
-		} else {
-			fmt.Printf("Monitoring certificate subject %s for issuer(s) %s\n", certID.CertSubject, strings.Join(certID.Issuers, ","))
-		}
-	}
-	for _, fp := range monitoredValues.Fingerprints {
-		fmt.Printf("Monitoring fingerprint %s\n", fp)
-	}
-	for _, sub := range monitoredValues.Subjects {
-		fmt.Printf("Monitoring subject %s\n", sub)
-	}
-	for _, oid := range monitoredValues.OIDMatchers {
-		fmt.Printf("Monitoring OID %s with values %s\n", oid.ObjectIdentifier.String(), strings.Join(oid.ExtensionValues, ","))
+	for _, mv := range monitoredValues {
+		fmt.Println("Monitoring: " + mv.String())
 	}
 }
 
@@ -233,7 +220,7 @@ func MonitorLoop(loopLogic MonitorLogic) {
 			goto waitForTick
 		}
 
-		if identity.MonitoredValuesExist(loopLogic.MonitoredValues()) {
+		if len(loopLogic.MonitoredValues()) > 0 {
 			if config.StartIndex == nil {
 				if prevCheckpoint != nil {
 					config.StartIndex = loopLogic.GetStartIndex(prevCheckpoint, curCheckpoint)

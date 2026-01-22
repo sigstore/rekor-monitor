@@ -56,7 +56,7 @@ func TestEmailSendFailureCases(t *testing.T) {
 		},
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
+		Identity: identity.CertIdentityValue{CertSubject: "test-identity"},
 		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
@@ -86,7 +86,7 @@ func TestEmailSendMockSMTPServerSuccess(t *testing.T) {
 		t.Errorf("error starting server: %v", err)
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
+		Identity: identity.CertIdentityValue{CertSubject: "test-identity"},
 		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",
@@ -121,7 +121,7 @@ func TestEmailSendMockSMTPServerFailure(t *testing.T) {
 		t.Errorf("error starting server: %v", err)
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
+		Identity: identity.CertIdentityValue{CertSubject: "test-identity"},
 		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",

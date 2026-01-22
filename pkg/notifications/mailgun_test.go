@@ -29,7 +29,7 @@ func TestMailgunSendFailure(t *testing.T) {
 		MailgunDomainName:     "",
 	}
 	monitoredIdentity := identity.MonitoredIdentity{
-		Identity: "test-identity",
+		Identity: identity.CertIdentityValue{CertSubject: "test-identity"},
 		FoundIdentityEntries: []identity.LogEntry{
 			{
 				CertSubject: "test-cert-subject",

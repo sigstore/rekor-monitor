@@ -24,7 +24,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
-	"github.com/sigstore/rekor-monitor/pkg/fulcio/extensions"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 )
 
@@ -35,11 +34,14 @@ const (
 )
 
 func TestScanEntryCertSubject(t *testing.T) {
+	subjectCertID := identity.CertIdentityValue{CertSubject: subjectName, Issuers: []string{issuerName}}
+	orgCertID := identity.CertIdentityValue{CertSubject: organizationName, Issuers: []string{}}
+
 	testCases := map[string]struct {
-		inputEntry    ct.LogEntry
-		inputSubjects []identity.CertificateIdentity
-		expectedVal   []identity.LogEntry
-		expectedErr   bool
+		inputEntry   ct.LogEntry
+		inputSubject identity.CertIdentityValue
+		expectedVal  []identity.LogEntry
+		expectedErr  bool
 	}{
 		"no matching subject": {
 			inputEntry: ct.LogEntry{
@@ -50,9 +52,9 @@ func TestScanEntryCertSubject(t *testing.T) {
 					},
 				},
 			},
-			inputSubjects: []identity.CertificateIdentity{},
-			expectedVal:   []identity.LogEntry{},
-			expectedErr:   false,
+			inputSubject: identity.CertIdentityValue{CertSubject: "non-matching-subject"},
+			expectedVal:  []identity.LogEntry{},
+			expectedErr:  false,
 		},
 		"matching subject": {
 			inputEntry: ct.LogEntry{
@@ -71,30 +73,41 @@ func TestScanEntryCertSubject(t *testing.T) {
 					},
 				},
 			},
-			inputSubjects: []identity.CertificateIdentity{
-				{
-					CertSubject: subjectName,
-					Issuers:     []string{issuerName},
-				},
-				{
-					CertSubject: organizationName,
-					Issuers:     []string{},
-				},
-			},
+			inputSubject: subjectCertID,
 			expectedVal: []identity.LogEntry{
 				{
-					MatchedIdentity:     subjectName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         subjectName,
-					Issuer:              issuerName,
+					MatchedIdentity: subjectCertID,
+					Index:           1,
+					CertSubject:     subjectName,
+					Issuer:          issuerName,
 				},
+			},
+			expectedErr: false,
+		},
+		"matching organization": {
+			inputEntry: ct.LogEntry{
+				Index: 1,
+				X509Cert: &x509.Certificate{
+					DNSNames:       []string{subjectName},
+					EmailAddresses: []string{organizationName},
+					Extensions: []pkix.Extension{
+						{
+							Id:    google_asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+							Value: []byte(issuerName),
+						},
+					},
+					Issuer: pkix.Name{
+						CommonName: issuerName,
+					},
+				},
+			},
+			inputSubject: orgCertID,
+			expectedVal: []identity.LogEntry{
 				{
-					MatchedIdentity:     organizationName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         organizationName,
-					Issuer:              issuerName,
+					MatchedIdentity: orgCertID,
+					Index:           1,
+					CertSubject:     organizationName,
+					Issuer:          issuerName,
 				},
 			},
 			expectedErr: false,
@@ -118,30 +131,13 @@ func TestScanEntryCertSubject(t *testing.T) {
 					},
 				},
 			},
-			inputSubjects: []identity.CertificateIdentity{
-				{
-					CertSubject: subjectName,
-					Issuers:     []string{issuerName},
-				},
-				{
-					CertSubject: organizationName,
-					Issuers:     []string{},
-				},
-			},
+			inputSubject: subjectCertID,
 			expectedVal: []identity.LogEntry{
 				{
-					MatchedIdentity:     subjectName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         subjectName,
-					Issuer:              issuerName,
-				},
-				{
-					MatchedIdentity:     organizationName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         organizationName,
-					Issuer:              issuerName,
+					MatchedIdentity: subjectCertID,
+					Index:           1,
+					CertSubject:     subjectName,
+					Issuer:          issuerName,
 				},
 			},
 			expectedErr: false,
@@ -150,14 +146,14 @@ func TestScanEntryCertSubject(t *testing.T) {
 			inputEntry: ct.LogEntry{
 				Index: 1,
 			},
-			inputSubjects: []identity.CertificateIdentity{},
-			expectedVal:   nil,
-			expectedErr:   true,
+			inputSubject: identity.CertIdentityValue{},
+			expectedVal:  nil,
+			expectedErr:  true,
 		},
 	}
 
 	for testName, tc := range testCases {
-		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubjects)
+		logEntries, err := ScanEntryCertSubject(tc.inputEntry, tc.inputSubject)
 		if err != nil && !tc.expectedErr {
 			t.Errorf("%s: received unexpected error scanning entry for subjects. Received \"%v\"", testName, err)
 		}
@@ -174,7 +170,7 @@ func TestScanEntryCertSubject(t *testing.T) {
 	}
 }
 
-func TestScanEntryOIDExtensions(t *testing.T) {
+func TestScanEntryOIDExtension(t *testing.T) {
 	cert, err := mockCertificateWithExtension(google_asn1.ObjectIdentifier{2, 5, 29, 17}, "test cert value")
 	if err != nil {
 		t.Errorf("Expected nil got %v", err)
@@ -182,44 +178,37 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 	unmatchedAsn1OID := asn1.ObjectIdentifier{2}
 	matchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 17}
 	extValueString := "test cert value"
+
+	unmatchedOIDMatcher := identity.OIDMatcherValue{OID: unmatchedAsn1OID, ExtensionValues: []string{extValueString}}
+	matchedOIDMatcher := identity.OIDMatcherValue{OID: matchedAsn1OID, ExtensionValues: []string{extValueString}}
+
 	testCases := map[string]struct {
-		inputEntry         ct.LogEntry
-		inputOIDExtensions []extensions.OIDExtension
-		expectedVal        []identity.LogEntry
-		expectedErr        bool
+		inputEntry        ct.LogEntry
+		inputOIDExtension identity.OIDMatcherValue
+		expectedVal       []identity.LogEntry
+		expectedErr       bool
 	}{
 		"no matching subject": {
 			inputEntry: ct.LogEntry{
 				Index:    1,
 				X509Cert: cert,
 			},
-			inputOIDExtensions: []extensions.OIDExtension{
-				{
-					ObjectIdentifier: unmatchedAsn1OID,
-					ExtensionValues:  []string{extValueString},
-				},
-			},
-			expectedVal: []identity.LogEntry{},
-			expectedErr: false,
+			inputOIDExtension: unmatchedOIDMatcher,
+			expectedVal:       []identity.LogEntry{},
+			expectedErr:       false,
 		},
 		"matching subject": {
 			inputEntry: ct.LogEntry{
 				Index:    1,
 				X509Cert: cert,
 			},
-			inputOIDExtensions: []extensions.OIDExtension{
-				{
-					ObjectIdentifier: matchedAsn1OID,
-					ExtensionValues:  []string{extValueString},
-				},
-			},
+			inputOIDExtension: matchedOIDMatcher,
 			expectedVal: []identity.LogEntry{
 				{
-					MatchedIdentity:     extValueString,
-					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
-					Index:               1,
-					OIDExtension:        matchedAsn1OID,
-					ExtensionValue:      extValueString,
+					MatchedIdentity: matchedOIDMatcher,
+					Index:           1,
+					OIDExtension:    matchedAsn1OID,
+					ExtensionValue:  extValueString,
 				},
 			},
 			expectedErr: false,
@@ -231,19 +220,13 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 					TBSCertificate: cert,
 				},
 			},
-			inputOIDExtensions: []extensions.OIDExtension{
-				{
-					ObjectIdentifier: matchedAsn1OID,
-					ExtensionValues:  []string{extValueString},
-				},
-			},
+			inputOIDExtension: matchedOIDMatcher,
 			expectedVal: []identity.LogEntry{
 				{
-					MatchedIdentity:     extValueString,
-					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
-					Index:               1,
-					OIDExtension:        matchedAsn1OID,
-					ExtensionValue:      extValueString,
+					MatchedIdentity: matchedOIDMatcher,
+					Index:           1,
+					OIDExtension:    matchedAsn1OID,
+					ExtensionValue:  extValueString,
 				},
 			},
 			expectedErr: false,
@@ -252,19 +235,14 @@ func TestScanEntryOIDExtensions(t *testing.T) {
 			inputEntry: ct.LogEntry{
 				Index: 1,
 			},
-			inputOIDExtensions: []extensions.OIDExtension{
-				{
-					ObjectIdentifier: unmatchedAsn1OID,
-					ExtensionValues:  []string{extValueString},
-				},
-			},
-			expectedVal: nil,
-			expectedErr: true,
+			inputOIDExtension: unmatchedOIDMatcher,
+			expectedVal:       nil,
+			expectedErr:       true,
 		},
 	}
 
 	for testName, tc := range testCases {
-		logEntries, err := ScanEntryOIDExtensions(tc.inputEntry, tc.inputOIDExtensions)
+		logEntries, err := ScanEntryOIDExtension(tc.inputEntry, tc.inputOIDExtension)
 		if err != nil && !tc.expectedErr {
 			t.Errorf("%s: received unexpected error scanning entry for oid extensions. Received \"%v\"", testName, err)
 		}
@@ -305,6 +283,9 @@ func TestMatchedIndices(t *testing.T) {
 			},
 		},
 	}
+	subjectCertID := identity.CertIdentityValue{CertSubject: subjectName, Issuers: []string{issuerName}}
+	matchedOIDMatcher := identity.OIDMatcherValue{OID: matchedAsn1OID, ExtensionValues: []string{extValueString}}
+
 	testCases := map[string]struct {
 		inputEntries         []ct.LogEntry
 		inputMonitoredValues identity.MonitoredValues
@@ -318,16 +299,12 @@ func TestMatchedIndices(t *testing.T) {
 		"no matching entries": {
 			inputEntries: inputEntries,
 			inputMonitoredValues: identity.MonitoredValues{
-				CertificateIdentities: []identity.CertificateIdentity{
-					{
-						CertSubject: "non-matched-subject",
-					},
+				identity.CertIdentityValue{
+					CertSubject: "non-matched-subject",
 				},
-				OIDMatchers: []extensions.OIDExtension{
-					{
-						ObjectIdentifier: unmatchedAsn1OID,
-						ExtensionValues:  []string{"unmatched extension value"},
-					},
+				identity.OIDMatcherValue{
+					OID:             unmatchedAsn1OID,
+					ExtensionValues: []string{"unmatched extension value"},
 				},
 			},
 			expected: []identity.LogEntry{},
@@ -335,73 +312,49 @@ func TestMatchedIndices(t *testing.T) {
 		"matching certificate identity and issuer": {
 			inputEntries: inputEntries,
 			inputMonitoredValues: identity.MonitoredValues{
-				CertificateIdentities: []identity.CertificateIdentity{
-					{
-						CertSubject: subjectName,
-						Issuers:     []string{issuerName},
-					},
-				},
+				subjectCertID,
 			},
 			expected: []identity.LogEntry{
 				{
-					MatchedIdentity:     subjectName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         subjectName,
-					Issuer:              issuerName,
+					MatchedIdentity: subjectCertID,
+					Index:           1,
+					CertSubject:     subjectName,
+					Issuer:          issuerName,
 				},
 			},
 		},
 		"matching OID extension": {
 			inputEntries: inputEntries,
 			inputMonitoredValues: identity.MonitoredValues{
-				OIDMatchers: []extensions.OIDExtension{
-					{
-						ObjectIdentifier: matchedAsn1OID,
-						ExtensionValues:  []string{extValueString},
-					},
-				},
+				matchedOIDMatcher,
 			},
 			expected: []identity.LogEntry{
 				{
-					MatchedIdentity:     extValueString,
-					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
-					Index:               1,
-					OIDExtension:        matchedAsn1OID,
-					ExtensionValue:      extValueString,
+					MatchedIdentity: matchedOIDMatcher,
+					Index:           1,
+					OIDExtension:    matchedAsn1OID,
+					ExtensionValue:  extValueString,
 				},
 			},
 		},
 		"matching certificate subject and issuer and OID extension": {
 			inputEntries: inputEntries,
 			inputMonitoredValues: identity.MonitoredValues{
-				CertificateIdentities: []identity.CertificateIdentity{
-					{
-						CertSubject: subjectName,
-						Issuers:     []string{issuerName},
-					},
-				},
-				OIDMatchers: []extensions.OIDExtension{
-					{
-						ObjectIdentifier: matchedAsn1OID,
-						ExtensionValues:  []string{extValueString},
-					},
-				},
+				subjectCertID,
+				matchedOIDMatcher,
 			},
 			expected: []identity.LogEntry{
 				{
-					MatchedIdentity:     subjectName,
-					MatchedIdentityType: identity.MatchedIdentityTypeCertSubject,
-					Index:               1,
-					CertSubject:         subjectName,
-					Issuer:              issuerName,
+					MatchedIdentity: subjectCertID,
+					Index:           1,
+					CertSubject:     subjectName,
+					Issuer:          issuerName,
 				},
 				{
-					MatchedIdentity:     extValueString,
-					MatchedIdentityType: identity.MatchedIdentityTypeExtensionValue,
-					Index:               1,
-					OIDExtension:        matchedAsn1OID,
-					ExtensionValue:      extValueString,
+					MatchedIdentity: matchedOIDMatcher,
+					Index:           1,
+					OIDExtension:    matchedAsn1OID,
+					ExtensionValue:  extValueString,
 				},
 			},
 		},
