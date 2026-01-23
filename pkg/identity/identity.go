@@ -329,8 +329,8 @@ func WithIdentityMetadataFile(path *string) IdentitySearchOption {
 	}
 }
 
-// ApplyIdentitySearchOptions applies the given options and returns an IdentitySearchOptions struct.
-func ApplyIdentitySearchOptions(opts ...IdentitySearchOption) IdentitySearchOptions {
+// MakeIdentitySearchOptions makes an IdentitySearchOptions struct from the given options.
+func MakeIdentitySearchOptions(opts ...IdentitySearchOption) IdentitySearchOptions {
 	options := IdentitySearchOptions{}
 	for _, opt := range opts {
 		opt(&options)

@@ -243,7 +243,7 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots st
 }
 
 func IdentitySearch(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	o := identity.ApplyIdentitySearchOptions(opts...)
+	o := identity.MakeIdentitySearchOptions(opts...)
 
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]

@@ -137,7 +137,7 @@ func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRo
 }
 
 func IdentitySearch(ctx context.Context, client *ctclient.LogClient, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	o := identity.ApplyIdentitySearchOptions(opts...)
+	o := identity.MakeIdentitySearchOptions(opts...)
 
 	entries, err := GetCTLogEntries(ctx, client, startIndex, endIndex)
 	if err != nil {
