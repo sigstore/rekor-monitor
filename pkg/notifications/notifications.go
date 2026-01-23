@@ -118,8 +118,8 @@ type IdentityMonitorConfiguration struct {
 	StartIndex                *int64                     `yaml:"startIndex"`
 	EndIndex                  *int64                     `yaml:"endIndex"`
 	MonitoredValues           ConfigMonitoredValues      `yaml:"monitoredValues"`
-	OutputIdentitiesFile      string                     `yaml:"outputIdentities"`
-	OutputIdentitiesFormat    string                     `yaml:"outputIdentitiesFormat"`
+	OutputIdentitiesFile      *string                    `yaml:"outputIdentities"`
+	OutputIdentitiesFormat    *string                    `yaml:"outputIdentitiesFormat"`
 	LogInfoFile               string                     `yaml:"logInfoFile"`
 	IdentityMetadataFile      *string                    `yaml:"identityMetadataFile"`
 	GitHubIssue               *GitHubIssueInput          `yaml:"githubIssue"`
@@ -179,10 +179,12 @@ func (c *IdentityMonitorConfiguration) Validate() error {
 		return fmt.Errorf("invalid CAIntermediates file %s: %v", c.CAIntermediatesFile, err)
 	}
 	// Validate OutputIdentitiesFormat
-	switch c.OutputIdentitiesFormat {
-	case "text", "json", "":
-	default:
-		return fmt.Errorf("invalid OutputIdentitiesFormat %s: must be 'text' or 'json'", c.OutputIdentitiesFormat)
+	if c.OutputIdentitiesFormat != nil {
+		switch *c.OutputIdentitiesFormat {
+		case "text", "json":
+		default:
+			return fmt.Errorf("invalid OutputIdentitiesFormat %s: must be 'text' or 'json'", *c.OutputIdentitiesFormat)
+		}
 	}
 	return nil
 }

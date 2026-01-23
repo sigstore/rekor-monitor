@@ -287,6 +287,57 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry) []MonitoredIdent
 	return parsedMonitoredIdentities
 }
 
+// SearchOptions holds the configuration for identity search operations.
+type SearchOptions struct {
+	CARootsFile            string
+	CAIntermediatesFile    string
+	OutputIdentitiesFile   *string
+	OutputIdentitiesFormat *string
+	IdentityMetadataFile   *string
+}
+
+// SearchOption is a functional option for configuring identity search operations.
+type SearchOption func(*SearchOptions)
+
+// WithCARootsFile sets the path to a bundle file of CA certificates in PEM format.
+func WithCARootsFile(path string) SearchOption {
+	return func(o *SearchOptions) {
+		o.CARootsFile = path
+	}
+}
+
+// WithCAIntermediatesFile sets the path to a bundle file of CA intermediate certificates in PEM format.
+func WithCAIntermediatesFile(path string) SearchOption {
+	return func(o *SearchOptions) {
+		o.CAIntermediatesFile = path
+	}
+}
+
+// WithOutputIdentitiesFile sets the path and format for writing matched identity entries.
+// Format should be "text" or "json". Pass nil to disable file output.
+func WithOutputIdentitiesFile(path, format *string) SearchOption {
+	return func(o *SearchOptions) {
+		o.OutputIdentitiesFile = path
+		o.OutputIdentitiesFormat = format
+	}
+}
+
+// WithIdentityMetadataFile sets the optional path to write identity metadata.
+func WithIdentityMetadataFile(path *string) SearchOption {
+	return func(o *SearchOptions) {
+		o.IdentityMetadataFile = path
+	}
+}
+
+// MakeIdentitySearchOptions makes an SearchOptions struct from the given options.
+func MakeIdentitySearchOptions(opts ...SearchOption) SearchOptions {
+	options := SearchOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return options
+}
+
 // VerifyMonitoredValues checks that monitored values are valid
 func VerifyMonitoredValues(mvs MonitoredValues) error {
 	if len(mvs) == 0 {

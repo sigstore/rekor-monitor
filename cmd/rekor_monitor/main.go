@@ -42,10 +42,9 @@ import (
 
 // Default values for monitoring job parameters
 const (
-	publicRekorServerURL     = "https://rekor.sigstore.dev"
-	TUFRepository            = "default"
-	outputIdentitiesFileName = "identities"
-	logInfoFileNamePrefix    = "logInfo"
+	publicRekorServerURL  = "https://rekor.sigstore.dev"
+	TUFRepository         = "default"
+	logInfoFileNamePrefix = "logInfo"
 )
 
 type RekorV1MonitorLogic struct {
@@ -132,8 +131,8 @@ func (l RekorV1MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	return &checkpointEndIndex
 }
 
-func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v1.IdentitySearch(ctx, config, l.rekorClient, monitoredValues)
+func (l RekorV1MonitorLogic) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	return rekor_v1.IdentitySearch(ctx, l.rekorClient, monitoredValues, startIndex, endIndex, opts...)
 }
 
 type RekorV2MonitorLogic struct {
@@ -262,8 +261,8 @@ func (l RekorV2MonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	return &index
 }
 
-func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
-	return rekor_v2.IdentitySearch(ctx, config, l.rekorShards, l.latestShardOrigin, monitoredValues)
+func (l RekorV2MonitorLogic) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+	return rekor_v2.IdentitySearch(ctx, l.rekorShards, l.latestShardOrigin, monitoredValues, startIndex, endIndex, opts...)
 }
 
 func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
@@ -280,7 +279,7 @@ func getRekorVersion(allRekorServices []root.Service, serverURL string) uint32 {
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
 func mainWithReturn() int {
-	flags, config, err := cmd.ParseAndLoadConfig(publicRekorServerURL, TUFRepository, outputIdentitiesFileName, "rekor-monitor")
+	flags, config, err := cmd.ParseAndLoadConfig(publicRekorServerURL, TUFRepository, "rekor-monitor")
 	if err != nil {
 		log.Fatalf("error parsing flags and loading config: %v", err)
 	}

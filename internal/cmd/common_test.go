@@ -269,11 +269,11 @@ monitoredValues:
 			},
 			defaultOutputFile: "default",
 			wantErr:           false,
-			expectedOutput:    "default.txt",
+			expectedOutput:    "", // nil output file is acceptable
 			expectedConfig:    &notifications.IdentityMonitorConfiguration{},
 		},
 		{
-			name: "config yaml with empty output identities should use default",
+			name: "config yaml with empty output identities should be nil",
 			flags: &MonitorFlags{
 				ConfigYaml: `monitoredValues:
   certIdentities:
@@ -282,7 +282,7 @@ monitoredValues:
 			},
 			defaultOutputFile: "default",
 			wantErr:           false,
-			expectedOutput:    "default.txt",
+			expectedOutput:    "", // nil output file is acceptable
 			expectedConfig: &notifications.IdentityMonitorConfiguration{
 				MonitoredValues: notifications.ConfigMonitoredValues{
 					CertificateIdentities: []identity.CertIdentityValue{
@@ -356,7 +356,7 @@ emailNotificationSMTP:
 				tt.flags.ConfigFile = configFile
 			}
 
-			config, err := LoadMonitorConfig(tt.flags, tt.defaultOutputFile)
+			config, err := LoadMonitorConfig(tt.flags)
 
 			if tt.wantErr {
 				if err == nil {
@@ -375,8 +375,12 @@ emailNotificationSMTP:
 				return
 			}
 
-			if config.OutputIdentitiesFile != tt.expectedOutput {
-				t.Errorf("LoadMonitorConfig() output file = %v, want %v", config.OutputIdentitiesFile, tt.expectedOutput)
+			if tt.expectedOutput != "" {
+				if config.OutputIdentitiesFile == nil {
+					t.Errorf("LoadMonitorConfig() output file = nil, want %v", tt.expectedOutput)
+				} else if *config.OutputIdentitiesFile != tt.expectedOutput {
+					t.Errorf("LoadMonitorConfig() output file = %v, want %v", *config.OutputIdentitiesFile, tt.expectedOutput)
+				}
 			}
 
 			// Validate monitored values if expected config is provided
@@ -402,7 +406,7 @@ func TestLoadMonitorConfig_ConfigFilePermissions(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	_, err = LoadMonitorConfig(flags, "default")
+	_, err = LoadMonitorConfig(flags)
 	if err == nil {
 		t.Errorf("LoadMonitorConfig() expected error for file with no read permissions but got none")
 	}
@@ -422,14 +426,14 @@ func TestLoadMonitorConfig_EmptyConfigFile(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default")
+	config, err := LoadMonitorConfig(flags)
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for empty file: %v", err)
 		return
 	}
 
-	if config.OutputIdentitiesFile != "default.txt" {
-		t.Errorf("LoadMonitorConfig() output file = %v, want default.txt", config.OutputIdentitiesFile)
+	if config.OutputIdentitiesFile != nil {
+		t.Errorf("LoadMonitorConfig() output file = %v, want nil", *config.OutputIdentitiesFile)
 	}
 
 	if config.MonitoredValues.CertificateIdentities != nil {
@@ -456,13 +460,13 @@ monitoredValues:
     - "user.name@domain.com"`,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default")
+	config, err := LoadMonitorConfig(flags)
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for YAML with special characters: %v", err)
 		return
 	}
 
-	if config.OutputIdentitiesFile != "file with spaces.txt" {
+	if config.OutputIdentitiesFile == nil || *config.OutputIdentitiesFile != "file with spaces.txt" {
 		t.Errorf("LoadMonitorConfig() output file = %v, want 'file with spaces.txt'", config.OutputIdentitiesFile)
 	}
 
@@ -477,7 +481,7 @@ type TestMonitorLoop struct {
 	// RunConsistencyCheckFn for custom RunConsistencyCheck logic (or nil if not set)
 	runConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
 	// IdentitySearchFn for custom IdentitySearch logic (or nil if not set)
-	identitySearchFn func(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	identitySearchFn func(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 	// Monitored values to return (or default set if nil)
 	monitoredValues *identity.MonitoredValues
 	// config to return (or default set if nil)
@@ -565,11 +569,11 @@ func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int64 {
 	return intPtr(10)
 }
 
-func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, config *notifications.IdentityMonitorConfiguration, monitoredValues identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	b.identitySearchCalled++
 
 	if b.identitySearchFn != nil {
-		return b.identitySearchFn(context.WithValue(ctx, TestContextKey("loopLogic"), b), config, monitoredValues)
+		return b.identitySearchFn(context.WithValue(ctx, TestContextKey("loopLogic"), b), monitoredValues, startIndex, endIndex, opts...)
 	}
 
 	// Verify that the monitored values are passed correctly
@@ -750,7 +754,7 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 				return "prev-checkpoint", "current-checkpoint", nil
 			}
 		},
-		identitySearchFn: func(ctx context.Context, _ *notifications.IdentityMonitorConfiguration, _ identity.MonitoredValues) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		identitySearchFn: func(ctx context.Context, _ identity.MonitoredValues, _, _ int64, _ ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 			switch ctx.Value(TestContextKey("loopLogic")).(*TestMonitorLoop).identitySearchCalled {
 			case 3:
 				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")
