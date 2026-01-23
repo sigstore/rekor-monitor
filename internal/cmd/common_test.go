@@ -356,7 +356,7 @@ emailNotificationSMTP:
 				tt.flags.ConfigFile = configFile
 			}
 
-			config, err := LoadMonitorConfig(tt.flags, tt.defaultOutputFile)
+			config, err := LoadMonitorConfig(tt.flags)
 
 			if tt.wantErr {
 				if err == nil {
@@ -406,7 +406,7 @@ func TestLoadMonitorConfig_ConfigFilePermissions(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	_, err = LoadMonitorConfig(flags, "default")
+	_, err = LoadMonitorConfig(flags)
 	if err == nil {
 		t.Errorf("LoadMonitorConfig() expected error for file with no read permissions but got none")
 	}
@@ -426,7 +426,7 @@ func TestLoadMonitorConfig_EmptyConfigFile(t *testing.T) {
 		ConfigFile: configFile,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default")
+	config, err := LoadMonitorConfig(flags)
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for empty file: %v", err)
 		return
@@ -460,7 +460,7 @@ monitoredValues:
     - "user.name@domain.com"`,
 	}
 
-	config, err := LoadMonitorConfig(flags, "default")
+	config, err := LoadMonitorConfig(flags)
 	if err != nil {
 		t.Errorf("LoadMonitorConfig() unexpected error for YAML with special characters: %v", err)
 		return
@@ -481,7 +481,7 @@ type TestMonitorLoop struct {
 	// RunConsistencyCheckFn for custom RunConsistencyCheck logic (or nil if not set)
 	runConsistencyCheckFn func(ctx context.Context) (Checkpoint, LogInfo, error)
 	// IdentitySearchFn for custom IdentitySearch logic (or nil if not set)
-	identitySearchFn func(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	identitySearchFn func(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 	// Monitored values to return (or default set if nil)
 	monitoredValues *identity.MonitoredValues
 	// config to return (or default set if nil)
@@ -569,7 +569,7 @@ func (b *TestMonitorLoop) GetEndIndex(_ LogInfo) *int64 {
 	return intPtr(10)
 }
 
-func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (b *TestMonitorLoop) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	b.identitySearchCalled++
 
 	if b.identitySearchFn != nil {
@@ -754,7 +754,7 @@ func TestMonitorLoop_NoPreviousCheckpoint(t *testing.T) {
 				return "prev-checkpoint", "current-checkpoint", nil
 			}
 		},
-		identitySearchFn: func(ctx context.Context, _ identity.MonitoredValues, _, _ int64, _ ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+		identitySearchFn: func(ctx context.Context, _ identity.MonitoredValues, _, _ int64, _ ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 			switch ctx.Value(TestContextKey("loopLogic")).(*TestMonitorLoop).identitySearchCalled {
 			case 3:
 				return []identity.MonitoredIdentity{}, []identity.FailedLogEntry{}, fmt.Errorf("stop the loop")

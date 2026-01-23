@@ -62,7 +62,7 @@ type MonitorLogic interface {
 	WriteCheckpoint(prev Checkpoint, cur LogInfo) error
 	GetStartIndex(prev Checkpoint, cur LogInfo) *int64
 	GetEndIndex(cur LogInfo) *int64
-	IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
+	IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error)
 }
 
 type Checkpoint interface{}
@@ -115,7 +115,7 @@ func ParseMonitorFlags(defaultServerURL, defaultTUFRepository string, baseUserAg
 }
 
 // LoadMonitorConfig loads the monitor configuration from flags
-func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifications.IdentityMonitorConfiguration, error) {
+func LoadMonitorConfig(flags *MonitorFlags) (*notifications.IdentityMonitorConfiguration, error) {
 	var config notifications.IdentityMonitorConfiguration
 
 	if flags.ConfigFile != "" && flags.ConfigYaml != "" {
@@ -174,12 +174,12 @@ func LoadMonitorConfig(flags *MonitorFlags, defaultOutputFile string) (*notifica
 }
 
 // ParseAndLoadConfig is a convenience function that parses flags and loads config
-func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, defaultOutputFile, baseUserAgentName string) (*MonitorFlags, *notifications.IdentityMonitorConfiguration, error) {
+func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, baseUserAgentName string) (*MonitorFlags, *notifications.IdentityMonitorConfiguration, error) {
 	flags, err := ParseMonitorFlags(defaultServerURL, defaultTUFRepository, baseUserAgentName)
 	if err != nil {
 		return nil, nil, err
 	}
-	config, err := LoadMonitorConfig(flags, defaultOutputFile)
+	config, err := LoadMonitorConfig(flags)
 	if err != nil {
 		return nil, nil, err
 	}

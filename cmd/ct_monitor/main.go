@@ -37,10 +37,9 @@ import (
 
 // Default values for monitoring job parameters
 const (
-	publicCTServerURL        = "https://ctfe.sigstore.dev/2022"
-	logInfoFileName          = "ctLogInfo"
-	outputIdentitiesFileName = "ctIdentities"
-	TUFRepository            = "default"
+	publicCTServerURL = "https://ctfe.sigstore.dev/2022"
+	logInfoFileName   = "ctLogInfo"
+	TUFRepository     = "default"
 )
 
 type CTMonitorLogic struct {
@@ -121,7 +120,7 @@ func (l CTMonitorLogic) GetEndIndex(cur cmd.LogInfo) *int64 {
 	return &checkpointEndIndex
 }
 
-func (l CTMonitorLogic) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func (l CTMonitorLogic) IdentitySearch(ctx context.Context, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	return ct.IdentitySearch(ctx, l.ctlogClient, monitoredValues, startIndex, endIndex, opts...)
 }
 
@@ -129,7 +128,7 @@ func (l CTMonitorLogic) IdentitySearch(ctx context.Context, monitoredValues iden
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform identity search for every time interval that was specified.
 func mainWithReturn() int {
-	flags, config, err := cmd.ParseAndLoadConfig(publicCTServerURL, TUFRepository, outputIdentitiesFileName, "ct-monitor")
+	flags, config, err := cmd.ParseAndLoadConfig(publicCTServerURL, TUFRepository, "ct-monitor")
 	if err != nil {
 		log.Fatalf("error parsing flags and loading config: %v", err)
 	}

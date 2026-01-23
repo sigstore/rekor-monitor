@@ -287,8 +287,8 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry) []MonitoredIdent
 	return parsedMonitoredIdentities
 }
 
-// IdentitySearchOptions holds the configuration for identity search operations.
-type IdentitySearchOptions struct {
+// SearchOptions holds the configuration for identity search operations.
+type SearchOptions struct {
 	CARootsFile            string
 	CAIntermediatesFile    string
 	OutputIdentitiesFile   *string
@@ -296,42 +296,42 @@ type IdentitySearchOptions struct {
 	IdentityMetadataFile   *string
 }
 
-// IdentitySearchOption is a functional option for configuring identity search operations.
-type IdentitySearchOption func(*IdentitySearchOptions)
+// SearchOption is a functional option for configuring identity search operations.
+type SearchOption func(*SearchOptions)
 
 // WithCARootsFile sets the path to a bundle file of CA certificates in PEM format.
-func WithCARootsFile(path string) IdentitySearchOption {
-	return func(o *IdentitySearchOptions) {
+func WithCARootsFile(path string) SearchOption {
+	return func(o *SearchOptions) {
 		o.CARootsFile = path
 	}
 }
 
 // WithCAIntermediatesFile sets the path to a bundle file of CA intermediate certificates in PEM format.
-func WithCAIntermediatesFile(path string) IdentitySearchOption {
-	return func(o *IdentitySearchOptions) {
+func WithCAIntermediatesFile(path string) SearchOption {
+	return func(o *SearchOptions) {
 		o.CAIntermediatesFile = path
 	}
 }
 
 // WithOutputIdentitiesFile sets the path and format for writing matched identity entries.
 // Format should be "text" or "json". Pass nil to disable file output.
-func WithOutputIdentitiesFile(path, format *string) IdentitySearchOption {
-	return func(o *IdentitySearchOptions) {
+func WithOutputIdentitiesFile(path, format *string) SearchOption {
+	return func(o *SearchOptions) {
 		o.OutputIdentitiesFile = path
 		o.OutputIdentitiesFormat = format
 	}
 }
 
 // WithIdentityMetadataFile sets the optional path to write identity metadata.
-func WithIdentityMetadataFile(path *string) IdentitySearchOption {
-	return func(o *IdentitySearchOptions) {
+func WithIdentityMetadataFile(path *string) SearchOption {
+	return func(o *SearchOptions) {
 		o.IdentityMetadataFile = path
 	}
 }
 
-// MakeIdentitySearchOptions makes an IdentitySearchOptions struct from the given options.
-func MakeIdentitySearchOptions(opts ...IdentitySearchOption) IdentitySearchOptions {
-	options := IdentitySearchOptions{}
+// MakeIdentitySearchOptions makes an SearchOptions struct from the given options.
+func MakeIdentitySearchOptions(opts ...SearchOption) SearchOptions {
+	options := SearchOptions{}
 	for _, opt := range opts {
 		opt(&options)
 	}

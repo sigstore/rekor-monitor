@@ -261,7 +261,7 @@ func GetCheckpointIndex(logInfo *models.LogInfo, checkpoint *util.SignedCheckpoi
 	return index
 }
 
-func IdentitySearch(ctx context.Context, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.IdentitySearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
+func IdentitySearch(ctx context.Context, rekorClient *client.Rekor, monitoredValues identity.MonitoredValues, startIndex, endIndex int64, opts ...identity.SearchOption) ([]identity.MonitoredIdentity, []identity.FailedLogEntry, error) {
 	o := identity.MakeIdentitySearchOptions(opts...)
 
 	entries, err := GetEntriesByIndexRange(ctx, rekorClient, startIndex, endIndex)
