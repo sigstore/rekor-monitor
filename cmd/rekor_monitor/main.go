@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	rekor_v1 "github.com/sigstore/rekor-monitor/pkg/rekor/v1"
 	rekor_v2 "github.com/sigstore/rekor-monitor/pkg/rekor/v2"
+	"github.com/sigstore/rekor-monitor/pkg/tiles"
 	rmutil "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/client"
@@ -204,7 +205,7 @@ func (l RekorV2MonitorLogic) RunConsistencyCheck(_ context.Context) (cmd.Checkpo
 		}
 	}
 
-	cur, err := rekor_v2.VerifyConsistencyWithCheckpoint(context.Background(), l.rekorShards, l.latestShardOrigin, prev)
+	cur, err := tiles.VerifyConsistencyWithCheckpoint(context.Background(), l.rekorShards, l.latestShardOrigin, prev)
 	if err != nil {
 		return nil, nil, err
 	}

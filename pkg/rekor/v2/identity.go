@@ -23,6 +23,7 @@ import (
 	"regexp"
 
 	"github.com/sigstore/rekor-monitor/pkg/identity"
+	"github.com/sigstore/rekor-monitor/pkg/tiles"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor-tiles/v2/pkg/generated/protobuf"
 	"github.com/sigstore/rekor-tiles/v2/pkg/verifier"
@@ -247,7 +248,7 @@ func IdentitySearch(ctx context.Context, rekorShards map[string]ShardInfo, lates
 
 	// TODO: handle sharding
 	activeShard := rekorShards[latestShardOrigin]
-	entries, err := GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex)
+	entries, err := tiles.GetEntriesByIndexRange(ctx, activeShard, startIndex, endIndex, getEntriesFromTile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}

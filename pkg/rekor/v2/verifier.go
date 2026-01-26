@@ -24,14 +24,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/sigstore/rekor-tiles/v2/pkg/client"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/transparency-dev/formats/log"
-	"github.com/transparency-dev/merkle/proof"
-	"github.com/transparency-dev/merkle/rfc6962"
 	tclient "github.com/transparency-dev/tessera/client"
 	"golang.org/x/mod/sumdb/note"
 )
@@ -114,62 +110,4 @@ func GetLogVerifier(ctx context.Context, baseURL *url.URL, trustedRoot root.Trus
 		return nil, err
 	}
 	return verifier, nil
-}
-
-// VerifyConsistencyWithCheckpoint verifies that the log has been consistent between
-// the previous checkpoint and the current state. This is the core consistency check
-// logic that can be used with any checkpoint source (file, database, etc.).
-//
-// If prevCheckpoint is nil, no consistency check is performed (first run scenario).
-// Returns the current checkpoint from the latest shard.
-func VerifyConsistencyWithCheckpoint(ctx context.Context, rekorShards map[string]ShardInfo, latestShardOrigin string, prevCheckpoint *log.Checkpoint) (*log.Checkpoint, error) {
-	// First, we select the correct shard. Most of the time this will be
-	// the latest shard (with origin == latestShardOrigin), but
-	// in situations where the previously stored checkpoint is from an older
-	// shard, we have to:
-	// - Verify the previous checkpoint against the last checkpoint of the older shard
-	// - Store the last checkpoint of the *newest* shard as the last-seen checkpoint
-	// in order to migrate from the old shard to the new one.
-
-	// Fetch (and verify) the latest checkpoint of the latest shard
-	// This is the checkpoint that will be returned.
-	latestShardCheckpoint, _, err := (*rekorShards[latestShardOrigin].client).ReadCheckpoint(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current checkpoint: %v", err)
-	}
-
-	if prevCheckpoint != nil {
-		// The new checkpoint we fetch for the consistency check has to be from the same
-		// shard as the previous checkpoint.
-		rekorClient := *rekorShards[latestShardOrigin].client
-		newCheckpoint := latestShardCheckpoint
-		if prevCheckpoint.Origin != latestShardOrigin {
-			rekorClient = *rekorShards[prevCheckpoint.Origin].client
-			newCheckpoint, _, err = rekorClient.ReadCheckpoint(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get current checkpoint: %v", err)
-			}
-		}
-
-		// Build the consistency proof between the tree sizes of the previous (stored)
-		// checkpoint and the newest fetched checkpoint
-		pb, err := tclient.NewProofBuilder(ctx, newCheckpoint.Size, rekorClient.ReadTile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get proof builder: %v", err)
-		}
-		consistencyProof, err := pb.ConsistencyProof(ctx, prevCheckpoint.Size, newCheckpoint.Size)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build consistency proof: %v", err)
-		}
-
-		err = proof.VerifyConsistency(rfc6962.DefaultHasher, prevCheckpoint.Size, newCheckpoint.Size, consistencyProof, prevCheckpoint.Hash, newCheckpoint.Hash)
-		if err != nil {
-			return nil, fmt.Errorf("consistency check failed: %v", err)
-		}
-
-		fmt.Fprintf(os.Stderr, "Root hash consistency verified - Current Size: %d Root Hash: %s - Previous Size: %d Root Hash %s\n",
-			newCheckpoint.Size, hex.EncodeToString(newCheckpoint.Hash), prevCheckpoint.Size, hex.EncodeToString(prevCheckpoint.Hash))
-	}
-
-	return latestShardCheckpoint, nil
 }

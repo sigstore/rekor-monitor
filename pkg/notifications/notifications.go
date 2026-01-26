@@ -128,6 +128,7 @@ type IdentityMonitorConfiguration struct {
 	EmailNotificationSendGrid *SendGridNotificationInput `yaml:"emailNotificationSendGrid"`
 	CARootsFile               string                     `yaml:"caRootsFile"`
 	CAIntermediatesFile       string                     `yaml:"caIntermediatesFile"`
+	CTShards                  []string                   `yaml:"ctShards"`
 }
 
 func validatePEMFile(pemFile string) error {
