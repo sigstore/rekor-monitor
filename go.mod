@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/sigstore/rekor v1.4.4-0.20260105174519-e9d74348d37e
-	github.com/sigstore/rekor-tiles/v2 v2.0.2-0.20260105172606-d60a6be462dc
+	github.com/sigstore/rekor-tiles/v2 v2.1.0
 	github.com/sigstore/sigstore v1.10.4
 	github.com/sigstore/sigstore-go v1.1.4
 	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c
