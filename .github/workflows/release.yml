@@ -51,7 +51,7 @@ jobs:
           cache: false # avoid cache-poisoning attacks
 
       # Syft is used by GoReleaser to generate SBOMs
-      - uses: anchore/sbom-action/download-syft@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
+      - uses: anchore/sbom-action/download-syft@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
 
       # Initialize build arguments
       - name: Set build arguments
