@@ -405,8 +405,8 @@ github.com/tink-crypto/tink-go/v2 v2.6.0 h1:+KHNBHhWH33Vn+igZWcsgdEPUxKwBMEe0QC6
 github.com/tink-crypto/tink-go/v2 v2.6.0/go.mod h1:2WbBA6pfNsAfBwDCggboaHeB2X29wkU8XHtGwh2YIk8=
 github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 h1:e/5i7d4oYZ+C1wj2THlRK+oAhjeS/TRQwMfkIuet3w0=
 github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399/go.mod h1:LdwHTNJT99C5fTAzDz0ud328OgXz+gierycbcIx2fRs=
-github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c h1:5a2XDQ2LiAUV+/RjckMyq9sXudfrPSuCY4FuPC1NyAw=
-github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c/go.mod h1:g85IafeFJZLxlzZCDRu4JLpfS7HKzR+Hw9qRh3bVzDI=
+github.com/transparency-dev/formats v0.1.0 h1:oL0zUFuYUjg8AbtjPMnIRDmjbaHo5jCjEWU5yaNuz0g=
+github.com/transparency-dev/formats v0.1.0/go.mod h1:d2FibUOHfCMdCe/+/rbKt1IPLBbPTDfwj46kt541/mU=
 github.com/transparency-dev/merkle v0.0.2 h1:Q9nBoQcZcgPamMkGn7ghV8XiTZ/kRxn1yCG81+twTK4=
 github.com/transparency-dev/merkle v0.0.2/go.mod h1:pqSy+OXefQ1EDUVmAJ8MUhHB9TXGuzVAT58PqBoHz1A=
 github.com/transparency-dev/tessera v1.0.1 h1:t2PS/GzuxU5x6kAQQ4ZGBBUqLGOF2R+N/jMmxy9gYnw=
