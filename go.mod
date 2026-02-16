@@ -16,7 +16,7 @@ require (
 	github.com/sigstore/rekor-tiles/v2 v2.1.0
 	github.com/sigstore/sigstore v1.10.4
 	github.com/sigstore/sigstore-go v1.1.4
-	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c
+	github.com/transparency-dev/formats v0.1.0
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/tessera v1.0.1
 	github.com/wneessen/go-mail v0.7.2
