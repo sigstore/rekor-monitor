@@ -97,6 +97,40 @@ func init() {
 	OIDSourceRepositoryVisibilityAtSigning = createFulcioOID([]int{1, 22})
 }
 
+// NamedOID pairs a human-readable name with its OID.
+type NamedOID struct {
+	Name string
+	OID  asn1.ObjectIdentifier
+}
+
+// AllNamedOIDs returns all well-known Fulcio OID extensions.
+func AllNamedOIDs() []NamedOID {
+	return []NamedOID{
+		{"Issuer (deprecated)", OIDIssuer},
+		{"GitHub Workflow Trigger (deprecated)", OIDGitHubWorkflowTrigger},
+		{"GitHub Workflow SHA (deprecated)", OIDGitHubWorkflowSHA},
+		{"GitHub Workflow Name (deprecated)", OIDGitHubWorkflowName},
+		{"GitHub Workflow Repository (deprecated)", OIDGitHubWorkflowRepository},
+		{"GitHub Workflow Ref (deprecated)", OIDGitHubWorkflowRef},
+		{"OtherName", OIDOtherName},
+		{"Issuer V2", OIDIssuerV2},
+		{"Build Signer URI", OIDBuildSignerURI},
+		{"Build Signer Digest", OIDBuildSignerDigest},
+		{"Runner Environment", OIDRunnerEnvironment},
+		{"Source Repository URI", OIDSourceRepositoryURI},
+		{"Source Repository Digest", OIDSourceRepositoryDigest},
+		{"Source Repository Ref", OIDSourceRepositoryRef},
+		{"Source Repository Identifier", OIDSourceRepositoryIdentifier},
+		{"Source Repository Owner URI", OIDSourceRepositoryOwnerURI},
+		{"Source Repository Owner Identifier", OIDSourceRepositoryOwnerIdentifier},
+		{"Build Config URI", OIDBuildConfigURI},
+		{"Build Config Digest", OIDBuildConfigDigest},
+		{"Build Trigger", OIDBuildTrigger},
+		{"Run Invocation URI", OIDRunInvocationURI},
+		{"Source Repository Visibility at Signing", OIDSourceRepositoryVisibilityAtSigning},
+	}
+}
+
 // FulcioExtensions contains all custom X.509 extensions defined by Fulcio.
 type FulcioExtensions struct {
 	// The OIDC issuer. Should match `iss` claim of ID token or, in the case of
@@ -395,6 +429,9 @@ func ParseObjectIdentifier(oid string) (asn1.ObjectIdentifier, error) {
 		intNode, err := strconv.Atoi(node)
 		if err != nil {
 			return nil, err
+		}
+		if intNode < 0 {
+			return nil, fmt.Errorf("could not parse object identifier: negative component at position %d: %d", i, intNode)
 		}
 		objectIdentifier[i] = intNode
 	}

@@ -142,6 +142,11 @@ func (o OIDMatcherValue) Verify() error {
 	if len(o.OID) == 0 {
 		return errors.New("oid extension empty")
 	}
+	for i, component := range o.OID {
+		if component < 0 {
+			return fmt.Errorf("oid component %d is negative: %d", i, component)
+		}
+	}
 	if len(o.ExtensionValues) == 0 {
 		return errors.New("oid matched values empty")
 	}
