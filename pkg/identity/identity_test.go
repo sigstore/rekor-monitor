@@ -508,3 +508,40 @@ func TestGoogleCertMatches(t *testing.T) {
 		t.Errorf("expected subject %s and issuer %s, received subject %s and issuer %s", emailAddr, issuer, receivedSub, receivedIssuer)
 	}
 }
+
+// TestOIDMatcherValueVerifyValidation tests that Verify rejects invalid OID components
+func TestOIDMatcherValueVerifyValidation(t *testing.T) {
+	testCases := []struct {
+		name      string
+		oid       OIDMatcherValue
+		expectErr bool
+	}{
+		{
+			name:      "valid OID",
+			oid:       OIDMatcherValue{OID: asn1.ObjectIdentifier{1, 3, 6, 1}, ExtensionValues: []string{"val"}},
+			expectErr: false,
+		},
+		{
+			name:      "negative component",
+			oid:       OIDMatcherValue{OID: asn1.ObjectIdentifier{1, -3, 6}, ExtensionValues: []string{"val"}},
+			expectErr: true,
+		},
+		{
+			name:      "empty OID",
+			oid:       OIDMatcherValue{OID: asn1.ObjectIdentifier{}, ExtensionValues: []string{"val"}},
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.oid.Verify()
+			if tc.expectErr && err == nil {
+				t.Errorf("expected error, got nil")
+			}
+			if !tc.expectErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}

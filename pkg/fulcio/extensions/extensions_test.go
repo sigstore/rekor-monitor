@@ -137,6 +137,14 @@ func TestParseObjectIdentifier(t *testing.T) {
 			oid:         "11254215212.4.123.54.1.622",
 			expectedErr: nil,
 		},
+		"negative number": {
+			oid:         "1.3.-6.1",
+			expectedErr: errors.New("could not parse object identifier: negative component at position 2: -6"),
+		},
+		"special characters": {
+			oid:         "@.3.6.@.hello",
+			expectedErr: errors.New("strconv.Atoi: parsing \"@\": invalid syntax"),
+		},
 	}
 	for name, testCase := range objectIdentifierTests {
 		t.Run(name, func(t *testing.T) {
