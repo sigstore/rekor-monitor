@@ -64,6 +64,8 @@ var (
 	OIDBuildTrigger                        asn1.ObjectIdentifier
 	OIDRunInvocationURI                    asn1.ObjectIdentifier
 	OIDSourceRepositoryVisibilityAtSigning asn1.ObjectIdentifier
+	OIDDeploymentEnvironment               asn1.ObjectIdentifier
+	OIDTokenSubject                        asn1.ObjectIdentifier
 )
 
 func init() {
@@ -95,6 +97,8 @@ func init() {
 	OIDBuildTrigger = createFulcioOID([]int{1, 20})
 	OIDRunInvocationURI = createFulcioOID([]int{1, 21})
 	OIDSourceRepositoryVisibilityAtSigning = createFulcioOID([]int{1, 22})
+	OIDDeploymentEnvironment = createFulcioOID([]int{1, 23})
+	OIDTokenSubject = createFulcioOID([]int{1, 24})
 }
 
 // NamedOID pairs a human-readable name with its OID.
@@ -128,6 +132,8 @@ func AllNamedOIDs() []NamedOID {
 		{"Build Trigger", OIDBuildTrigger},
 		{"Run Invocation URI", OIDRunInvocationURI},
 		{"Source Repository Visibility at Signing", OIDSourceRepositoryVisibilityAtSigning},
+		{"Deployment Environment", OIDDeploymentEnvironment},
+		{"Token Subject", OIDTokenSubject},
 	}
 }
 
