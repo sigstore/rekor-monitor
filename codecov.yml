@@ -14,5 +14,17 @@
 
 coverage:
   status:
-    project: off
-    patch: off
+    # Patch coverage ensures new code changes are tested before merging
+    patch:
+      default:
+        target: 70%           # Require 70% of new code to be tested
+        threshold: 5%         # Allow variance of 5% (so 65%+ passes)
+        base: auto            # Compare against PR base
+
+    # Project coverage monitors overall codebase coverage trends
+    project:
+      default:
+        target: auto          # Use dynamic target based on parent commit
+        threshold: 5%         # Allow variance of 5%
+        base: auto
+        only_pulls: true      # Only check on pull requests
