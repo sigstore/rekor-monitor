@@ -27,6 +27,7 @@ jobs:
     name: Check code coverage
     permissions:
       contents: read
+      id-token: write
     runs-on: ubuntu-latest
 
     env:
@@ -57,5 +58,6 @@ jobs:
       - name: Upload Coverage Report
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
+          flags: unit
           env_vars: OS
