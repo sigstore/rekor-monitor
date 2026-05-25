@@ -20,7 +20,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/tessera v1.0.2
 	github.com/wneessen/go-mail v0.7.2
-	go.step.sm/crypto v0.79.0
+	go.step.sm/crypto v0.81.0
 	golang.org/x/crypto v0.51.0
 	golang.org/x/mod v0.36.0
 	google.golang.org/protobuf v1.36.11
