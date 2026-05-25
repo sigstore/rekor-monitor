@@ -173,10 +173,14 @@ func TestCreateMonitoredIdentities(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			createMonitoredIdentitiesOutput := CreateMonitoredIdentities(testCase.inputEntries)
 			sort.Slice(createMonitoredIdentitiesOutput, func(i, j int) bool {
-				return createMonitoredIdentitiesOutput[i].Identity.String() < createMonitoredIdentitiesOutput[j].Identity.String()
+				strI, _ := createMonitoredIdentitiesOutput[i].Identity.String()
+				strJ, _ := createMonitoredIdentitiesOutput[j].Identity.String()
+				return strI < strJ
 			})
 			sort.Slice(testCase.output, func(i, j int) bool {
-				return testCase.output[i].Identity.String() < testCase.output[j].Identity.String()
+				strI, _ := testCase.output[i].Identity.String()
+				strJ, _ := testCase.output[j].Identity.String()
+				return strI < strJ
 			})
 			if !reflect.DeepEqual(createMonitoredIdentitiesOutput, testCase.output) {
 				t.Errorf("expected %v, got %v", testCase.output, createMonitoredIdentitiesOutput)
