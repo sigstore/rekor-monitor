@@ -147,14 +147,13 @@ func (o OIDMatcherValue) MarshalJSON() ([]byte, error) {
 		"extensionValues": o.ExtensionValues,
 	})
 }
+
 func (o OIDMatcherValue) Verify() error {
 	if len(o.OID) == 0 {
 		return errors.New("oid extension empty")
 	}
-	for i, component := range o.OID {
-		if component < 0 {
-			return fmt.Errorf("oid component %d is negative: %d", i, component)
-		}
+	if _, err := x509.ParseOID(o.OID.String()); err != nil {
+		return fmt.Errorf("oid extension invalid: %w", err)
 	}
 	if len(o.ExtensionValues) == 0 {
 		return errors.New("oid matched values empty")

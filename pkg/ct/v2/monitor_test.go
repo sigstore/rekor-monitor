@@ -49,7 +49,7 @@ func TestMatchedIndices(t *testing.T) {
 			Value: value,
 		},
 	}
-	unmatchedAsn1OID := asn1.ObjectIdentifier{2}
+	unmatchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 18}
 	matchedAsn1OID := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 99999}
 	extValueString := "test cert value"
 	extensions = append(extensions, pkix.Extension{
