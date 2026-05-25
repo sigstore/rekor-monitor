@@ -189,7 +189,12 @@ func ParseAndLoadConfig(defaultServerURL, defaultTUFRepository, baseUserAgentNam
 // PrintMonitoredValues prints the monitored values to the console
 func PrintMonitoredValues(monitoredValues identity.MonitoredValues) {
 	for _, mv := range monitoredValues {
-		fmt.Println("Monitoring: " + mv.String())
+		str, err := mv.String()
+		if err != nil {
+			fmt.Printf("Monitoring: <error: %v>\n", err)
+			continue
+		}
+		fmt.Println("Monitoring: " + str)
 	}
 }
 

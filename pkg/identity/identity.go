@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -43,7 +44,7 @@ type MonitoredValue interface {
 	// Type returns the type of identity this value represents
 	Type() MatchedIdentityType
 	// String returns a human-readable representation
-	String() string
+	String() (string, error)
 	// MarshalJSON marshals the value with type information included
 	MarshalJSON() ([]byte, error)
 	// Verify checks that the monitored value is valid
@@ -57,8 +58,12 @@ type CertIdentityValue struct {
 }
 
 func (c CertIdentityValue) Type() MatchedIdentityType { return MatchedIdentityTypeCertIdentity }
-func (c CertIdentityValue) String() string {
-	return fmt.Sprintf("%s:%s:%v", c.Type(), c.CertSubject, c.Issuers)
+func (c CertIdentityValue) String() (string, error) {
+	issuersJSON, err := json.Marshal(c.Issuers)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal issuers: %w", err)
+	}
+	return fmt.Sprintf("%s:%s:%s", c.Type(), c.CertSubject, string(issuersJSON)), nil
 }
 func (c CertIdentityValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
@@ -85,8 +90,8 @@ type FingerprintValue struct {
 }
 
 func (f FingerprintValue) Type() MatchedIdentityType { return MatchedIdentityTypeFingerprint }
-func (f FingerprintValue) String() string {
-	return fmt.Sprintf("%s:%s", f.Type(), f.Fingerprint)
+func (f FingerprintValue) String() (string, error) {
+	return fmt.Sprintf("%s:%s", f.Type(), f.Fingerprint), nil
 }
 func (f FingerprintValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
@@ -106,8 +111,8 @@ type SubjectValue struct {
 }
 
 func (s SubjectValue) Type() MatchedIdentityType { return MatchedIdentityTypeSubject }
-func (s SubjectValue) String() string {
-	return fmt.Sprintf("%s:%s", s.Type(), s.Subject)
+func (s SubjectValue) String() (string, error) {
+	return fmt.Sprintf("%s:%s", s.Type(), s.Subject), nil
 }
 func (s SubjectValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
@@ -128,8 +133,12 @@ type OIDMatcherValue struct {
 }
 
 func (o OIDMatcherValue) Type() MatchedIdentityType { return MatchedIdentityTypeOIDExtension }
-func (o OIDMatcherValue) String() string {
-	return fmt.Sprintf("%s:%s:%v", o.Type(), o.OID.String(), o.ExtensionValues)
+func (o OIDMatcherValue) String() (string, error) {
+	extValuesJSON, err := json.Marshal(o.ExtensionValues)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal extension values: %w", err)
+	}
+	return fmt.Sprintf("%s:%s:%s", o.Type(), o.OID.String(), string(extValuesJSON)), nil
 }
 func (o OIDMatcherValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
@@ -275,7 +284,12 @@ func CreateMonitoredIdentities(inputIdentityEntries []LogEntry) []MonitoredIdent
 		if idEntry.MatchedIdentity == nil {
 			continue
 		}
-		key := idEntry.MatchedIdentity.String()
+		key, err := idEntry.MatchedIdentity.String()
+		if err != nil {
+			log.Printf("failed to generate key for matched identity (type=%s, index=%d): %v",
+				idEntry.MatchedIdentity.Type(), idEntry.Index, err)
+			continue
+		}
 		monitoredIdentityMap[key] = append(monitoredIdentityMap[key], idEntry)
 		identityByKey[key] = idEntry.MatchedIdentity
 	}
