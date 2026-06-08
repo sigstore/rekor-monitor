@@ -3,7 +3,7 @@ module github.com/sigstore/rekor-monitor
 go 1.25.5
 
 require (
-	github.com/go-openapi/runtime v0.32.1
+	github.com/go-openapi/runtime v0.32.2
 	github.com/go-openapi/swag/conv v0.26.0
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/google/go-github/v65 v65.0.0
