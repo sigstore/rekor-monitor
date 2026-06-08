@@ -549,3 +549,44 @@ func TestOIDMatcherValueVerifyValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestOIDMatcherValueVerify_InvalidOID(t *testing.T) {
+	testCases := []struct {
+		name        string
+		oid         asn1.ObjectIdentifier
+		expectedErr string
+	}{
+		{
+			name:        "too short",
+			oid:         asn1.ObjectIdentifier{1},
+			expectedErr: "invalid oid",
+		},
+		{
+			name:        "negative arc",
+			oid:         asn1.ObjectIdentifier{1, -1},
+			expectedErr: "invalid oid",
+		},
+		{
+			name:        "first arc too large",
+			oid:         asn1.ObjectIdentifier{3, 1},
+			expectedErr: "invalid oid",
+		},
+		{
+			name:        "second arc too large",
+			oid:         asn1.ObjectIdentifier{1, 40},
+			expectedErr: "invalid oid",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := OIDMatcherValue{
+				OID:             tc.oid,
+				ExtensionValues: []string{"val"},
+			}.Verify()
+			if err == nil || !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Fatalf("expected error containing %q, got %v", tc.expectedErr, err)
+			}
+		})
+	}
+}

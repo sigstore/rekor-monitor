@@ -175,7 +175,7 @@ func TestScanEntryOIDExtension(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected nil got %v", err)
 	}
-	unmatchedAsn1OID := asn1.ObjectIdentifier{2}
+	unmatchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 18}
 	matchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 17}
 	extValueString := "test cert value"
 
@@ -264,7 +264,7 @@ func TestMatchedIndices(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected nil got %v", err)
 	}
-	unmatchedAsn1OID := asn1.ObjectIdentifier{2}
+	unmatchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 18}
 	matchedAsn1OID := asn1.ObjectIdentifier{2, 5, 29, 17}
 	extValueString := "test cert value"
 	extCert.Extensions = append(extCert.Extensions, pkix.Extension{
