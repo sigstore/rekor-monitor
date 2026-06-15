@@ -1,6 +1,6 @@
 module github.com/sigstore/rekor-monitor
 
-go 1.25.5
+go 1.25.8
 
 require (
 	github.com/go-openapi/runtime v0.32.2
@@ -20,7 +20,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/tessera v1.0.2
 	github.com/wneessen/go-mail v0.7.3
-	go.step.sm/crypto v0.81.1
+	go.step.sm/crypto v0.82.0
 	golang.org/x/crypto v0.52.0
 	golang.org/x/mod v0.36.0
 	google.golang.org/protobuf v1.36.11
@@ -138,7 +138,7 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260523011958-0a33c5d7ca68 // indirect
 	google.golang.org/grpc v1.81.1 // indirect
 	gopkg.in/ini.v1 v1.67.2 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
