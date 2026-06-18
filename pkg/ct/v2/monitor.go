@@ -60,7 +60,7 @@ func ScanEntryOIDExtension(logEntry Entry, monitoredOID identity.OIDMatcherValue
 	return common.ScanEntryOIDExtension(cert, logEntry.Index, monitoredOID)
 }
 
-func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(ctx context.Context, logEntries []Entry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
@@ -69,6 +69,11 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots st
 	failedEntries := []identity.FailedLogEntry{}
 
 	for _, entry := range logEntries {
+		// Bail out promptly on cancellation: verifying a large backlog of
+		// entries can take a while, so honor ctx between entries.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		err := common.ValidateCertificateChain(entry.Entry.Certificate, entry.Entry.Precertificate, caRoots, caIntermediates)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error validating chain for log entry at index %d: %v\n", entry.Index, err)
@@ -110,7 +115,7 @@ func IdentitySearch(ctx context.Context, client *Client, monitoredValues identit
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting entries by index range: %w", err)
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
+	matchedEntries, failedEntries, err := MatchedIndices(ctx, entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("looking for matching entries: %w", err)
 	}

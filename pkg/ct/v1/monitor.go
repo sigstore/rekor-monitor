@@ -72,10 +72,15 @@ func rawPrecert(logEntry ct.LogEntry) []byte {
 	return logEntry.Precert.TBSCertificate.Raw
 }
 
-func MatchedIndices(logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(ctx context.Context, logEntries []ct.LogEntry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	matchedEntries := []identity.LogEntry{}
 	failedEntries := []identity.FailedLogEntry{}
 	for _, entry := range logEntries {
+		// Bail out promptly on cancellation: verifying a large backlog of
+		// entries can take a while, so honor ctx between entries.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		err := common.ValidateCertificateChain(rawCert(entry), rawPrecert(entry), caRoots, caIntermediates)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error validating chain for log entry at index %d: %v\n", entry.Index, err)
@@ -119,7 +124,7 @@ func IdentitySearch(ctx context.Context, client *ctclient.LogClient, monitoredVa
 	if err != nil {
 		return nil, nil, err
 	}
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
+	matchedEntries, failedEntries, err := MatchedIndices(ctx, entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, err
 	}

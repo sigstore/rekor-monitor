@@ -168,7 +168,7 @@ func extractAllIdentities(verifiers []verifier.Verifier) ([]string, []*x509.Cert
 }
 
 // MatchedIndices returns a list of log entries that contain the requested identities.
-func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
+func MatchedIndices(ctx context.Context, logEntries []Entry, mvs identity.MonitoredValues, caRoots string, caIntermediates string) ([]identity.LogEntry, []identity.FailedLogEntry, error) {
 	if err := identity.VerifyMonitoredValues(mvs); err != nil {
 		return nil, nil, err
 	}
@@ -177,6 +177,11 @@ func MatchedIndices(logEntries []Entry, mvs identity.MonitoredValues, caRoots st
 	var failedEntries []identity.FailedLogEntry
 
 	for _, entry := range logEntries {
+		// Bail out promptly on cancellation: verifying a large backlog of
+		// entries can take a while, so honor ctx between entries.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		verifiers, err := extractVerifiers(entry.ProtoEntry)
 		if err != nil {
 			failedEntries = append(failedEntries, identity.FailedLogEntry{
@@ -253,7 +258,7 @@ func IdentitySearch(ctx context.Context, rekorShards map[string]ShardInfo, lates
 		return nil, nil, fmt.Errorf("error getting entries by index range: %v", err)
 	}
 
-	matchedEntries, failedEntries, err := MatchedIndices(entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
+	matchedEntries, failedEntries, err := MatchedIndices(ctx, entries, monitoredValues, o.CARootsFile, o.CAIntermediatesFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error matching indices: %v", err)
 	}

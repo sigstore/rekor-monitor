@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -185,7 +186,7 @@ func TestMatchedIndices(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			matchedEntries, failedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues, "", "")
+			matchedEntries, failedEntries, err := MatchedIndices(context.Background(), tc.inputEntries, tc.inputMonitoredValues, "", "")
 			if tc.expectErr {
 				if err == nil {
 					t.Errorf("expected error, got none")

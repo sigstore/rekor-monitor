@@ -105,7 +105,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: subject,
 		},
@@ -133,7 +133,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 
 	// match to subject and issuer with certificate in hashedrekord
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: subject,
 			Issuers:     []string{issuer},
@@ -150,7 +150,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 	}
 
 	// match with regex subject and regex issuer with certificate in hashedrekord
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*ubje.*",
 			Issuers:     []string{".+@domain.com"},
@@ -196,7 +196,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		}
 		logEntry := models.LogEntry{uuid: logEntryAnon}
 
-		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+		matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 			identity.CertIdentityValue{
 				CertSubject: ".*ubje.*",
 				Issuers:     []string{".+@domain.com"},
@@ -227,7 +227,7 @@ func TestMatchedIndicesForCertificates(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
+		matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected error matching IDs, got %v", err)
 		}
@@ -288,7 +288,7 @@ func TestMatchedIndicesForDeprecatedCertificates(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: subject,
 			Issuers:     []string{issuer},
@@ -368,7 +368,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	fp := hex.EncodeToString(digest[:])
 
 	//  match to key fingerprint in hashedrekord
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.FingerprintValue{Fingerprint: fp},
 	}, "", "")
 	if err != nil {
@@ -391,7 +391,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 
 	// no match with different fingerprints
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.FingerprintValue{Fingerprint: "other-fp"},
 	}, "", "")
 	if err != nil {
@@ -451,7 +451,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	//  match to subject with certificate in hashedrekord
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.SubjectValue{Subject: subject},
 	}, "", "")
 	if err != nil {
@@ -474,7 +474,7 @@ func TestMatchedIndicesForSubjects(t *testing.T) {
 	}
 
 	// no match with different subjects
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.SubjectValue{Subject: "other-sub"},
 	}, "", "")
 	if err != nil {
@@ -546,7 +546,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
 	// match to oid with matching extension value
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, identity.MonitoredValues{
 		identity.OIDMatcherValue{
 			OID:             oid,
 			ExtensionValues: []string{extValueString},
@@ -583,7 +583,7 @@ func TestMatchedIndicesForOIDMatchers(t *testing.T) {
 		},
 	}
 	for _, monitoredValues := range testedMonitoredValues {
-		matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, monitoredValues, "", "")
+		matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, monitoredValues, "", "")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -664,7 +664,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	mvs := convertRenderedOIDMatchers(renderedOIDMatchers)
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, mvs, "", "")
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, mvs, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -692,7 +692,7 @@ func TestMatchedIndicesForFulcioOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	mvs = convertRenderedOIDMatchers(renderedOIDMatchers)
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, mvs, "", "")
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, mvs, "", "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -775,7 +775,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	mvs := convertRenderedOIDMatchers(renderedOIDMatchers)
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{logEntry}, mvs, "", "")
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, mvs, "", "")
 	if err != nil {
 		t.Fatalf("expected error matching IDs, got %v", err)
 	}
@@ -809,7 +809,7 @@ func TestMatchedIndicesForCustomOIDMatchers(t *testing.T) {
 		t.Fatalf("received error rendering OID matchers: %v", err)
 	}
 	mvs = convertRenderedOIDMatchers(renderedOIDMatchers)
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{logEntry}, mvs, "", "")
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{logEntry}, mvs, "", "")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -886,7 +886,7 @@ func TestMatchedIndicesFailures(t *testing.T) {
 
 	for name, testCase := range monitoredValuesTests {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := MatchedIndices(nil, testCase.input, "", "")
+			_, _, err := MatchedIndices(context.Background(), nil, testCase.input, "", "")
 			if err == nil || !strings.Contains(err.Error(), testCase.errorString) {
 				t.Fatalf("expected error %v, received %v", testCase.errorString, err)
 			}
@@ -985,7 +985,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	untrustedLogEntry := createLogEntry(untrustedLeafCert, untrustedLeafKey, "untrusted-uuid")
 
 	// Test with trusted CAs provided - should only match trusted certificate
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
@@ -1007,7 +1007,7 @@ func TestMatchedIndicesWithTrustedCAs(t *testing.T) {
 	}
 
 	// Test with no trusted CAs provided - should match both certificates
-	matches, failedEntries, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, failedEntries, err = MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
@@ -1146,7 +1146,7 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 
 	// Test the core functionality: proper root-intermediate-leaf chain validation
 	// Should only match the trusted certificate chain (Root CA -> Intermediate CA -> Leaf Cert)
-	matches, failedEntries, err := MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
@@ -1168,7 +1168,7 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 	}
 
 	// Test that we should not match any certificates because the untrusted intermediate CA is not signed by the trusted root CA
-	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, _, err = MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
@@ -1183,7 +1183,7 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 
 	// Test that we should not match any certificates because the trusted intermediate CA is not signed by the untrusted root CA
 	untrustedRootFile := createTempCertFile(t, untrustedRootCert, "untrusted-root-ca")
-	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, _, err = MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
@@ -1197,7 +1197,7 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 	}
 
 	// Make sure the untrusted chain is actually good to use with the right caRoots and caIntermediates
-	matches, _, err = MatchedIndices([]models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
+	matches, _, err = MatchedIndices(context.Background(), []models.LogEntry{trustedLogEntry, untrustedLogEntry}, identity.MonitoredValues{
 		identity.CertIdentityValue{
 			CertSubject: ".*@example.com",
 			Issuers:     []string{issuer},
