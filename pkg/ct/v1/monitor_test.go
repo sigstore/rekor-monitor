@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"context"
 	"encoding/asn1"
 	"reflect"
 	"testing"
@@ -361,7 +362,7 @@ func TestMatchedIndices(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		matchedEntries, failedEntries, err := MatchedIndices(tc.inputEntries, tc.inputMonitoredValues, "", "")
+		matchedEntries, failedEntries, err := MatchedIndices(context.Background(), tc.inputEntries, tc.inputMonitoredValues, "", "")
 		if err != nil {
 			t.Errorf("error matching indices: %v", err)
 		}
