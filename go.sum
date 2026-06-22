@@ -348,8 +348,8 @@ github.com/sigstore/protobuf-specs v0.5.1 h1:/5OPaNuolRJmQfeZLayJGFXMpsRJEdgC6ah
 github.com/sigstore/protobuf-specs v0.5.1/go.mod h1:DRBzpFuE+LnvQMN10/dU6nBeKwVLGEQ6o2FovN2Rats=
 github.com/sigstore/rekor v1.5.2 h1:k6pX4o1zFAzAvDbXiVIp5IHj1b0wcDaxsbsbNpuRO8o=
 github.com/sigstore/rekor v1.5.2/go.mod h1:WkMnITBccOFauPkT6yte74tF5gC83pefKRGZvNOsbjI=
-github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443 h1:/CO8F6m3Bo/f59bZo5dv1sTIfUnQqVnepIdDV24KoDw=
-github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443/go.mod h1:w1h8wF8vq9lHjmtRdwJiEaoVxhP+WHIMpj4M39pkzp0=
+github.com/sigstore/rekor-tiles/v2 v2.3.0 h1:HhMgH61UP0t899V8Fjt7pz1YdgOBptbaQdnCF+79cdc=
+github.com/sigstore/rekor-tiles/v2 v2.3.0/go.mod h1:DEFiKSyQ4nF75QRVNdOPaIH3cmvMkO2B6xDZjNYngPc=
 github.com/sigstore/sigstore v1.10.8 h1:1Mgkxvkw4AXMfIP1DOjc6kw0GkUgA8pGVpveN/EfOq4=
 github.com/sigstore/sigstore v1.10.8/go.mod h1:f9+B/4iaYimvUkySyb2mvc73n3RLqNn24grHZM/ET8M=
 github.com/sigstore/sigstore-go v1.2.1 h1:YWP/rDbBaEBvtbkj6xtwsSj38ZCFEhTVVadNOXjVe3A=
@@ -438,8 +438,8 @@ go.opentelemetry.io/otel/metric v1.44.0 h1:1w0gILTcHdr3YI+ixLyjemwrVnsMURbTZFrSY
 go.opentelemetry.io/otel/metric v1.44.0/go.mod h1:8O7hanEPBNgEMmybD3s2VBKcgWOCsA6tzHBPODAiquo=
 go.opentelemetry.io/otel/sdk v1.44.0 h1:nHYwb9lK+fJPU/dnT6s7W7Z8itMWyqrnVfbheVYrZ58=
 go.opentelemetry.io/otel/sdk v1.44.0/go.mod h1:Osuydd3Se74nqjAKxid74N5eC+jfEqfTegHRnq58oK0=
-go.opentelemetry.io/otel/sdk/metric v1.43.0 h1:S88dyqXjJkuBNLeMcVPRFXpRw2fuwdvfCGLEo89fDkw=
-go.opentelemetry.io/otel/sdk/metric v1.43.0/go.mod h1:C/RJtwSEJ5hzTiUz5pXF1kILHStzb9zFlIEe85bhj6A=
+go.opentelemetry.io/otel/sdk/metric v1.44.0 h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRks6si09iEfI=
+go.opentelemetry.io/otel/sdk/metric v1.44.0/go.mod h1:5B5pMARnXxKhltooO4xUuCBorl65a4EpnTalObqOigA=
 go.opentelemetry.io/otel/trace v1.44.0 h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=
 go.opentelemetry.io/otel/trace v1.44.0/go.mod h1:oLl1jrMQAVo6v3GAggN+1VH9VIz9iUSvW53sW1Q8PIE=
 go.step.sm/crypto v0.83.0 h1:llCPEiL2f+kUPY+CUJrOCsuSBoJZ2qooFG9EqGast6w=
