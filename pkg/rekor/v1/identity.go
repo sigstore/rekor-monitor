@@ -211,7 +211,11 @@ func MatchedIndices(ctx context.Context, logEntries []models.LogEntry, mvs ident
 // extractVerifiers extracts a set of keys or certificates that can verify an
 // artifact signature from a Rekor entry
 func extractVerifiers(e *models.LogEntryAnon) ([]pki.PublicKey, error) {
-	b, err := base64.StdEncoding.DecodeString(e.Body.(string))
+	body, ok := e.Body.(string)
+	if !ok {
+		return nil, fmt.Errorf("entry body is not a string, got %T", e.Body)
+	}
+	b, err := base64.StdEncoding.DecodeString(body)
 	if err != nil {
 		return nil, err
 	}
