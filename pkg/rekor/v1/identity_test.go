@@ -1214,6 +1214,51 @@ func TestMatchedIndicesWithCARootsAndIntermediates(t *testing.T) {
 	}
 }
 
+// TestMatchedIndicesNonStringBody verifies that a log entry whose Body is not a
+// base64 string (for example a JSON number that decodes to float64, or a nil
+// body) is reported as a failed entry instead of panicking. LogEntryAnon.Body is
+// an interface{} taken verbatim from the log response, so an unchecked type
+// assertion on it would crash the monitor process on malformed input.
+func TestMatchedIndicesNonStringBody(t *testing.T) {
+	logIndex := int64(1234)
+	mvs := identity.MonitoredValues{
+		identity.SubjectValue{Subject: subject},
+	}
+
+	nonStringBodies := map[string]interface{}{
+		"float64 body": float64(42),
+		"map body":     map[string]interface{}{"kind": "hashedrekord"},
+		"nil body":     nil,
+	}
+
+	for name, body := range nonStringBodies {
+		t.Run(name, func(t *testing.T) {
+			logEntryAnon := models.LogEntryAnon{
+				Body:     body,
+				LogIndex: conv.Pointer(logIndex),
+			}
+			logEntry := models.LogEntry{"non-string-uuid": logEntryAnon}
+
+			matches, failedEntries, err := MatchedIndices(context.Background(), []models.LogEntry{logEntry}, mvs, "", "")
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if len(matches) != 0 {
+				t.Fatalf("expected 0 matches, got %d", len(matches))
+			}
+			if len(failedEntries) != 1 {
+				t.Fatalf("expected 1 failed entry, got %d", len(failedEntries))
+			}
+			if failedEntries[0].Index != logIndex {
+				t.Fatalf("expected failed entry index %d, got %d", logIndex, failedEntries[0].Index)
+			}
+			if !strings.Contains(failedEntries[0].Error, "error extracting verifiers") {
+				t.Fatalf("expected verifier extraction error, got %q", failedEntries[0].Error)
+			}
+		})
+	}
+}
+
 func TestGetCheckpointIndex(t *testing.T) {
 	shardTreeSize := int64(1)
 	inactiveShard := models.InactiveShardLogInfo{
