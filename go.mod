@@ -19,7 +19,7 @@ require (
 	github.com/transparency-dev/formats v0.1.1
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/tessera v1.0.2
-	github.com/wneessen/go-mail v0.8.0
+	github.com/wneessen/go-mail v0.8.1
 	go.step.sm/crypto v0.84.1
 	golang.org/x/crypto v0.54.0
 	golang.org/x/mod v0.37.0
