@@ -42,7 +42,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   issues: write
 
 jobs:

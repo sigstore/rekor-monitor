@@ -58,18 +58,12 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   issues: write
 
 jobs:
   detect-workflow:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      id-token: write # Needed to detect the current reusable repository and ref.
-    outputs:
-      repository: ${{ steps.detect.outputs.repository }}
-      ref: ${{ steps.detect.outputs.ref }}
     steps:
       - name: Check monitor type
         run: |
@@ -79,9 +73,6 @@ jobs:
           fi
         env:
           INPUT_MONITOR_TYPE: ${{ inputs.monitor_type }}
-      - name: Detect the repository and ref
-        id: detect
-        uses: slsa-framework/slsa-github-generator/.github/actions/detect-workflow-js@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     # NOTE: This GHA should not be run concurrently.
     concurrency:
       group: ${{ inputs.monitor_type }}-consistency-check
@@ -94,8 +85,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
+          repository: ${{ job.workflow_repository }}
+          ref: "${{ job.workflow_sha }}"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: './go.mod'
@@ -115,7 +106,7 @@ jobs:
           go run ./cmd/rekor_monitor \
             --file ${{ inputs.checkpoint_file }} \
             --once=${{ inputs.once }} \
-            --user-agent "${{ format('{0}/{1}/{2}', needs.detect-workflow.outputs.repository, needs.detect-workflow.outputs.ref, github.run_id) }}" \
+            --user-agent "${{ format('{0}/{1}/{2}', job.workflow_repository, job.workflow_sha, github.run_id) }}" \
             --config "${{ inputs.config }}" \
             ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
       - if: ${{ inputs.monitor_type == 'ct' }}
@@ -140,7 +131,6 @@ jobs:
     timeout-minutes: 60
     permissions:
       issues: write
-      id-token: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ISSUE_REPOSITORY: ${{ github.repository }}
@@ -148,8 +138,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
+          repository: ${{ job.workflow_repository }}
+          ref: "${{ job.workflow_sha }}"
       - run: |
           set -euo pipefail
           ./.github/workflows/scripts/report_success.sh
@@ -167,8 +157,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ needs.detect-workflow.outputs.repository }}
-          ref: "${{ needs.detect-workflow.outputs.ref }}"
+          repository: ${{ job.workflow_repository }}
+          ref: "${{ job.workflow_sha }}"
       - run: |
           set -euo pipefail
           ./.github/workflows/scripts/report_failure.sh
