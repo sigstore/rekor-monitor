@@ -113,7 +113,7 @@ It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow:
 
-```
+```yaml
 name: Rekor log monitor
 on:
   schedule:
@@ -156,7 +156,7 @@ It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow below:
 
-```
+```yaml
 name: Rekor log and identity monitor
 on:
   schedule:
@@ -310,7 +310,7 @@ It is recommended to run the log monitor every hour for optimal performance.
 
 Example workflow below:
 
-```
+```yaml
 name: Fulcio log and identity monitor
 on:
   schedule:
