@@ -413,8 +413,8 @@ github.com/transparency-dev/formats v0.1.1 h1:4bVHJc+KdBgpA1OJD1yjI+g0i5Z1graCpp
 github.com/transparency-dev/formats v0.1.1/go.mod h1:qtZ8goRuJ8FTBG9c9+Bj0rn2rUG7eG/AUTkr+Aw3jFw=
 github.com/transparency-dev/merkle v0.0.2 h1:Q9nBoQcZcgPamMkGn7ghV8XiTZ/kRxn1yCG81+twTK4=
 github.com/transparency-dev/merkle v0.0.2/go.mod h1:pqSy+OXefQ1EDUVmAJ8MUhHB9TXGuzVAT58PqBoHz1A=
-github.com/transparency-dev/tessera v1.0.2 h1:PNfGPFfJHpCFVswlrsQvRghxqYz2xy/OtP8qTjJuzFQ=
-github.com/transparency-dev/tessera v1.0.2/go.mod h1:WD/EMM6RXWRyImk9yyJ2hrs8xdknN/lpwUrFR2GemfU=
+github.com/transparency-dev/tessera v1.0.4 h1:IXjGowubcLR0T3zUQrysSMKgtTh9KGKQ0iajUiubyP4=
+github.com/transparency-dev/tessera v1.0.4/go.mod h1:WD/EMM6RXWRyImk9yyJ2hrs8xdknN/lpwUrFR2GemfU=
 github.com/ulikunitz/xz v0.5.14 h1:uv/0Bq533iFdnMHZdRBTOlaNMdb1+ZxXIlHDZHIHcvg=
 github.com/ulikunitz/xz v0.5.14/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/veraison/go-cose v1.3.0 h1:2/H5w8kdSpQJyVtIhx8gmwPJ2uSz1PkyWFx0idbd7rk=
