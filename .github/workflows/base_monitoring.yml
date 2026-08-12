@@ -87,6 +87,7 @@ jobs:
         with:
           repository: ${{ job.workflow_repository }}
           ref: "${{ job.workflow_sha }}"
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: './go.mod'
@@ -98,24 +99,37 @@ jobs:
         # Skip on first run since there will be no checkpoint
         continue-on-error: true
       - name: Log current checkpoints
-        run: cat ${{ inputs.checkpoint_file }}
+        env:
+          CHECKPOINT_FILE: ${{ inputs.checkpoint_file }}
+        run: cat "$CHECKPOINT_FILE"
         # Skip on first run
         continue-on-error: true
       - if: ${{ inputs.monitor_type == 'rekor' }}
+        env:
+          CHECKPOINT_FILE: ${{ inputs.checkpoint_file }}
+          CONFIG: ${{ inputs.config }}
+          ONCE: ${{ inputs.once }}
+          USER_AGENT: ${{ format('{0}/{1}/{2}', job.workflow_repository, job.workflow_sha, github.run_id) }}
+          URL: ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
         run: |
           go run ./cmd/rekor_monitor \
-            --file ${{ inputs.checkpoint_file }} \
-            --once=${{ inputs.once }} \
-            --user-agent "${{ format('{0}/{1}/{2}', job.workflow_repository, job.workflow_sha, github.run_id) }}" \
-            --config "${{ inputs.config }}" \
-            ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
+            --file "$CHECKPOINT_FILE" \
+            --once="$ONCE" \
+            --user-agent "$USER_AGENT" \
+            --config "$CONFIG" \
+            "$URL"
       - if: ${{ inputs.monitor_type == 'ct' }}
+        env:
+          CHECKPOINT_FILE: ${{ inputs.checkpoint_file }}
+          CONFIG: ${{ inputs.config }}
+          ONCE: ${{ inputs.once }}
+          URL: ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
         run: |
           go run ./cmd/ct_monitor \
-            --config "${{ inputs.config }}" \
-            --file ${{ inputs.checkpoint_file }} \
-            --once=${{ inputs.once }} \
-            ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
+            --config "$CONFIG" \
+            --file "$CHECKPOINT_FILE" \
+            --once="$ONCE" \
+            "$URL"
       - name: Upload checkpoint
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -123,7 +137,9 @@ jobs:
           path: ${{ inputs.checkpoint_file }}
           retention-days: ${{ inputs.artifact_retention_days }}
       - name: Log new checkpoints
-        run: cat ${{ inputs.checkpoint_file }}
+        env:
+          CHECKPOINT_FILE: ${{ inputs.checkpoint_file }}
+        run: cat "$CHECKPOINT_FILE"
 
   if-succeeded:
     runs-on: ubuntu-latest
@@ -140,6 +156,7 @@ jobs:
         with:
           repository: ${{ job.workflow_repository }}
           ref: "${{ job.workflow_sha }}"
+          persist-credentials: false
       - run: |
           set -euo pipefail
           ./.github/workflows/scripts/report_success.sh
@@ -159,6 +176,7 @@ jobs:
         with:
           repository: ${{ job.workflow_repository }}
           ref: "${{ job.workflow_sha }}"
+          persist-credentials: false
       - run: |
           set -euo pipefail
           ./.github/workflows/scripts/report_failure.sh
