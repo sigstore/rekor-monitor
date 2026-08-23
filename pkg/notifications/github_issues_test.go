@@ -49,8 +49,8 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.PostReposIssuesByOwnerByRepo,
 			&github.Issue{
-				ID:     github.Int64(1),
-				Number: github.Int(1),
+				ID:     github.Ptr(int64(1)),
+				Number: github.Ptr(1),
 				Title:  &testIssueTitle,
 			},
 			&github.Response{
