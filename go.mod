@@ -6,7 +6,7 @@ require (
 	github.com/go-openapi/runtime v0.33.0
 	github.com/go-openapi/swag/conv v0.28.0
 	github.com/google/certificate-transparency-go v1.3.3
-	github.com/google/go-github/v65 v65.0.0
+	github.com/google/go-github/v90 v90.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/mocktools/go-smtp-mock/v2 v2.5.4
@@ -78,7 +78,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-containerregistry v0.21.7 // indirect
 	github.com/google/go-github/v73 v73.0.0 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect

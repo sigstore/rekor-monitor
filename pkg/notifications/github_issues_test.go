@@ -16,14 +16,13 @@ package notifications
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/google/go-github/v65/github"
+	"github.com/google/go-github/v90/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
-
-	"net/http"
 )
 
 func TestGitHubIssueInputSend401BadCredentialsFailure(t *testing.T) {
@@ -62,7 +61,10 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 			nil,
 		),
 	)
-	mockGitHubClient := github.NewClient(mockedHTTPClient)
+	mockGitHubClient, err := github.NewClient(github.WithHTTPClient(mockedHTTPClient))
+	if err != nil {
+		t.Fatalf("failed to create github client: %v", err)
+	}
 	gitHubIssuesInput := GitHubIssueInput{
 		AssigneeUsername:    "test-assignee",
 		RepositoryOwner:     "test-owner",
@@ -75,7 +77,7 @@ func TestGitHubIssueInputMockSendSuccess(t *testing.T) {
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
-	err := gitHubIssuesInput.Send(ctx, notificationData)
+	err = gitHubIssuesInput.Send(ctx, notificationData)
 	if err != nil {
 		t.Errorf("expected nil, received error %v", err)
 	}
@@ -94,7 +96,10 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 			}),
 		),
 	)
-	mockGitHubClient := github.NewClient(mockedHTTPClient)
+	mockGitHubClient, err := github.NewClient(github.WithHTTPClient(mockedHTTPClient))
+	if err != nil {
+		t.Fatalf("failed to create github client: %v", err)
+	}
 	gitHubIssuesInput := GitHubIssueInput{
 		AssigneeUsername:    "test-assignee",
 		RepositoryOwner:     "test-owner",
@@ -107,7 +112,7 @@ func TestGitHubIssueInputMockSendFailure(t *testing.T) {
 		Context: CreateNotificationContext("test-monitor", "test-subject"),
 		Payload: identity.MonitoredIdentityList{},
 	}
-	err := gitHubIssuesInput.Send(ctx, notificationData)
+	err = gitHubIssuesInput.Send(ctx, notificationData)
 	if err == nil || !strings.Contains(err.Error(), "400 Bad Request") {
 		t.Errorf("expected 400 Bad Request, received %v", err)
 	}

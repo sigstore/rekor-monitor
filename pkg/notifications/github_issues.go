@@ -18,7 +18,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/google/go-github/v65/github"
+	"github.com/google/go-github/v90/github"
 )
 
 // GitHubIssueInput extends the NotificationPlatform interface to support found identity
@@ -55,16 +55,23 @@ func (gitHubIssueInput GitHubIssueInput) Send(ctx context.Context, data Notifica
 
 	var client *github.Client
 	if gitHubIssueInput.GitHubClient == nil {
-		client = github.NewClient(nil).WithAuthToken(gitHubIssueInput.AuthenticationToken)
+		var opts []github.ClientOptionsFunc
+		if gitHubIssueInput.AuthenticationToken != "" {
+			opts = append(opts, github.WithAuthToken(gitHubIssueInput.AuthenticationToken))
+		}
+		client, err = github.NewClient(opts...)
+		if err != nil {
+			return err
+		}
 	} else {
 		client = gitHubIssueInput.GitHubClient
 	}
 	labels := []string{data.Context.MonitorType, "automatically generated"}
 
-	issueRequest := &github.IssueRequest{
-		Title:    &issueTitle,
+	issueRequest := github.CreateIssueRequest{
+		Title:    issueTitle,
 		Body:     &issueBody,
-		Labels:   &labels,
+		Labels:   labels,
 		Assignee: &gitHubIssueInput.AssigneeUsername,
 	}
 	_, _, err = client.Issues.Create(ctx, gitHubIssueInput.RepositoryOwner, gitHubIssueInput.RepositoryName, issueRequest)
