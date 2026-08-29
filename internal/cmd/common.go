@@ -29,7 +29,7 @@ import (
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/notifications"
 	"github.com/sigstore/rekor-monitor/pkg/server"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v3"
 	"sigs.k8s.io/release-utils/version"
 )
 
