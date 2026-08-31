@@ -4,7 +4,7 @@ go 1.25.8
 
 require (
 	github.com/go-openapi/runtime v0.33.0
-	github.com/go-openapi/swag/conv v0.28.0
+	github.com/go-openapi/swag/conv v0.29.1
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/google/go-github/v90 v90.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
@@ -71,7 +71,7 @@ require (
 	github.com/go-openapi/swag/netutils v0.26.1 // indirect
 	github.com/go-openapi/swag/pools v0.27.3 // indirect
 	github.com/go-openapi/swag/stringutils v0.27.3 // indirect
-	github.com/go-openapi/swag/typeutils v0.28.0 // indirect
+	github.com/go-openapi/swag/typeutils v0.29.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.3 // indirect
 	github.com/go-openapi/validate v0.26.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
