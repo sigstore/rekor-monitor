@@ -1,0 +1,39 @@
+#
+# Copyright 2026 The Sigstore Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM golang:1.26.4@sha256:792443b89f65105abba56b9bd5e97f680a80074ac62fc844a584212f8c8102c3 as builder
+ENV APP_ROOT=/opt/app-root
+ENV GOPATH=$APP_ROOT
+
+WORKDIR $APP_ROOT/src/
+ADD go.mod go.sum $APP_ROOT/src/
+RUN go mod download
+
+ADD ./cmd/ $APP_ROOT/src/cmd/
+ADD ./pkg/ $APP_ROOT/src/pkg/
+ADD ./internal/ $APP_ROOT/src/internal/
+ADD ./targets/ $APP_ROOT/src/targets/
+
+RUN CGO_ENABLED=0 go build -o rekor_watch ./cmd/rekor_watch
+RUN mkdir -p /data && chown nobody:nogroup /data
+
+FROM gcr.io/distroless/static-debian12:nonroot AS deploy
+COPY --from=builder /opt/app-root/src/rekor_watch /usr/local/bin/rekor_watch
+# The monitor config is not published by TUF yet, so the local copies are
+# shipped in the image; override this to select a different deployment.
+COPY --from=builder /opt/app-root/src/targets/ /etc/rekor-watch/targets/
+ENV REKOR_WATCH_MONITOR_CONFIG=/etc/rekor-watch/targets/staging/monitor_config.json
+COPY --from=builder --chown=nonroot:nonroot /data /data
+CMD ["rekor_watch"]
