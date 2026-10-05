@@ -41,6 +41,7 @@ MONITOR_LDFLAGS=-buildid= \
 build:
 	go build -ldflags "$(MONITOR_LDFLAGS)" ./cmd/rekor_monitor
 	go build -ldflags "$(MONITOR_LDFLAGS)" ./cmd/ct_monitor
+	go build -ldflags "$(MONITOR_LDFLAGS)" ./cmd/rekor_watch
 
 ldflags: ## Print ldflags
 	@echo $(MONITOR_LDFLAGS)
@@ -51,5 +52,6 @@ test:
 clean:
 	rm -f ./rekor_monitor
 	rm -f ./ct_monitor
+	rm -f ./rekor_watch
 
 .PHONY: build test clean

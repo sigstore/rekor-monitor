@@ -1,0 +1,49 @@
+<!--
+Copyright 2026 The Sigstore Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Rekor Watch</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/" class="header-link">Rekor Watch</a></h1>
+        <p class="tagline">Monitor Rekor transparency logs for identity matches</p>
+    </header>
+
+    <main>
+        <section class="auth-section">
+            <h2>Sign In</h2>
+            <p class="text-muted">Enter your email address to receive a magic link.</p>
+            <form method="POST" action="/login" class="auth-form">
+                <div class="form-group">
+                    <label for="email">Email address</label>
+                    <input type="email" id="email" name="email" required placeholder="you@example.com" autofocus>
+                </div>
+                <button type="submit" class="btn btn-primary">Send Magic Link</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>Powered by <a href="https://sigstore.dev" target="_blank" rel="noopener">Sigstore</a></p>
+    </footer>
+</body>
+</html>

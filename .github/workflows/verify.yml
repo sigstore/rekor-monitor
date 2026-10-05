@@ -37,7 +37,7 @@ jobs:
       - name: Check license headers
         run: |
           set -e
-          addlicense -check -l apache -c 'The Sigstore Authors' -ignore "third_party/**" -v *
+          addlicense -check -l apache -c 'The Sigstore Authors' -ignore "third_party/**" -ignore "cmd/rekor_watch/web/templates/magic_link_email.html" -v *
 
   golangci:
     name: lint
