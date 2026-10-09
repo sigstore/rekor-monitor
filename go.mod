@@ -1,6 +1,6 @@
 module github.com/sigstore/rekor-monitor
 
-go 1.25.8
+go 1.26.0
 
 require (
 	github.com/go-openapi/runtime v0.33.1
@@ -22,7 +22,7 @@ require (
 	github.com/wneessen/go-mail v0.8.1
 	go.step.sm/crypto v0.89.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/mod v0.40.0
 	google.golang.org/protobuf v1.36.12
 	sigs.k8s.io/release-utils v0.12.4
