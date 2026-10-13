@@ -45,7 +45,8 @@ type MonitoredValue interface {
 	Type() MatchedIdentityType
 	// String returns a human-readable representation
 	String() (string, error)
-	// MarshalJSON marshals the value with type information included
+	// MarshalJSON marshals the value with type information included.
+	// Use ParseMatchedIdentityJSON to deserialize.
 	MarshalJSON() ([]byte, error)
 	// Verify checks that the monitored value is valid
 	Verify() error
@@ -164,6 +165,49 @@ func (o OIDMatcherValue) Verify() error {
 		}
 	}
 	return nil
+}
+
+// ParseMatchedIdentityJSON parses a JSON-serialized MonitoredValue.
+func ParseMatchedIdentityJSON(data []byte) (MonitoredValue, error) {
+	var typeOnly struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &typeOnly); err != nil {
+		return nil, fmt.Errorf("failed to parse identity type: %w", err)
+	}
+
+	switch typeOnly.Type {
+	case string(MatchedIdentityTypeCertIdentity):
+		var v CertIdentityValue
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+
+	case string(MatchedIdentityTypeFingerprint):
+		var v FingerprintValue
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+
+	case string(MatchedIdentityTypeSubject):
+		var v SubjectValue
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+
+	case string(MatchedIdentityTypeOIDExtension):
+		var v OIDMatcherValue
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+
+	default:
+		return nil, fmt.Errorf("unknown identity type: %s", typeOnly.Type)
+	}
 }
 
 // MonitoredValues is a collection of identity values to monitor

@@ -113,3 +113,18 @@ bin/
 /ct_monitor
 # Added by goreleaser init:
 dist/
+
+# Dev environment #
+###################
+.devcontainer/
+.claude/
+.env
+
+# Project binary #
+##################
+rekor-watch
+# Default binary name (from `go build ./cmd/rekor_watch`) and its default
+# SQLite DB. Anchored so they only match repo-root artifacts, not the
+# cmd/rekor_watch source directory.
+/rekor_watch
+/rekor_watch.db

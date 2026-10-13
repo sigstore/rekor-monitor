@@ -354,6 +354,96 @@ jobs:
                   - https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
 ```
 
+## Running Rekor Watch with Docker Compose
+
+Rekor Watch can be run using Docker Compose. The default configuration works
+for local development out of the box, using [mailpit](https://mailpit.axigen.com/)
+as a local email server.
+
+### Quick start
+
+```bash
+docker compose --profile watch up --build
+```
+
+This starts the web UI at <http://localhost:8080> and the mailpit inbox at
+<http://localhost:8025>.
+
+### Configuration
+
+All settings are configurable via a `.env` file. Copy the provided template
+and edit as needed:
+
+```bash
+cp .env.example .env
+```
+
+Key configuration groups:
+
+| Group | Variables | Notes |
+|-------|-----------|-------|
+| Core | `REKOR_WATCH_INTERVAL`, `REKOR_WATCH_BASE_URL`, `REKOR_WATCH_MONITOR_CONFIG` | Polling frequency, public URL, monitor config |
+| SMTP | `REKOR_WATCH_SMTP_HOST`, `_PORT`, `_FROM`, `_USERNAME`, `_PASSWORD`, `_USE_TLS` | Point to a real SMTP server for production |
+| Security | `REKOR_WATCH_ALLOW_PRIVATE_WEBHOOKS`, `REKOR_WATCH_TRUST_PROXY_HEADERS` | Disable private webhooks and enable proxy headers in production |
+| Ports | `REKOR_WATCH_LISTEN`, `REKOR_WATCH_HOST_PORT`, `MAILPIT_LISTEN` | Bind address and port mapping |
+
+See `.env.example` for the full list of options with descriptions.
+
+### Production notes
+
+For production deployments, at minimum set:
+
+- `REKOR_WATCH_BASE_URL` to the public URL of your instance
+- `REKOR_WATCH_SMTP_*` variables to a real mail server with TLS
+- `REKOR_WATCH_LISTEN` to the external IP address if the service should be reachable externally
+- `REKOR_WATCH_TRUST_PROXY_HEADERS=true` if running behind a reverse proxy
+
+## Webhook payload
+
+Each notification cycle sends at most **one POST per subscription**, carrying
+up to **100 matches** per request. A subscription with a larger backlog drains
+over successive polling cycles, preserving consumer backpressure. The wire
+format is stable JSON:
+
+```json
+{
+  "type": "rekor.match.created",
+  "timestamp": "2026-06-22T11:30:00Z",
+  "data": {
+    "subscription_name": "Production signing certs",
+    "monitored_value": { "subject": "user@example.com" },
+    "entries": [
+      {
+        "origin": "rekor.sigstore.dev - 1193050959916656506",
+        "log_index": 12345,
+        "uuid": "...",
+        "cert_subject": "user@example.com",
+        "issuer": "https://accounts.example.com",
+        "fingerprint": "...",
+        "subject": "...",
+        "oid_extension": "...",
+        "extension_value": "..."
+      }
+    ]
+  }
+}
+```
+
+The payload follows the [Standard Webhooks](https://www.standardwebhooks.com/)
+envelope shape: switch on the top-level `type` (only `rekor.match.created`
+today) and read `timestamp` (RFC3339, UTC) as the delivery time. Under `data`,
+`subscription_name` is the subscription's human-readable name, `monitored_value`
+mirrors the subscription's matcher, and `entries` is a list with up to 100
+elements. Order within `entries` is unspecified.
+
+### Deduplication contract
+
+The same match may be delivered more than once if a previous delivery's
+response was lost (for example, a network timeout after the consumer
+successfully processed the payload). Consumers **must** deduplicate by the
+`(monitored_value, origin, log_index)` tuple, which is stable across
+redeliveries.
+
 ## Security
 
 Please report any vulnerabilities following Sigstore's [security process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
