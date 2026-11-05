@@ -27,7 +27,7 @@ import (
 
 // GetLogInfo fetches the latest checkpoint for each log shard
 func GetLogInfo(ctx context.Context, rekorClient *client.Rekor) (*models.LogInfo, error) {
-	p := tlog.NewGetLogInfoParamsWithContext(ctx)
+	p := tlog.NewGetLogInfoParamsWithContext(ctx) //nolint:staticcheck // Preserve cancellation with Rekor v1.5.3, which lacks GetLogInfoContext (SA1019).
 
 	resp, err := util.Retry(ctx, func() (any, error) {
 		return rekorClient.Tlog.GetLogInfo(p)
@@ -66,7 +66,7 @@ func GetEntriesByIndexRange(ctx context.Context, rekorClient *client.Rekor, star
 		slq := models.SearchLogQuery{}
 		slq.LogIndexes = logIndices
 
-		p := entries.NewSearchLogQueryParamsWithContext(ctx)
+		p := entries.NewSearchLogQueryParamsWithContext(ctx) //nolint:staticcheck // Preserve cancellation with Rekor v1.5.3, which lacks SearchLogQueryContext (SA1019).
 		p.SetEntry(&slq)
 
 		resp, err := util.Retry(ctx, func() (any, error) {
