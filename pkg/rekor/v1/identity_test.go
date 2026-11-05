@@ -360,7 +360,7 @@ func TestMatchedIndicesForFingerprints(t *testing.T) {
 	}
 	logEntry := models.LogEntry{uuid: logEntryAnon}
 
-	derKey, err := cryptoutils.MarshalPublicKeyToDER(key.Public())
+	derKey, err := x509.MarshalPKIXPublicKey(key.Public())
 	if err != nil {
 		t.Fatal(err)
 	}

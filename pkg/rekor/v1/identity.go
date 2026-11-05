@@ -24,6 +24,7 @@ import (
 	"regexp"
 
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/swag/conv"
 	"github.com/sigstore/rekor-monitor/pkg/identity"
 	"github.com/sigstore/rekor-monitor/pkg/util/file"
 	"github.com/sigstore/rekor/pkg/generated/client"
@@ -67,7 +68,7 @@ func MatchLogEntryCertificateIdentity(logEntryAnon models.LogEntryAnon, uuid str
 	for _, cert := range entryCertificates {
 		match, sub, iss, err := identity.CertMatchesPolicy(cert, monitoredCertID.CertSubject, monitoredCertID.Issuers)
 		if err != nil {
-			return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+			return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, conv.Value(logEntryAnon.LogIndex), err)
 		} else if match {
 			matchedEntries = append(matchedEntries, identity.LogEntry{
 				MatchedIdentity: monitoredCertID,
@@ -85,7 +86,7 @@ func MatchLogEntrySubject(logEntryAnon models.LogEntryAnon, uuid string, entrySu
 	matchedEntries := []identity.LogEntry{}
 	regex, err := regexp.Compile(monitoredSub.Subject)
 	if err != nil {
-		return nil, fmt.Errorf("error compiling regex for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+		return nil, fmt.Errorf("error compiling regex for UUID %s at index %d: %w", uuid, conv.Value(logEntryAnon.LogIndex), err)
 	}
 	for _, sub := range entrySubjects {
 		if regex.MatchString(sub) {
@@ -105,7 +106,7 @@ func MatchLogEntryOID(logEntryAnon models.LogEntryAnon, uuid string, entryCertif
 	for _, cert := range entryCertificates {
 		match, oid, extValue, err := identity.OIDMatchesPolicy(cert, monitoredOID.OID, monitoredOID.ExtensionValues)
 		if err != nil {
-			return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, logEntryAnon.LogIndex, err)
+			return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, conv.Value(logEntryAnon.LogIndex), err)
 		}
 		if match {
 			matchedEntries = append(matchedEntries, identity.LogEntry{

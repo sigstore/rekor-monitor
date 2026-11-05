@@ -15,10 +15,9 @@
 package mock
 
 import (
+	"context"
 	"errors"
 	"fmt"
-
-	"github.com/go-openapi/runtime"
 
 	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/generated/client/pubkey"
@@ -27,11 +26,18 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
+var (
+	_ entries.ClientService = (*EntriesClient)(nil)
+	_ tlog.ClientService    = (*TlogClient)(nil)
+	_ pubkey.ClientService  = (*PubkeyClient)(nil)
+)
+
 // EntriesClient is a client that implements entries.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
 // mClient.Entries = &mock.EntriesClient{Entries: <logEntries>, ETag: <etag>, Location: <location>, LogEntry: <logEntry>}
 type EntriesClient struct {
+	entries.Client
 	Entries  []*models.LogEntry
 	LogEntry models.LogEntry
 	Error    error
@@ -69,13 +75,28 @@ func (m *EntriesClient) SearchLogQuery(params *entries.SearchLogQueryParams, _ .
 	}, nil
 }
 
-func (m *EntriesClient) SetTransport(_ runtime.ClientTransport) {}
+func (m *EntriesClient) CreateLogEntryContext(_ context.Context, params *entries.CreateLogEntryParams, opts ...entries.ClientOption) (*entries.CreateLogEntryCreated, error) {
+	return m.CreateLogEntry(params, opts...)
+}
+
+func (m *EntriesClient) GetLogEntryByIndexContext(_ context.Context, params *entries.GetLogEntryByIndexParams, opts ...entries.ClientOption) (*entries.GetLogEntryByIndexOK, error) {
+	return m.GetLogEntryByIndex(params, opts...)
+}
+
+func (m *EntriesClient) GetLogEntryByUUIDContext(_ context.Context, params *entries.GetLogEntryByUUIDParams, opts ...entries.ClientOption) (*entries.GetLogEntryByUUIDOK, error) {
+	return m.GetLogEntryByUUID(params, opts...)
+}
+
+func (m *EntriesClient) SearchLogQueryContext(_ context.Context, params *entries.SearchLogQueryParams, opts ...entries.ClientOption) (*entries.SearchLogQueryOK, error) {
+	return m.SearchLogQuery(params, opts...)
+}
 
 // TlogClient is a client that implements tlog.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
 // mClient.Entries = &mock.TlogClient{LogInfo: <loginfo>, ConsistencyProof: <consistencyproof>}
 type TlogClient struct {
+	tlog.Client
 	LogInfo          *models.LogInfo
 	ConsistencyProof *models.ConsistencyProof
 	Error            error
@@ -99,13 +120,20 @@ func (m *TlogClient) GetLogProof(_ *tlog.GetLogProofParams, _ ...tlog.ClientOpti
 	}, nil
 }
 
-func (m *TlogClient) SetTransport(_ runtime.ClientTransport) {}
+func (m *TlogClient) GetLogInfoContext(_ context.Context, params *tlog.GetLogInfoParams, opts ...tlog.ClientOption) (*tlog.GetLogInfoOK, error) {
+	return m.GetLogInfo(params, opts...)
+}
+
+func (m *TlogClient) GetLogProofContext(_ context.Context, params *tlog.GetLogProofParams, opts ...tlog.ClientOption) (*tlog.GetLogProofOK, error) {
+	return m.GetLogProof(params, opts...)
+}
 
 // PubkeyClient is a client that implements pubkey.ClientService for Rekor
 // To use:
 // var mClient client.Rekor
 // mClient.Entries = &mock.PubkeyClient{PEMPubKey: <string>}
 type PubkeyClient struct {
+	pubkey.Client
 	PEMPubKey string
 }
 
@@ -115,7 +143,9 @@ func (m *PubkeyClient) GetPublicKey(_ *pubkey.GetPublicKeyParams, _ ...pubkey.Cl
 	}, nil
 }
 
-func (m *PubkeyClient) SetTransport(_ runtime.ClientTransport) {}
+func (m *PubkeyClient) GetPublicKeyContext(_ context.Context, params *pubkey.GetPublicKeyParams, opts ...pubkey.ClientOption) (*pubkey.GetPublicKeyOK, error) {
+	return m.GetPublicKey(params, opts...)
+}
 
 type TrustedRoot struct {
 	ctLogs    map[string]*root.TransparencyLog

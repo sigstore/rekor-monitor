@@ -111,8 +111,8 @@ func extractVerifiers(e *protobuf.Entry) ([]verifier.Verifier, error) {
 	var protoVerifiers []*protobuf.Verifier
 	switch e.GetKind() {
 	case "dsse":
-		dsseEntry := spec.GetDsseV002()
-		for _, s := range dsseEntry.GetSignatures() {
+		dsseEntry := spec.GetDsseV002()               //nolint:staticcheck // Historical DSSE log entries must remain readable (SA1019).
+		for _, s := range dsseEntry.GetSignatures() { //nolint:staticcheck // Historical DSSE log entries must remain readable (SA1019).
 			protoVerifiers = append(protoVerifiers, s.GetVerifier())
 		}
 	case "hashedrekord":
