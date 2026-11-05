@@ -1,0 +1,14 @@
+{
+  "rekorLogs": [
+    {
+      "readUrl": "https://log2025-1.rekor.sigstore.dev",
+      "logOrigin": "log2025-1.rekor.sigstore.dev",
+      "majorApiVersion": 2
+    },
+    {
+      "readUrl": "https://rekor.sigstore.dev",
+      "logOrigin": "rekor.sigstore.dev - 1193050959916656506",
+      "majorApiVersion": 1
+    }
+  ]
+}

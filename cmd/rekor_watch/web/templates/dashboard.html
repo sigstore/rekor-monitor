@@ -1,0 +1,103 @@
+<!--
+Copyright 2026 The Sigstore Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Rekor Watch</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1><a href="/" class="header-link">Rekor Watch</a></h1>
+                <p class="tagline">Monitor Rekor transparency logs for identity matches</p>
+            </div>
+            <div class="header-actions">
+                <span class="user-email">{{.Email}}</span>
+                <form method="POST" action="/logout">
+                    <button type="submit" class="btn btn-outline">Sign Out</button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="matches-section">
+            <h2>Your Subscriptions</h2>
+            <button id="show-add-sub-btn" class="btn btn-primary" onclick="toggleAddSubscriptionForm()">Add Subscription</button>
+            <div id="add-subscription-form" class="subscription-form" style="display:none">
+                <input type="hidden" id="sub-edit-id" value="">
+                <div class="form-group">
+                    <label for="sub-name">Name</label>
+                    <input type="text" id="sub-name" maxlength="200" placeholder="My subscription">
+                </div>
+                <div class="form-group">
+                    <label for="sub-type">Type</label>
+                    <select id="sub-type" onchange="updateFormFields()">
+                        <option value="certIdentity">Certificate Identity</option>
+                        <option value="fingerprint">Fingerprint</option>
+                        <option value="subject">Subject</option>
+                        <option value="oidExtension">OID Extension</option>
+                    </select>
+                </div>
+                <div id="sub-fields"></div>
+                <div class="form-group">
+                    <label for="sub-notify-type">Notification Method</label>
+                    <select id="sub-notify-type" onchange="updateNotificationFields()">
+                        <option value="webhook">Webhook</option>
+                        <option value="email">Email</option>
+                    </select>
+                </div>
+                <div id="sub-notify-fields">
+                    <div class="form-group" id="webhook-field">
+                        <label for="sub-webhook">Webhook URL</label>
+                        <input type="url" id="sub-webhook" placeholder="https://hooks.example.com/notify">
+                    </div>
+                    <div class="form-group" id="email-field" style="display:none">
+                        <p class="text-muted">Notifications will be sent to your account email: <strong>{{.Email}}</strong></p>
+                    </div>
+                </div>
+                <div id="sub-error" class="error" style="display:none"></div>
+                <div class="form-actions">
+                    <button id="sub-submit-btn" class="btn btn-primary" onclick="submitSubscription()">Create</button>
+                    <button class="btn btn-cancel" onclick="toggleAddSubscriptionForm()">Cancel</button>
+                </div>
+            </div>
+            <div id="subscriptions-container">
+                <p class="loading">Loading subscriptions...</p>
+            </div>
+        </section>
+
+        <section class="matches-section">
+            <h2>Discovered Matches <span id="last-updated"></span></h2>
+            <div id="matches-container">
+                <p class="loading">Loading matches...</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Powered by <a href="https://sigstore.dev" target="_blank" rel="noopener">Sigstore</a></p>
+    </footer>
+
+    <script id="known-oids-data" type="application/json">{{.KnownOIDs}}</script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

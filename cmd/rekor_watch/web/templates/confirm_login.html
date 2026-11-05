@@ -1,0 +1,82 @@
+<!--
+Copyright 2026 The Sigstore Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Sign In - Rekor Watch</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/" class="header-link">Rekor Watch</a></h1>
+        <p class="tagline">Monitor Rekor transparency logs for identity matches</p>
+    </header>
+
+    <main>
+        <section class="auth-section">
+            <div id="confirm-step">
+                <h2>Confirm Sign In</h2>
+                <p>Click the button below to complete sign in.</p>
+                <form method="POST" action="/auth/callback" id="confirm-form">
+                    <input type="hidden" name="token" value="{{.Token}}">
+                    <button type="submit" class="btn btn-primary">Confirm</button>
+                </form>
+            </div>
+            <div id="done-step" style="display: none;">
+                <h2>Sign In Confirmed</h2>
+                <p>You can close this tab and return to your original window.</p>
+            </div>
+            <div id="error-step" style="display: none;">
+                <h2>Sign In Failed</h2>
+                <p id="error-message"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Powered by <a href="https://sigstore.dev" target="_blank" rel="noopener">Sigstore</a></p>
+    </footer>
+
+    <script>
+    (function() {
+        var form = document.getElementById("confirm-form");
+        form.addEventListener("submit", function(e) {
+            e.preventDefault();
+            var data = new URLSearchParams(new FormData(form));
+            fetch("/auth/callback", {
+                method: "POST",
+                headers: {"Content-Type": "application/x-www-form-urlencoded"},
+                body: data.toString()
+            }).then(function(resp) {
+                if (resp.ok) {
+                    document.getElementById("confirm-step").style.display = "none";
+                    document.getElementById("done-step").style.display = "";
+                } else {
+                    return resp.text().then(function(text) { throw new Error(text); });
+                }
+            }).catch(function(err) {
+                document.getElementById("confirm-step").style.display = "none";
+                document.getElementById("error-step").style.display = "";
+                document.getElementById("error-message").textContent = err.message || "Something went wrong.";
+            });
+        });
+    })();
+    </script>
+</body>
+</html>

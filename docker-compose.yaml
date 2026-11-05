@@ -12,18 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: '3.8'
 services:
   rekor-monitor:
+    profiles: [monitor]
     build:
       context: .
       target: "deploy"
     command: [
-      "verifier",
-      "--file=/etc/rekor-monitor/logInfo.txt"
-      # uncomment for more frequent polling
-      # "--interval=1m",
+        "verifier",
+        "--file=/etc/rekor-monitor/logInfo.txt",
+        # uncomment for more frequent polling
+        # "--interval=1m",
       ]
     restart: always # keep the server running
     volumes:
-      - ./logInfo.txt:/etc/rekor-monitor/logInfo.txt:z 
+      - ./logInfo.txt:/etc/rekor-monitor/logInfo.txt:z
+
+  rekor-watch:
+    profiles: [watch]
+    build:
+      context: .
+      dockerfile: Dockerfile.watch
+    command:
+      - rekor_watch
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Container-specific defaults that differ from the app's built-in
+      # defaults. These can still be overridden via .env.
+      - REKOR_WATCH_DB_PATH=/data/rekor_watch.db
+      - REKOR_WATCH_MONITOR_CONFIG=${REKOR_WATCH_MONITOR_CONFIG:-/etc/rekor-watch/targets/staging/monitor_config.json}
+      - REKOR_WATCH_SMTP_HOST=${REKOR_WATCH_SMTP_HOST:-mailpit}
+      - REKOR_WATCH_SMTP_PORT=${REKOR_WATCH_SMTP_PORT:-1025}
+      # Defaults to 0 (SSRF protection enabled); set to 1 only for
+      # local development when webhooks target private IPs
+      - REKOR_WATCH_ALLOW_PRIVATE_WEBHOOKS=${REKOR_WATCH_ALLOW_PRIVATE_WEBHOOKS:-0}
+    restart: always
+    ports:
+      - "${REKOR_WATCH_LISTEN:-127.0.0.1}:${REKOR_WATCH_HOST_PORT:-8080}:8080"
+    volumes:
+      - watch-data:/data
+    depends_on:
+      - mailpit
+
+  mailpit:
+    profiles: [watch]
+    image: axllent/mailpit:latest
+    ports:
+      - "${MAILPIT_LISTEN:-127.0.0.1}:${MAILPIT_WEB_PORT:-8025}:8025"
+      - "${MAILPIT_LISTEN:-127.0.0.1}:${MAILPIT_SMTP_PORT:-1025}:1025"
+    restart: always
+
+volumes:
+  watch-data:

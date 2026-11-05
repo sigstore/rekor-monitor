@@ -1,0 +1,53 @@
+<!--
+Copyright 2026 The Sigstore Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekor Watch</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Rekor Watch</h1>
+        <p class="tagline">Monitor Rekor transparency logs for identity matches</p>
+    </header>
+
+    <main>
+        <section class="info-section">
+            <h2>How does it work?</h2>
+            <p>
+                Rekor Watch continuously monitors the Rekor transparency log for entries matching
+                configured identity patterns. When a match is found, it's recorded here and
+                a notification is sent via the configured notification mechanism.
+            </p>
+            <p>
+                Sign in to view your matches and manage your subscriptions.
+            </p>
+        </section>
+
+        <section class="auth-section">
+            <a href="/login" class="btn btn-primary">Sign In</a>
+        </section>
+    </main>
+
+    <footer>
+        <p>Powered by <a href="https://sigstore.dev" target="_blank" rel="noopener">Sigstore</a></p>
+    </footer>
+</body>
+</html>

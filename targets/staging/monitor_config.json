@@ -1,0 +1,29 @@
+{
+  "rekorLogs": [
+    {
+      "readUrl": "https://log2026-1.us-east4.rekor.sigstage.dev",
+      "logOrigin": "log2026-1.us-east4.rekor.sigstage.dev",
+      "majorApiVersion": 2
+    },
+    {
+      "readUrl": "https://log2025-alpha3.rekor.sigstage.dev",
+      "logOrigin": "log2025-alpha3.rekor.sigstage.dev",
+      "majorApiVersion": 2
+    },
+    {
+      "readUrl": "https://log2025-alpha2.rekor.sigstage.dev",
+      "logOrigin": "log2025-alpha2.rekor.sigstage.dev",
+      "majorApiVersion": 2
+    },
+    {
+      "readUrl": "https://log2025-alpha1.rekor.sigstage.dev",
+      "logOrigin": "log2025-alpha1.rekor.sigstage.dev",
+      "majorApiVersion": 2
+    },
+    {
+      "readUrl": "https://rekor.sigstage.dev",
+      "logOrigin": "rekor.sigstage.dev - 8202293616175992157",
+      "majorApiVersion": 1
+    }
+  ]
+}

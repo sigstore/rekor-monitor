@@ -550,6 +550,210 @@ func TestOIDMatcherValueVerifyValidation(t *testing.T) {
 	}
 }
 
+func TestMarshalJSON_RoundTrip(t *testing.T) {
+	testCases := []struct {
+		name     string
+		identity MonitoredValue
+	}{
+		{
+			name: "CertIdentityValue/email",
+			identity: CertIdentityValue{
+				CertSubject: "user@example.com",
+				Issuers:     []string{"https://issuer.example.com"},
+			},
+		},
+		{
+			name: "CertIdentityValue/GitHub OIDC",
+			identity: CertIdentityValue{
+				CertSubject: "https://github.com/sigstore/rekor/.github/workflows/ci.yml@refs/heads/main",
+				Issuers:     []string{"https://token.actions.githubusercontent.com"},
+			},
+		},
+		{
+			name: "CertIdentityValue/multiple issuers",
+			identity: CertIdentityValue{
+				CertSubject: "https://example.com:8443/path",
+				Issuers:     []string{"https://issuer1.example.com", "https://issuer2.example.com"},
+			},
+		},
+		{
+			name: "CertIdentityValue/empty issuers",
+			identity: CertIdentityValue{
+				CertSubject: "user@example.com",
+				Issuers:     []string{},
+			},
+		},
+		{
+			name: "FingerprintValue",
+			identity: FingerprintValue{
+				Fingerprint: "sha256:abcdef123456",
+			},
+		},
+		{
+			name: "SubjectValue/simple",
+			identity: SubjectValue{
+				Subject: "test-subject",
+			},
+		},
+		{
+			name: "SubjectValue/container image",
+			identity: SubjectValue{
+				Subject: "ghcr.io/owner/repo:v1.0.0",
+			},
+		},
+		{
+			name: "OIDMatcherValue",
+			identity: OIDMatcherValue{
+				OID:             asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+				ExtensionValues: []string{"https://accounts.google.com"},
+			},
+		},
+		{
+			name: "OIDMatcherValue/multiple values",
+			identity: OIDMatcherValue{
+				OID:             asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8},
+				ExtensionValues: []string{"https://issuer1.example.com", "https://issuer2.example.com"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			serialized, err := tc.identity.MarshalJSON()
+			if err != nil {
+				t.Fatalf("MarshalJSON failed: %v", err)
+			}
+
+			parsed, err := ParseMatchedIdentityJSON(serialized)
+			if err != nil {
+				t.Fatalf("ParseMatchedIdentityJSON failed: %v", err)
+			}
+
+			if parsed.Type() != tc.identity.Type() {
+				t.Errorf("Type mismatch: got %s, want %s", parsed.Type(), tc.identity.Type())
+			}
+
+			switch original := tc.identity.(type) {
+			case CertIdentityValue:
+				p, ok := parsed.(CertIdentityValue)
+				if !ok {
+					t.Fatalf("Parsed identity is not CertIdentityValue")
+				}
+				if p.CertSubject != original.CertSubject {
+					t.Errorf("CertSubject mismatch: got %s, want %s", p.CertSubject, original.CertSubject)
+				}
+				if len(p.Issuers) != len(original.Issuers) {
+					t.Errorf("Issuers length mismatch: got %d, want %d", len(p.Issuers), len(original.Issuers))
+				}
+				for i, issuer := range original.Issuers {
+					if i < len(p.Issuers) && p.Issuers[i] != issuer {
+						t.Errorf("Issuer[%d] mismatch: got %s, want %s", i, p.Issuers[i], issuer)
+					}
+				}
+
+			case FingerprintValue:
+				p, ok := parsed.(FingerprintValue)
+				if !ok {
+					t.Fatalf("Parsed identity is not FingerprintValue")
+				}
+				if p.Fingerprint != original.Fingerprint {
+					t.Errorf("Fingerprint mismatch: got %s, want %s", p.Fingerprint, original.Fingerprint)
+				}
+
+			case SubjectValue:
+				p, ok := parsed.(SubjectValue)
+				if !ok {
+					t.Fatalf("Parsed identity is not SubjectValue")
+				}
+				if p.Subject != original.Subject {
+					t.Errorf("Subject mismatch: got %s, want %s", p.Subject, original.Subject)
+				}
+
+			case OIDMatcherValue:
+				p, ok := parsed.(OIDMatcherValue)
+				if !ok {
+					t.Fatalf("Parsed identity is not OIDMatcherValue")
+				}
+				if p.OID.String() != original.OID.String() {
+					t.Errorf("OID mismatch: got %s, want %s", p.OID.String(), original.OID.String())
+				}
+				if len(p.ExtensionValues) != len(original.ExtensionValues) {
+					t.Errorf("ExtensionValues length mismatch: got %d, want %d",
+						len(p.ExtensionValues), len(original.ExtensionValues))
+				}
+				for i, ev := range original.ExtensionValues {
+					if i < len(p.ExtensionValues) && p.ExtensionValues[i] != ev {
+						t.Errorf("ExtensionValue[%d] mismatch: got %s, want %s",
+							i, p.ExtensionValues[i], ev)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestParseMatchedIdentityJSON_InvalidInput tests error handling for invalid JSON input
+func TestParseMatchedIdentityJSON_InvalidInput(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "Invalid JSON",
+			input: "not valid json",
+		},
+		{
+			name:  "Empty string",
+			input: "",
+		},
+		{
+			name:  "Unknown type",
+			input: `{"type":"unknownType","value":"test"}`,
+		},
+		{
+			name:  "Missing type field",
+			input: `{"certSubject":"test"}`,
+		},
+		{
+			name:  "OID with string arc",
+			input: `{"type":"oidExtension","oid":["1",3,6],"extensionValues":["val"]}`,
+		},
+		{
+			name:  "OID with random string arc",
+			input: `{"type":"oidExtension","oid":["hello",3,6],"extensionValues":["val"]}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseMatchedIdentityJSON([]byte(tc.input))
+			if err == nil {
+				t.Errorf("Expected error for input %q, got nil", tc.input)
+			}
+		})
+	}
+}
+
+func TestParseMatchedIdentityJSON_OIDNullArcsBecomeZero(t *testing.T) {
+	input := `{"type":"oidExtension","oid":[null,3,6,null,null],"extensionValues":["val"]}`
+
+	parsed, err := ParseMatchedIdentityJSON([]byte(input))
+	if err != nil {
+		t.Fatalf("ParseMatchedIdentityJSON failed: %v", err)
+	}
+
+	oidValue, ok := parsed.(OIDMatcherValue)
+	if !ok {
+		t.Fatalf("parsed identity is not OIDMatcherValue")
+	}
+	if got, want := oidValue.OID.String(), "0.3.6.0.0"; got != want {
+		t.Fatalf("OID mismatch: got %s, want %s", got, want)
+	}
+	if err := oidValue.Verify(); err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+}
+
 func TestOIDMatcherValueVerify_InvalidOID(t *testing.T) {
 	testCases := []struct {
 		name        string
