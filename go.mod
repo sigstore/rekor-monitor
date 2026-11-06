@@ -21,7 +21,7 @@ require (
 	github.com/transparency-dev/tessera v1.0.4
 	github.com/wneessen/go-mail v0.8.1
 	go.step.sm/crypto v0.91.1
-	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.42.0
 	google.golang.org/protobuf v1.36.12
