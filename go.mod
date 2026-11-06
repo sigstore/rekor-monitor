@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/go-openapi/runtime v0.33.3
 	github.com/go-openapi/swag/conv v0.29.2
-	github.com/google/certificate-transparency-go v1.3.3
+	github.com/google/certificate-transparency-go v1.4.0
 	github.com/google/go-github/v90 v90.0.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/migueleliasweb/go-github-mock v1.5.0
