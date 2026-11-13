@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/sigstore/rekor v1.5.5
-	github.com/sigstore/rekor-tiles/v2 v2.4.0
+	github.com/sigstore/rekor-tiles/v2 v2.4.1
 	github.com/sigstore/sigstore v1.11.3
 	github.com/sigstore/sigstore-go v1.4.0
 	github.com/transparency-dev/formats v0.1.1
@@ -95,7 +95,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
-	github.com/prometheus/common v0.72.0 // indirect
+	github.com/prometheus/common v0.72.1 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/sassoftware/go-rpmutils v0.4.0 // indirect
 	github.com/sassoftware/relic/v8 v8.2.0 // indirect
