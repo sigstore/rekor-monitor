@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/sigstore/rekor v1.5.5
-	github.com/sigstore/rekor-tiles/v2 v2.4.1
+	github.com/sigstore/rekor-tiles/v2 v2.4.2
 	github.com/sigstore/sigstore v1.11.4
 	github.com/sigstore/sigstore-go v1.4.0
 	github.com/transparency-dev/formats v0.1.1
@@ -76,7 +76,7 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.32.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/in-toto/attestation v1.2.0 // indirect
@@ -130,9 +130,9 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261012220534-4341edf3f941 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
-	google.golang.org/grpc v1.84.0 // indirect
+	google.golang.org/grpc v1.85.0 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
