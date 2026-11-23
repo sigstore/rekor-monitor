@@ -12,7 +12,7 @@ require (
 	github.com/mocktools/go-smtp-mock/v2 v2.5.4
 	github.com/prometheus/client_golang v1.25.0
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
-	github.com/sigstore/rekor v1.5.5
+	github.com/sigstore/rekor v1.6.1
 	github.com/sigstore/rekor-tiles/v2 v2.4.2
 	github.com/sigstore/sigstore v1.11.4
 	github.com/sigstore/sigstore-go v1.4.0
@@ -37,7 +37,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
-	github.com/ProtonMail/go-crypto v1.4.1 // indirect
+	github.com/ProtonMail/go-crypto v1.5.2 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/sigstore/timestamp-authority/v2 v2.2.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
