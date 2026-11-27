@@ -319,8 +319,8 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/sigstore/protobuf-specs v0.5.2 h1:RSWWUY8QrVTxbYH00jY/jg2e7YnjzrpwP+PeHTMll0E=
 github.com/sigstore/protobuf-specs v0.5.2/go.mod h1:DRBzpFuE+LnvQMN10/dU6nBeKwVLGEQ6o2FovN2Rats=
-github.com/sigstore/rekor v1.6.1 h1:0qndwuY1mrrNGN9JvAtPbcMqL42YXnYgFr6a/4wS7U0=
-github.com/sigstore/rekor v1.6.1/go.mod h1:JTZYcdkYReTReOTMyyFaAToFcFrXy+zOfa/csix8jgM=
+github.com/sigstore/rekor v1.6.2 h1:cDGm6/138AktpcaeHx1/szi4JbbZKaNM4IXEAMC1DAc=
+github.com/sigstore/rekor v1.6.2/go.mod h1:Eku/Wrn9EQsWbSyeIbkkLgyuFh3cyzWiDkGTdKRkByk=
 github.com/sigstore/rekor-tiles/v2 v2.4.2 h1:Qvt1L8oWkQpAK5lr8QnKuE0JYnA44kMWUvXl4hhxD+I=
 github.com/sigstore/rekor-tiles/v2 v2.4.2/go.mod h1:VVGltxtfdDArLtqSqrtYy8QHeJyaRvnn7Qp8suvd3vQ=
 github.com/sigstore/sigstore v1.11.4 h1:3FmAqMZMML4e4tWxO05GHFlIrll5YEeBOlPzVMUuEY0=

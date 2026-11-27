@@ -12,7 +12,7 @@ require (
 	github.com/mocktools/go-smtp-mock/v2 v2.5.4
 	github.com/prometheus/client_golang v1.25.0
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
-	github.com/sigstore/rekor v1.6.1
+	github.com/sigstore/rekor v1.6.2
 	github.com/sigstore/rekor-tiles/v2 v2.4.2
 	github.com/sigstore/sigstore v1.11.4
 	github.com/sigstore/sigstore-go v1.4.0
